@@ -7,7 +7,7 @@ cache:
   - "$HOME/.gradle/caches/"
   - "$HOME/.gradle/wrapper/"
 script:
-- gradle build --rerun-tasks --info
+- gradle build javadoc jacocoTestReport --info
 jdk:
 - oraclejdk8
 
