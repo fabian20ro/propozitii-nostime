@@ -10,7 +10,7 @@ cache:
     - $HOME/.gradle/wrapper/
 
 script:
-  - gradle build
+  - gradle build --rerun-tasks
   
 jdk:
   - oraclejdk8

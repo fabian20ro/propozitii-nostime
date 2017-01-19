@@ -1,6 +1,8 @@
 // Apply the java plugin to add support for Java
-apply plugin: 'java'
-apply plugin: 'eclipse'
+plugins {
+	id 'java'
+	id 'eclipse'
+}
 //apply plugin: 'checkstyle'
 
 sourceCompatibility = 1.8
@@ -27,6 +29,7 @@ jar {
       'Main-Class': 'scrabble.phrases.Main'
     )
   }
+  exclude('.empty') 
 }
 
 processResources {
