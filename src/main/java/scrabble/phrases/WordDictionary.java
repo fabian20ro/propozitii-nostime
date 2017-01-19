@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class WordDictionary.
  */
@@ -19,8 +18,7 @@ public class WordDictionary {
 	private static final List<String> ADJECTIVE_IDS = Arrays.asList(new String[] { "A" });
 
 	/** The Constant VERB_IDS. */
-	private static final List<String> VERB_IDS = Arrays.asList(new String[] { "VT" }); // ,
-																						// "V"
+	private static final List<String> VERB_IDS = Arrays.asList(new String[] { "VT" }); // , "V"
 
 	/** The Constant SEED. */
 	// private static final long SEED = 0;

@@ -3,7 +3,6 @@ package scrabble.phrases;
 import java.io.BufferedReader;
 import java.io.IOException;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class WordParser.
  */

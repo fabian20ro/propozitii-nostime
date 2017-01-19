@@ -2,8 +2,9 @@
 plugins {
 	id 'java'
 	id 'eclipse'
+	id 'jacoco'
+	id 'checkstyle'
 }
-//apply plugin: 'checkstyle'
 
 sourceCompatibility = 1.8
 
@@ -19,9 +20,13 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
-//checkstyle {
-//	configFile = rootProject.file('checkstyle/checkstyle.xml') // <--- I really need a file
-//}
+checkstyle {
+	configFile = rootProject.file('checkstyle.xml')
+}
+
+jacoco {
+	toolVersion = "0.7.8"
+}
 
 jar {
   manifest {
@@ -37,4 +42,12 @@ processResources {
 	ant.unzip(src: "scrabble.zip", dest: "src/main/resources/")
 	ant.delete(file: "scrabble.zip")
 	ant.move(file: "src/main/resources/loc-baza-5.0.txt", tofile: "src/main/resources/words.txt")
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+        csv.enabled true
+        html.enabled true
+    }
 }
