@@ -1,6 +1,6 @@
 # propozitii-nostime
 
-![build status](https://api.travis-ci.org/fabian20ro/propozitii-nostime.svg?branch=master)
+[![Build Status](https://travis-ci.org/fabian20ro/propozitii-nostime.svg?branch=master)](https://travis-ci.org/fabian20ro/propozitii-nostime)
 
 running it:
 
