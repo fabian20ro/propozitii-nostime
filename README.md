@@ -2,8 +2,9 @@
 
 [![Build Status](https://travis-ci.org/fabian20ro/propozitii-nostime.svg?branch=master)](https://travis-ci.org/fabian20ro/propozitii-nostime)
 
-running it:
+Running it:
 
+From a terminal that supports UTF-8
 ```
-java -jar something.jar
+cd build/libs && java -jar propozitii-nostime.jar
 ```
