@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -27,7 +28,7 @@ public class Main {
 		if (in == null) {
 			in = new FileInputStream(new File("src/main/resources/words.txt"));
 		}
-		BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+		BufferedReader reader = new BufferedReader(new InputStreamReader(in, Charset.forName("UTF-8")));
 		WordDictionary dictionary = new WordParser().parse(reader);
 
 		int count = 20;
