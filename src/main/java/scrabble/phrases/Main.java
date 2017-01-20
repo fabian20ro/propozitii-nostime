@@ -37,7 +37,7 @@ public class Main {
 		BufferedReader reader = new BufferedReader(new InputStreamReader(in, Charset.forName("UTF-8")));
 		WordDictionary dictionary = new WordParser().parse(reader);
 		
-		dictionary.addFilter(word -> word.getName().length() == 8);
+		dictionary.addFilter(word -> word.getOriginal().length() == 8);
 		
 		int count = 20;
 		if (args.length > 0) {
@@ -48,7 +48,7 @@ public class Main {
 			}
 		}
 		for (int i = 1; i <= count; i++) {
-			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb().getName() + " " + getNACombo(dictionary)
+			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb().getOriginal() + " " + getNACombo(dictionary)
 					+ ".";
 			sentence = WordUtils.capitalizeFirstLeter(sentence);
 			System.out.println(i + ". " + sentence);
@@ -71,8 +71,8 @@ public class Main {
 		// TODO Auto-generated method stub
 		Noun randomNoun = dictionary.getRandomNoun();
 		Adjective randomAdjective = dictionary.getRandomAdjective();
-		return randomNoun.getArticulatedForm() + " " + (NounGender.FEMININE.equals(randomNoun.getGender())
-				? randomAdjective.getFeminine() : randomAdjective.getName());
+		return randomNoun.getArticulated() + " " + (NounGender.FEMININE.equals(randomNoun.getGender())
+				? randomAdjective.getFeminine() : randomAdjective.getOriginal());
 	}
 
 }

@@ -88,7 +88,7 @@ public class Noun extends Word {
 	 *
 	 * @return the articulated form
 	 */
-	public String getArticulatedForm() {
+	public String getArticulated() {
 		return this.articulatedForm;
 	}
 
@@ -106,7 +106,7 @@ public class Noun extends Word {
 	 *
 	 * @return the articulated plural form
 	 */
-	public String getArticulatedPluralForm() {
+	public String getArticulatedPlural() {
 		return this.pluralArticulated;
 	}
 }

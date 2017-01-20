@@ -244,17 +244,6 @@ public class WordDictionary {
 	}
 
 	/**
-	 * Checks if is feminine.
-	 *
-	 * @param word
-	 *            the word
-	 * @return true, if is feminine
-	 */
-	public boolean isFeminine(String word) {
-		return !word.endsWith("l");
-	}
-
-	/**
 	 * Gets the random noun.
 	 *
 	 * @return the random noun
