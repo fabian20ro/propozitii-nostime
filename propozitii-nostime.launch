@@ -3,6 +3,10 @@
 <listAttribute key="arguments">
 <listEntry value="--rerun-tasks"/>
 <listEntry value="--info"/>
+<listEntry value="-x"/>
+<listEntry value="checkstyleMain"/>
+<listEntry value="-x"/>
+<listEntry value="checkstyleTest"/>
 </listAttribute>
 <stringAttribute key="gradle_distribution" value="GRADLE_DISTRIBUTION(WRAPPER)"/>
 <listAttribute key="jvm_arguments"/>
