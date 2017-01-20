@@ -1,13 +1,32 @@
 package scrabble.phrases.words;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Noun.
+ */
 public class Noun extends Word {
 
-	private NounType gender;
+	/** The gender. */
+	private NounGender gender;
+
+	/** The articulated form. */
 	private String articulatedForm;
+
+	/** The plural articulated. */
 	private String pluralArticulated;
+
+	/** The plural. */
 	private String plural;
 
-	public Noun(String word, NounType gender) {
+	/**
+	 * Instantiates a new noun.
+	 *
+	 * @param word
+	 *            the word
+	 * @param gender
+	 *            the gender
+	 */
+	public Noun(String word, NounGender gender) {
 		super(word);
 		this.gender = gender;
 		switch (gender) {
@@ -37,7 +56,7 @@ public class Noun extends Word {
 			return word + "ul";
 		}
 	}
-	
+
 	/**
 	 * Feminize noun.
 	 *
@@ -54,19 +73,39 @@ public class Noun extends Word {
 		}
 		return word + "a";
 	}
-	
-	public NounType getGender() {
+
+	/**
+	 * Gets the gender.
+	 *
+	 * @return the gender
+	 */
+	public NounGender getGender() {
 		return gender;
 	}
 
+	/**
+	 * Gets the articulated form.
+	 *
+	 * @return the articulated form
+	 */
 	public String getArticulatedForm() {
 		return this.articulatedForm;
 	}
-	
+
+	/**
+	 * Gets the plural.
+	 *
+	 * @return the plural
+	 */
 	public String getPlural() {
 		return this.plural;
 	}
-	
+
+	/**
+	 * Gets the articulated plural form.
+	 *
+	 * @return the articulated plural form
+	 */
 	public String getArticulatedPluralForm() {
 		return this.pluralArticulated;
 	}

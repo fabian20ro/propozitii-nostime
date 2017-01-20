@@ -1,27 +1,21 @@
 package scrabble.phrases;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
 import scrabble.phrases.filters.IWordFilter;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
-import scrabble.phrases.words.NounType;
+import scrabble.phrases.words.NounGender;
 import scrabble.phrases.words.Verb;
 import scrabble.phrases.words.Word;
 import scrabble.phrases.words.WordUtils;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class WordDictionary.
  */
 public class WordDictionary {
-
-	/** The Constant VERB_IDS. */
-	private static final List<String> VERB_IDS = Arrays.asList(new String[] { "VT" }); // ,
-																						// "V"
 
 	/** The Constant SEED. */
 	// private static final long SEED = 0;
@@ -174,17 +168,17 @@ public class WordDictionary {
 			return;
 		}
 		if (type.equals("M")) {
-			addNoun(new Noun(word, NounType.MASCULINE));
+			addNoun(new Noun(word, NounGender.MASCULINE));
 		} else if (type.equals("F")) {
-			addNoun(new Noun(word, NounType.FEMININE));
+			addNoun(new Noun(word, NounGender.FEMININE));
 		} else if (type.equals("N")) {
-			addNoun(new Noun(word, NounType.NEUTRAL));
+			addNoun(new Noun(word, NounGender.NEUTRAL));
 		} else if (type.equals("MF")) {
-			addNoun(new Noun(word, NounType.MASCULINE));
-			addNoun(new Noun(word, NounType.FEMININE));
+			addNoun(new Noun(word, NounGender.MASCULINE));
+			addNoun(new Noun(word, NounGender.FEMININE));
 		} else if (type.equals("A")) {
 			addAdjective(new Adjective(word));
-		} else if (VERB_IDS.contains(type)) {
+		} else if (type.equals("VT")) {
 			addVerb(new Verb(word));
 		} else {
 			unknowns.add(word + " : " + type);

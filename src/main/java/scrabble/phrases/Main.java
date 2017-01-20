@@ -10,7 +10,7 @@ import java.nio.charset.Charset;
 
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
-import scrabble.phrases.words.NounType;
+import scrabble.phrases.words.NounGender;
 import scrabble.phrases.words.WordUtils;
 
 /**
@@ -28,13 +28,15 @@ public class Main {
 	 */
 	public static void main(String[] args) throws IOException {
 
+		System.out.println("Arguments should be one of: phrases <2-5 words> ; haiku ; epigram");
+		
 		InputStream in = Main.class.getResourceAsStream("/words.txt");
 		if (in == null) {
 			in = new FileInputStream(new File("src/main/resources/words.txt"));
 		}
 		BufferedReader reader = new BufferedReader(new InputStreamReader(in, Charset.forName("UTF-8")));
 		WordDictionary dictionary = new WordParser().parse(reader);
-
+		
 		dictionary.addFilter(word -> word.getName().length() == 8);
 		
 		int count = 20;
@@ -69,7 +71,7 @@ public class Main {
 		// TODO Auto-generated method stub
 		Noun randomNoun = dictionary.getRandomNoun();
 		Adjective randomAdjective = dictionary.getRandomAdjective();
-		return randomNoun.getArticulatedForm() + " " + (NounType.FEMININE.equals(randomNoun.getGender())
+		return randomNoun.getArticulatedForm() + " " + (NounGender.FEMININE.equals(randomNoun.getGender())
 				? randomAdjective.getFeminine() : randomAdjective.getName());
 	}
 
