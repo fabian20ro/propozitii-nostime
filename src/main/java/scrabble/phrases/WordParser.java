@@ -19,7 +19,7 @@ public class WordParser {
 	 */
 	public WordDictionary parse(BufferedReader reader) throws IOException {
 		String line;
-		WordDictionary dictionary = new WordDictionary();
+		WordDictionary dictionary = new WordDictionary(8, 20);
 		while ((line = reader.readLine()) != null) {
 			String[] pieces = line.split("\\s+");
 			if (pieces.length >= 2) {

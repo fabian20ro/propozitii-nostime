@@ -20,6 +20,9 @@ public class WordDictionary {
 	/** The Constant VERB_IDS. */
 	private static final List<String> VERB_IDS = Arrays.asList(new String[] { "VT" }); // , "V"
 
+	private static final int MIN_WORD_LENGTH = 0;
+	private static final int MAX_WORD_LENGTH = 20;
+	
 	/** The Constant SEED. */
 	// private static final long SEED = 0;
 	private static final long SEED = System.currentTimeMillis();
@@ -39,6 +42,10 @@ public class WordDictionary {
 	/** The random. */
 	private Random random = new Random(SEED);
 
+	private int minWordLength;
+
+	private int maxWordLength;
+
 	/** The fixes. */
 	static HashMap<String, String> fixes = new HashMap<>();
 
@@ -54,6 +61,15 @@ public class WordDictionary {
 		// fixes.put("È›", "t");
 		// fixes.put("È™", "s");
 		fixes.put("'", "");
+	}
+
+	public WordDictionary() {
+		this(MIN_WORD_LENGTH, MAX_WORD_LENGTH);
+	}
+	
+	public WordDictionary(int minWordLength, int maxWordLength) {
+		this.minWordLength = minWordLength;
+		this.maxWordLength = maxWordLength;
 	}
 
 	/**
@@ -158,9 +174,18 @@ public class WordDictionary {
 	 * @return the random noun
 	 */
 	public String getRandomNoun() {
-		return nouns.get(random.nextInt(nouns.size()));
+		String noun;
+		do {
+			noun = nouns.get(random.nextInt(nouns.size()));
+		} while (!hasProperSize(noun));
+		return noun;
 	}
 
+	private boolean hasProperSize(String word) {
+		int length = word.length();
+		return word.length() >= minWordLength && length <= maxWordLength;
+	}
+	
 	/**
 	 * Gets the random adjective.
 	 *
@@ -169,7 +194,10 @@ public class WordDictionary {
 	 * @return the random adjective
 	 */
 	public String getRandomAdjective(boolean feminine) {
-		String adjective = adjectives.get(random.nextInt(adjectives.size()));
+		String adjective;
+		do {
+			adjective = adjectives.get(random.nextInt(adjectives.size()));
+		} while (!hasProperSize(adjective));
 		if (feminine) {
 			return feminizeAdjective(adjective);
 		}
@@ -209,7 +237,11 @@ public class WordDictionary {
 	 * @return the random verb
 	 */
 	public String getRandomVerb() {
-		return verbs.get(random.nextInt(verbs.size()));
+		String verb;
+		do {
+			verb = verbs.get(random.nextInt(verbs.size()));
+		} while (!hasProperSize(verb));
+		return verb;
 	}
 
 	/**
