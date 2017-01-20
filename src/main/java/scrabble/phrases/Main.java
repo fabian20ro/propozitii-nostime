@@ -8,6 +8,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 
+import scrabble.phrases.words.Adjective;
+import scrabble.phrases.words.Noun;
+import scrabble.phrases.words.NounType;
+import scrabble.phrases.words.WordUtils;
+
 /**
  * The Class Main.
  */
@@ -30,6 +35,8 @@ public class Main {
 		BufferedReader reader = new BufferedReader(new InputStreamReader(in, Charset.forName("UTF-8")));
 		WordDictionary dictionary = new WordParser().parse(reader);
 
+		dictionary.addFilter(word -> word.getName().length() == 8);
+		
 		int count = 20;
 		if (args.length > 0) {
 			try {
@@ -39,9 +46,9 @@ public class Main {
 			}
 		}
 		for (int i = 1; i <= count; i++) {
-			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb() + " " + getNACombo(dictionary)
+			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb().getName() + " " + getNACombo(dictionary)
 					+ ".";
-			sentence = capitalizeFirstLeter(sentence);
+			sentence = WordUtils.capitalizeFirstLeter(sentence);
 			System.out.println(i + ". " + sentence);
 		}
 
@@ -60,23 +67,10 @@ public class Main {
 	 */
 	private static String getNACombo(WordDictionary dictionary) {
 		// TODO Auto-generated method stub
-		String randomNoun = dictionary.getRandomNoun();
-		return randomNoun + " " + dictionary.getRandomAdjective(dictionary.isFeminine(randomNoun));
-	}
-
-	/**
-	 * Capitalize first leter.
-	 *
-	 * @param sentence
-	 *            the sentence
-	 * @return the string
-	 */
-	private static String capitalizeFirstLeter(String sentence) {
-		char firstChar = sentence.charAt(0);
-		if (firstChar >= 'a' && firstChar <= 'z') {
-			sentence = ("" + (char) (firstChar - 32)) + sentence.substring(1);
-		}
-		return sentence;
+		Noun randomNoun = dictionary.getRandomNoun();
+		Adjective randomAdjective = dictionary.getRandomAdjective();
+		return randomNoun.getArticulatedForm() + " " + (NounType.FEMININE.equals(randomNoun.getGender())
+				? randomAdjective.getFeminine() : randomAdjective.getName());
 	}
 
 }

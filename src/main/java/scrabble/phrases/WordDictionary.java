@@ -2,39 +2,48 @@ package scrabble.phrases;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
+import scrabble.phrases.filters.IWordFilter;
+import scrabble.phrases.words.Adjective;
+import scrabble.phrases.words.Noun;
+import scrabble.phrases.words.NounType;
+import scrabble.phrases.words.Verb;
+import scrabble.phrases.words.Word;
+import scrabble.phrases.words.WordUtils;
+
+// TODO: Auto-generated Javadoc
 /**
  * The Class WordDictionary.
  */
 public class WordDictionary {
 
-	/** The Constant NOUN_IDS. */
-	private static final List<String> NOUN_IDS = new ArrayList<>();
-
-	/** The Constant ADJECTIVE_IDS. */
-	private static final List<String> ADJECTIVE_IDS = Arrays.asList(new String[] { "A" });
-
 	/** The Constant VERB_IDS. */
-	private static final List<String> VERB_IDS = Arrays.asList(new String[] { "VT" }); // , "V"
+	private static final List<String> VERB_IDS = Arrays.asList(new String[] { "VT" }); // ,
+																						// "V"
 
-	private static final int MIN_WORD_LENGTH = 0;
-	private static final int MAX_WORD_LENGTH = 20;
-	
 	/** The Constant SEED. */
 	// private static final long SEED = 0;
 	private static final long SEED = System.currentTimeMillis();
 
 	/** The nouns. */
-	List<String> nouns = new ArrayList<>();
+	List<Noun> acceptedNouns = new ArrayList<>();
+
+	/** The refused nouns. */
+	List<Noun> refusedNouns = new ArrayList<>();
 
 	/** The adjectives. */
-	List<String> adjectives = new ArrayList<>();
+	List<Adjective> acceptedAdjectives = new ArrayList<>();
+
+	/** The refused adjectives. */
+	List<Adjective> refusedAdjectives = new ArrayList<>();
 
 	/** The verbs. */
-	List<String> verbs = new ArrayList<>();
+	List<Verb> acceptedVerbs = new ArrayList<>();
+
+	/** The refused verbs. */
+	List<Verb> refusedVerbs = new ArrayList<>();
 
 	/** The unknowns. */
 	List<String> unknowns = new ArrayList<>();
@@ -42,34 +51,113 @@ public class WordDictionary {
 	/** The random. */
 	private Random random = new Random(SEED);
 
-	private int minWordLength;
+	/** The filters. */
+	private List<IWordFilter> filters;
 
-	private int maxWordLength;
-
-	/** The fixes. */
-	static HashMap<String, String> fixes = new HashMap<>();
-
-	static {
-
-		NOUN_IDS.addAll(Arrays.asList(new String[] { "MF", "M", "N" }));
-		NOUN_IDS.addAll(Arrays.asList(new String[] { "F" }));
-
-		// if you don't have utf-8
-		// fixes.put("Ã®", "i");
-		// fixes.put("Äƒ", "ă");
-		// fixes.put("Ã¢", "a");
-		// fixes.put("È›", "t");
-		// fixes.put("È™", "s");
-		fixes.put("'", "");
-	}
-
+	/**
+	 * Instantiates a new word dictionary.
+	 */
 	public WordDictionary() {
-		this(MIN_WORD_LENGTH, MAX_WORD_LENGTH);
+		this(new ArrayList<>());
 	}
-	
-	public WordDictionary(int minWordLength, int maxWordLength) {
-		this.minWordLength = minWordLength;
-		this.maxWordLength = maxWordLength;
+
+	/**
+	 * Instantiates a new word dictionary.
+	 *
+	 * @param filters
+	 *            the filters
+	 */
+	public WordDictionary(List<IWordFilter> filters) {
+		this.filters = filters;
+	}
+
+	/**
+	 * Adds the filter.
+	 *
+	 * @param filter
+	 *            the filter
+	 */
+	public void addFilter(IWordFilter filter) {
+		this.filters.add(filter);
+		updateAcceptedWordsOnFilterAdded(filter, acceptedNouns, refusedNouns);
+		updateAcceptedWordsOnFilterAdded(filter, acceptedAdjectives, refusedAdjectives);
+		updateAcceptedWordsOnFilterAdded(filter, acceptedVerbs, refusedVerbs);
+	}
+
+	/**
+	 * Update accepted words on filter added.
+	 *
+	 * @param <T>
+	 *            the generic type
+	 * @param filter
+	 *            the filter
+	 * @param accepted
+	 *            the accepted
+	 * @param refused
+	 *            the refused
+	 */
+	private <T extends Word> void updateAcceptedWordsOnFilterAdded(IWordFilter filter, List<T> accepted,
+			List<T> refused) {
+		List<T> movingWords = new ArrayList<>();
+		for (T word : accepted) {
+			if (!filter.accepts(word)) {
+				movingWords.add(word);
+			}
+		}
+		accepted.removeAll(movingWords);
+		refused.addAll(movingWords);
+	}
+
+	/**
+	 * Clear filters.
+	 */
+	public void clearFilters() {
+		this.filters.clear();
+		acceptedNouns.addAll(refusedNouns);
+		refusedNouns.clear();
+		acceptedAdjectives.addAll(refusedAdjectives);
+		refusedAdjectives.clear();
+		acceptedVerbs.addAll(refusedVerbs);
+		refusedVerbs.clear();
+	}
+
+	/**
+	 * This operation is more expensive than the addition because the updates
+	 * need to go through all filters.
+	 *
+	 * @param filter
+	 *            the filter
+	 */
+	public void removeFilter(IWordFilter filter) {
+		this.filters.remove(filter);
+		updateAcceptedWordsOnFilterRemoved(filters, acceptedNouns, refusedNouns);
+	}
+
+	/**
+	 * Update accepted words on filter removed.
+	 *
+	 * @param <T>
+	 *            the generic type
+	 * @param filters
+	 *            the filters
+	 * @param accepted
+	 *            the accepted
+	 * @param refused
+	 *            the refused
+	 */
+	private <T extends Word> void updateAcceptedWordsOnFilterRemoved(List<IWordFilter> filters, List<T> accepted,
+			List<T> refused) {
+		List<T> movingWords = new ArrayList<>();
+		nextWord: for (T word : refused) {
+			for (IWordFilter filter : filters) {
+				if (!filter.accepts(word)) {
+					continue nextWord;
+				}
+			}
+			movingWords.add(word);
+		}
+		accepted.addAll(movingWords);
+		refused.removeAll(movingWords);
 	}
 
 	/**
@@ -81,80 +169,84 @@ public class WordDictionary {
 	 *            the type
 	 */
 	public void addWord(String word, String type) {
-		word = fixWordCharacters(word);
-		if (NOUN_IDS.contains(type)) {
-			nouns.add(fixNoun(word, type));
-		} else if (ADJECTIVE_IDS.contains(type)) {
-			adjectives.add(word);
+		word = WordUtils.fixWordCharacters(word);
+		if (type == null) {
+			return;
+		}
+		if (type.equals("M")) {
+			addNoun(new Noun(word, NounType.MASCULINE));
+		} else if (type.equals("F")) {
+			addNoun(new Noun(word, NounType.FEMININE));
+		} else if (type.equals("N")) {
+			addNoun(new Noun(word, NounType.NEUTRAL));
+		} else if (type.equals("MF")) {
+			addNoun(new Noun(word, NounType.MASCULINE));
+			addNoun(new Noun(word, NounType.FEMININE));
+		} else if (type.equals("A")) {
+			addAdjective(new Adjective(word));
 		} else if (VERB_IDS.contains(type)) {
-			verbs.add(word);
+			addVerb(new Verb(word));
 		} else {
 			unknowns.add(word + " : " + type);
 		}
 	}
 
 	/**
-	 * Fix noun.
+	 * Adds the verb.
 	 *
-	 * @param word
-	 *            the word
-	 * @param type
-	 *            the type
-	 * @return the string
+	 * @param verb
+	 *            the verb
 	 */
-	private String fixNoun(String word, String type) {
-		if ("M".equals(type) || "N".equals(type) || "MF".equals(type)) {
-			return masculinizeNoun(word);
-		} else if ("F".equals(type)) {
-			return feminizeNoun(word);
-		}
-		return "<" + word + ">";
-	}
-
-	/**
-	 * Masculinize noun.
-	 *
-	 * @param word
-	 *            the word
-	 * @return the string
-	 */
-	private String masculinizeNoun(String word) {
-		if (word.endsWith("u")) {
-			return word + "l";
+	private void addVerb(Verb verb) {
+		if (matchesFilters(verb)) {
+			acceptedVerbs.add(verb);
 		} else {
-			return word + "ul";
+			refusedVerbs.add(verb);
 		}
 	}
 
 	/**
-	 * Feminize noun.
+	 * Adds the noun.
 	 *
-	 * @param word
-	 *            the word
-	 * @return the string
+	 * @param noun
+	 *            the noun
 	 */
-	private String feminizeNoun(String word) {
-		if (word.endsWith("ă") || word.endsWith("ie")) {
-			return word.substring(0, word.length() - 1) + "a";
+	private void addNoun(Noun noun) {
+		if (matchesFilters(noun)) {
+			acceptedNouns.add(noun);
+		} else {
+			refusedNouns.add(noun);
 		}
-		if (word.endsWith("a")) {
-			return word + "ua";
-		}
-		return word + "a";
 	}
 
 	/**
-	 * Fix word characters.
+	 * Adds the adjective.
+	 *
+	 * @param adjective
+	 *            the adjective
+	 */
+	private void addAdjective(Adjective adjective) {
+		if (matchesFilters(adjective)) {
+			acceptedAdjectives.add(adjective);
+		} else {
+			refusedAdjectives.add(adjective);
+		}
+	}
+
+	/**
+	 * Matches filters.
 	 *
 	 * @param word
 	 *            the word
-	 * @return the string
+	 * @return true, if successful
 	 */
-	private String fixWordCharacters(String word) {
-		for (String fix : fixes.keySet()) {
-			word = word.replace(fix, fixes.get(fix));
+	private boolean matchesFilters(Word word) {
+		for (IWordFilter filter : filters) {
+			if (!filter.accepts(word)) {
+				return false;
+			}
 		}
-		return word;
+		return true;
 	}
 
 	/**
@@ -173,62 +265,17 @@ public class WordDictionary {
 	 *
 	 * @return the random noun
 	 */
-	public String getRandomNoun() {
-		String noun;
-		do {
-			noun = nouns.get(random.nextInt(nouns.size()));
-		} while (!hasProperSize(noun));
-		return noun;
+	public Noun getRandomNoun() {
+		return acceptedNouns.isEmpty() ? null : acceptedNouns.get(random.nextInt(acceptedNouns.size()));
 	}
 
-	private boolean hasProperSize(String word) {
-		int length = word.length();
-		return word.length() >= minWordLength && length <= maxWordLength;
-	}
-	
 	/**
 	 * Gets the random adjective.
 	 *
-	 * @param feminine
-	 *            the feminine
 	 * @return the random adjective
 	 */
-	public String getRandomAdjective(boolean feminine) {
-		String adjective;
-		do {
-			adjective = adjectives.get(random.nextInt(adjectives.size()));
-		} while (!hasProperSize(adjective));
-		if (feminine) {
-			return feminizeAdjective(adjective);
-		}
-		return adjective;
-	}
-
-	/**
-	 * Feminize adjective.
-	 *
-	 * @param adjective
-	 *            the adjective
-	 * @return the string
-	 */
-	private String feminizeAdjective(String adjective) {
-		if (adjective.endsWith("esc")) {
-			return adjective.substring(0, adjective.length() - 2) + "ască";
-		}
-		if (adjective.endsWith("eț")) {
-			return adjective.substring(0, adjective.length() - 1) + "ața";
-		}
-		if (adjective.endsWith("or")) {
-			return adjective.substring(0, adjective.length() - 1) + "are";
-		}
-		if (adjective.endsWith("os")) {
-			return adjective.substring(0, adjective.length() - 1) + "asă";
-		}
-		if (adjective.endsWith("iu")) {
-			// remuneratoriu
-			return adjective.substring(0, adjective.length() - 1) + "e";
-		}
-		return adjective + "ă";
+	public Adjective getRandomAdjective() {
+		return acceptedAdjectives.isEmpty() ? null : acceptedAdjectives.get(random.nextInt(acceptedAdjectives.size()));
 	}
 
 	/**
@@ -236,12 +283,8 @@ public class WordDictionary {
 	 *
 	 * @return the random verb
 	 */
-	public String getRandomVerb() {
-		String verb;
-		do {
-			verb = verbs.get(random.nextInt(verbs.size()));
-		} while (!hasProperSize(verb));
-		return verb;
+	public Verb getRandomVerb() {
+		return acceptedVerbs.isEmpty() ? null : acceptedVerbs.get(random.nextInt(acceptedVerbs.size()));
 	}
 
 	/**
@@ -250,6 +293,6 @@ public class WordDictionary {
 	 * @return the random unknown
 	 */
 	public String getRandomUnknown() {
-		return unknowns.get(random.nextInt(unknowns.size()));
+		return unknowns.isEmpty() ? null : unknowns.get(random.nextInt(unknowns.size()));
 	}
 }
