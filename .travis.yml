@@ -11,6 +11,9 @@ script:
 jdk:
 - oraclejdk8
 
+notifications:
+  email: false
+
 deploy:
   provider: releases
   api_key:
