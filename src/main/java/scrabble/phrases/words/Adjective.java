@@ -78,6 +78,12 @@ public class Adjective extends Word {
 		if (adjective.endsWith("ci")) {
 			return adjective.substring(0, adjective.length() - 1) + "e";
 		}
+		if (adjective.endsWith("ru")) {
+			return adjective.substring(0, adjective.length() - 1) + "ă";
+		}
+		if (adjective.endsWith("e") || adjective.endsWith("o") || adjective.endsWith("i")) {
+			return adjective;
+		}
 		return adjective + "ă";
 	}
 }

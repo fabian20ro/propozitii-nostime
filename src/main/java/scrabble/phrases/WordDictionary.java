@@ -100,6 +100,7 @@ public class WordDictionary {
 		}
 		accepted.removeAll(movingWords);
 		refused.addAll(movingWords);
+		movingWords.clear();
 	}
 
 	/**
@@ -125,6 +126,8 @@ public class WordDictionary {
 	public void removeFilter(IWordFilter filter) {
 		this.filters.remove(filter);
 		updateAcceptedWordsOnFilterRemoved(filters, acceptedNouns, refusedNouns);
+		updateAcceptedWordsOnFilterRemoved(filters, acceptedAdjectives, refusedAdjectives);
+		updateAcceptedWordsOnFilterRemoved(filters, acceptedVerbs, refusedVerbs);
 	}
 
 	/**
@@ -152,6 +155,7 @@ public class WordDictionary {
 		}
 		accepted.addAll(movingWords);
 		refused.removeAll(movingWords);
+		movingWords.clear();
 	}
 
 	/**
@@ -277,5 +281,21 @@ public class WordDictionary {
 	 */
 	public String getRandomUnknown() {
 		return unknowns.isEmpty() ? null : unknowns.get(random.nextInt(unknowns.size()));
+	}
+	
+	public int getTotalAcceptedWordCount() {
+		return acceptedNouns.size() + acceptedAdjectives.size() + acceptedVerbs.size();
+	}
+	
+	public int getTotalRefusedWordCount() {
+		return refusedNouns.size() + refusedAdjectives.size() + refusedVerbs.size();
+	}
+	
+	public int getTotalUnknownWordCount() {
+		return unknowns.size();
+	}
+	
+	public int getTotalWordCount() {
+		return getTotalAcceptedWordCount() + getTotalRefusedWordCount() + getTotalUnknownWordCount();
 	}
 }

@@ -29,8 +29,8 @@ public class WordDictionaryTest {
 	public void testNouns() {
 
 		// initialize word lists
-		List<String> nouns = l("macara F", "fată F", "acar M", "ploaie F", "maestru M", "rodie F", "staul M");
-		List<String> articulated = l("macaraua", "fata", "acarul", "ploaia", "maestrul", "rodia", "staulul");
+		List<String> nouns = l("macara F", "fată F", "acar M", "ploaie F", "maestru M", "rodie F", "staul N", "abolitionist MF");
+		List<String> articulated = l("macaraua", "fata", "acarul", "ploaia", "maestrul", "rodia", "staulul", "abolitionistul", "abolitionista");
 
 		// populate dictionary
 		WordDictionary dictionary = new WordDictionary();
@@ -52,8 +52,8 @@ public class WordDictionaryTest {
 	public void testAdjective() {
 
 		//initialize word lists
-		List<String> adjectives = l("bor", "frumos", "pitoresc", "zglobiu", "citeț", "stângaci");
-		List<String> feminines = l("boare", "frumoasă", "pitorească", "zglobie", "citeață", "stângace");
+		List<String> adjectives = l("bor", "frumos", "pitoresc", "zglobiu", "citeț", "stângaci", "alb", "acru", "verde", "maro", "gri");
+		List<String> feminines = l("boare", "frumoasă", "pitorească", "zglobie", "citeață", "stângace", "albă", "acră", "verde", "maro", "gri");
 
 		//populate dictionary
 		WordDictionary dictionary = new WordDictionary();
