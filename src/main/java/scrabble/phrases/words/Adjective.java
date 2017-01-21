@@ -64,7 +64,7 @@ public class Adjective extends Word {
 			return adjective.substring(0, adjective.length() - 2) + "ască";
 		}
 		if (adjective.endsWith("eț")) {
-			return adjective.substring(0, adjective.length() - 1) + "ața";
+			return adjective.substring(0, adjective.length() - 1) + "ață";
 		}
 		if (adjective.endsWith("or")) {
 			return adjective.substring(0, adjective.length() - 1) + "are";
@@ -73,7 +73,9 @@ public class Adjective extends Word {
 			return adjective.substring(0, adjective.length() - 1) + "asă";
 		}
 		if (adjective.endsWith("iu")) {
-			// remuneratoriu
+			return adjective.substring(0, adjective.length() - 1) + "e";
+		}
+		if (adjective.endsWith("ci")) {
 			return adjective.substring(0, adjective.length() - 1) + "e";
 		}
 		return adjective + "ă";

@@ -35,7 +35,7 @@ public class Word {
 	 *
 	 * @return the name
 	 */
-	public String getOriginal() {
+	public String getWord() {
 		return name;
 	}
 

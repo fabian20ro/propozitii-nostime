@@ -24,6 +24,14 @@ checkstyle {
 	configFile = rootProject.file('checkstyle.xml')
 }
 
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+test {
+    systemProperty "file.encoding", "utf-8"
+}
+
 jacoco {
 	toolVersion = "0.7.8"
 }

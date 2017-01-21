@@ -29,16 +29,18 @@ public class Main {
 	public static void main(String[] args) throws IOException {
 
 		System.out.println("Arguments should be one of: phrases <2-5 words> ; haiku ; epigram");
-		
+
 		InputStream in = Main.class.getResourceAsStream("/words.txt");
 		if (in == null) {
 			in = new FileInputStream(new File("src/main/resources/words.txt"));
 		}
 		BufferedReader reader = new BufferedReader(new InputStreamReader(in, Charset.forName("UTF-8")));
 		WordDictionary dictionary = new WordParser().parse(reader);
-		
-		dictionary.addFilter(word -> word.getOriginal().length() == 8);
-		
+
+		dictionary.addFilter(word -> word.getWord().length() == 8);
+		dictionary
+				.addFilter(word -> word instanceof Noun ? NounGender.FEMININE.equals(((Noun) word).getGender()) : true);
+
 		int count = 20;
 		if (args.length > 0) {
 			try {
@@ -48,8 +50,8 @@ public class Main {
 			}
 		}
 		for (int i = 1; i <= count; i++) {
-			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb().getOriginal() + " " + getNACombo(dictionary)
-					+ ".";
+			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb().getWord() + " "
+					+ getNACombo(dictionary) + ".";
 			sentence = WordUtils.capitalizeFirstLeter(sentence);
 			System.out.println(i + ". " + sentence);
 		}
@@ -72,7 +74,7 @@ public class Main {
 		Noun randomNoun = dictionary.getRandomNoun();
 		Adjective randomAdjective = dictionary.getRandomAdjective();
 		return randomNoun.getArticulated() + " " + (NounGender.FEMININE.equals(randomNoun.getGender())
-				? randomAdjective.getFeminine() : randomAdjective.getOriginal());
+				? randomAdjective.getFeminine() : randomAdjective.getWord());
 	}
 
 }
