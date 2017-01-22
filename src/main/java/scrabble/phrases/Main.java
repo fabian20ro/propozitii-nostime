@@ -9,9 +9,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 
+import scrabble.phrases.filters.IWordFilter;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
 import scrabble.phrases.words.NounGender;
+import scrabble.phrases.words.Word;
 import scrabble.phrases.words.WordUtils;
 
 /**
@@ -34,20 +36,35 @@ public class Main {
 		System.out.println("Arguments should be one of: phrases <2-5 words> ; haiku ; epigram");
 
 		new Main().work(args);
-		
+
 	}
 
 	private void work(String[] args) throws IOException {
 		WordDictionary dictionary = getPopulatedDictionaryFromIncludedFile();
 
-		dictionary.addFilter(word -> word.getWord().length() == 8);
-		dictionary
-				.addFilter(word -> word instanceof Noun ? NounGender.FEMININE.equals(((Noun) word).getGender()) : true);
+		do {
+			dictionary.clearFilters();
+			final Noun noun = dictionary.getRandomNoun();
+			dictionary.addFilter(new IWordFilter() {
+				@Override
+				public boolean accepts(Word word) {
+					if (word instanceof Noun) {
+						return WordUtils.computeSyllableNumber(((Noun) word).getArticulated()) == 5
+								&& noun.getRhyme().equals(word.getRhyme());
+					}
+					if (word instanceof Adjective) {
+						return word.getSyllables() == 3 + (noun.getGender() == NounGender.FEMININE ? 0 : 1);
+					}
+					return word.getSyllables() == 3;
+				}
+			});
+		} while (dictionary.getRandomNoun() == null);
 
 		int count = getNumberOfPhrasesToGenerate(args);
 		for (int i = 1; i <= count; i++) {
-			String sentence = getNACombo(dictionary) + " " + dictionary.getRandomVerb().getWord() + " "
-					+ getNACombo(dictionary) + ".";
+			String sentence = getNACombo(dictionary).replaceAll(" ", " / ") + " " + dictionary.getRandomVerb().getWord() + " / "
+			// + getNACombo(dictionary)
+					+ dictionary.getRandomNoun().getArticulated() + ".";
 			sentence = WordUtils.capitalizeFirstLeter(sentence);
 			System.out.println(i + ". " + sentence);
 		}

@@ -1,9 +1,11 @@
 package scrabble.phrases;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -17,10 +19,33 @@ import scrabble.phrases.words.Noun;
 import scrabble.phrases.words.NounGender;
 import scrabble.phrases.words.Word;
 
+// TODO: Auto-generated Javadoc
 /**
  * The Class WordDictionaryTest.
  */
 public class WordDictionaryTest {
+
+	/**
+	 * Test dictionary copy.
+	 *
+	 * @throws IOException
+	 *             Signals that an I/O exception has occurred.
+	 */
+	@Test
+	public void testDictionaryCopy() throws IOException {
+
+		WordDictionary dictionary = new Main().getPopulatedDictionaryFromIncludedFile();
+		WordDictionary secondDictionary = new WordDictionary(dictionary);
+
+		assertEquals(secondDictionary.getTotalWordCount(), dictionary.getTotalWordCount());
+		assertEquals(secondDictionary.getTotalAcceptedWordCount(), dictionary.getTotalAcceptedWordCount());
+		assertEquals(secondDictionary.getTotalUnknownWordCount(), dictionary.getTotalUnknownWordCount());
+
+		dictionary.addFilter(word -> false);
+		assertEquals(secondDictionary.getTotalWordCount(), dictionary.getTotalWordCount());
+		assertEquals(secondDictionary.getTotalRefusedWordCount(), dictionary.getTotalAcceptedWordCount());
+		assertEquals(secondDictionary.getTotalUnknownWordCount(), dictionary.getTotalUnknownWordCount());
+	}
 
 	/**
 	 * Test is feminine.
@@ -29,8 +54,10 @@ public class WordDictionaryTest {
 	public void testNouns() {
 
 		// initialize word lists
-		List<String> nouns = l("macara F", "fată F", "acar M", "ploaie F", "maestru M", "rodie F", "staul N", "abolitionist MF");
-		List<String> articulated = l("macaraua", "fata", "acarul", "ploaia", "maestrul", "rodia", "staulul", "abolitionistul", "abolitionista");
+		List<String> nouns = l("macara F", "fată F", "acar M", "ploaie F", "maestru M", "rodie F", "staul N",
+				"abolitionist MF");
+		List<String> articulated = l("macaraua", "fata", "acarul", "ploaia", "maestrul", "rodia", "staulul",
+				"abolitionistul", "abolitionista");
 
 		// populate dictionary
 		WordDictionary dictionary = new WordDictionary();
@@ -41,7 +68,7 @@ public class WordDictionaryTest {
 		List<String> words = nouns.stream().map(word -> word.substring(0, word.indexOf(" ")))
 				.collect(Collectors.toList());
 
-		//compare the random outputs
+		// compare the random outputs
 		compareNounWithExpected(dictionary, words, articulated);
 	}
 
@@ -51,15 +78,17 @@ public class WordDictionaryTest {
 	@Test
 	public void testAdjective() {
 
-		//initialize word lists
-		List<String> adjectives = l("bor", "frumos", "pitoresc", "zglobiu", "citeț", "stângaci", "alb", "acru", "verde", "maro", "gri");
-		List<String> feminines = l("boare", "frumoasă", "pitorească", "zglobie", "citeață", "stângace", "albă", "acră", "verde", "maro", "gri");
+		// initialize word lists
+		List<String> adjectives = l("bor", "frumos", "pitoresc", "zglobiu", "citeț", "stângaci", "alb", "acru", "verde",
+				"maro", "gri");
+		List<String> feminines = l("boare", "frumoasă", "pitorească", "zglobie", "citeață", "stângace", "albă", "acră",
+				"verde", "maro", "gri");
 
-		//populate dictionary
+		// populate dictionary
 		WordDictionary dictionary = new WordDictionary();
 		adjectives.stream().forEach(word -> dictionary.addWord(word, "A"));
 
-		//compare the random outputs
+		// compare the random outputs
 		compareAdjectiveWithExpected(dictionary, adjectives, feminines);
 	}
 
@@ -69,14 +98,14 @@ public class WordDictionaryTest {
 	@Test
 	public void testFilters() {
 
-		//init some filters
+		// init some filters
 		IWordFilter lengthFilter = word -> word.getLength() == 6;
 		IWordFilter genderFilter = word -> ((Noun) word).getGender().equals(NounGender.FEMININE);
 
 		WordDictionary dictionary = new WordDictionary();
 
 		dictionary.addFilter(lengthFilter);
-		//add words with filters
+		// add words with filters
 		dictionary.addWord("corabie", "F");
 		dictionary.addWord("martor", "M");
 

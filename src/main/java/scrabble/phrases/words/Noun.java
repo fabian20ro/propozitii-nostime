@@ -36,7 +36,7 @@ public class Noun extends Word {
 		case MASCULINE:
 			articulatedForm = articulateMasculineNoun(word);
 			break;
-		case NEUTRAL:
+		default: //NEUTRAL
 			articulatedForm = articulateMasculineNoun(word);
 			break;
 		}
@@ -52,9 +52,8 @@ public class Noun extends Word {
 	private String articulateMasculineNoun(String word) {
 		if (word.endsWith("u")) {
 			return word + "l";
-		} else {
-			return word + "ul";
 		}
+		return word + "ul";
 	}
 
 	/**

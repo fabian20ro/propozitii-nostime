@@ -1,6 +1,7 @@
 package scrabble.phrases;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -46,7 +47,7 @@ public class WordDictionary {
 	private Random random = new Random(SEED);
 
 	/** The filters. */
-	private List<IWordFilter> filters;
+	private List<IWordFilter> filters = new ArrayList<>();
 
 	/**
 	 * Instantiates a new word dictionary.
@@ -55,6 +56,17 @@ public class WordDictionary {
 		this(new ArrayList<>());
 	}
 
+	public WordDictionary(WordDictionary dictionary) {
+		Collections.copy(this.filters, dictionary.filters);
+		this.acceptedNouns = new ArrayList<Noun>(dictionary.acceptedNouns);
+		this.refusedNouns = new ArrayList<Noun>(dictionary.refusedNouns);
+		this.acceptedAdjectives = new ArrayList<Adjective>(dictionary.acceptedAdjectives);
+		this.refusedAdjectives = new ArrayList<Adjective>(dictionary.refusedAdjectives);
+		this.acceptedVerbs = new ArrayList<Verb>(dictionary.acceptedVerbs);
+		this.refusedVerbs = new ArrayList<Verb>(dictionary.refusedVerbs);
+		this.unknowns = new ArrayList<String>(dictionary.unknowns);
+	}
+	
 	/**
 	 * Instantiates a new word dictionary.
 	 *
@@ -171,6 +183,17 @@ public class WordDictionary {
 		if (type == null) {
 			return;
 		}
+		try {
+			Integer.parseInt(type);
+			int breakIndex = 1;
+			if (word.charAt(word.length() - 2) <= 'Z') {
+				breakIndex = 2;
+			}
+			type = word.substring(word.length() - breakIndex);
+			word = word.substring(0, word.length() - breakIndex);
+		} catch (NumberFormatException e) {
+			//nothing to do.
+		}
 		if (type.equals("M")) {
 			addNoun(new Noun(word, NounGender.MASCULINE));
 		} else if (type.equals("F")) {
@@ -182,7 +205,7 @@ public class WordDictionary {
 			addNoun(new Noun(word, NounGender.FEMININE));
 		} else if (type.equals("A")) {
 			addAdjective(new Adjective(word));
-		} else if (type.equals("VT")) {
+		} else if (type.equals("VT") || type.equals("V")) {
 			addVerb(new Verb(word));
 		} else {
 			unknowns.add(word + " : " + type);
