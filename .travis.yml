@@ -9,7 +9,7 @@ cache:
 install: echo "skip 'gradle assemble' step"
 script:
 - chmod a+x gradlew 
-- ./gradlew --gradle-version 3.3 build javadoc jacocoTestReport --info
+- ./gradlew build javadoc jacocoTestReport --info
 jdk:
 - oraclejdk8
 
