@@ -4,7 +4,6 @@
 .mtj.tmp/
 
 # Package Files #
-*.jar
 *.war
 *.ear
 
@@ -14,6 +13,4 @@ hs_err_pid*
 /.gradle/
 /bin/
 /build/
-/gradle/
 /src/main/resources/words.txt
-/gradle*

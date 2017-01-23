@@ -7,8 +7,9 @@ cache:
   - "$HOME/.gradle/caches/"
   - "$HOME/.gradle/wrapper/"
 install: echo "skip 'gradle assemble' step"
-script: 
-- gradle wrapper --gradle-version 3.3 build javadoc jacocoTestReport --info
+script:
+- chmod a+x gradlew 
+- ./gradlew --gradle-version 3.3 build javadoc jacocoTestReport --info
 jdk:
 - oraclejdk8
 
@@ -16,7 +17,6 @@ addons:
   apt:
     packages:
       - oracle-java8-installer
-      - gradle
 
 notifications:
   email: false
