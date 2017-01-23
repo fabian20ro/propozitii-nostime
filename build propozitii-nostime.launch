@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.buildship.core.launch.runconfiguration">
+<listAttribute key="arguments">
+<listEntry value="--rerun-tasks"/>
+<listEntry value="--info"/>
+<listEntry value="-x"/>
+<listEntry value="checkstyleMain"/>
+<listEntry value="-x"/>
+<listEntry value="checkstyleTest"/>
+</listAttribute>
+<stringAttribute key="gradle_distribution" value="GRADLE_DISTRIBUTION(WRAPPER)"/>
+<listAttribute key="jvm_arguments"/>
+<listAttribute key="org.eclipse.debug.ui.favoriteGroups">
+<listEntry value="org.eclipse.debug.ui.launchGroup.run"/>
+</listAttribute>
+<booleanAttribute key="show_console_view" value="true"/>
+<booleanAttribute key="show_execution_view" value="true"/>
+<listAttribute key="tasks">
+<listEntry value="tasks"/>
+<listEntry value="build"/>
+<listEntry value="jacocoTestReport"/>
+</listAttribute>
+<stringAttribute key="working_dir" value="${workspace_loc:/propozitii-nostime}"/>
+</launchConfiguration>

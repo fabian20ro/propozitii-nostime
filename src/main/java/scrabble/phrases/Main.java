@@ -1,5 +1,6 @@
 package scrabble.phrases;
 
+import ratpack.server.RatpackServer;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -21,26 +22,48 @@ import scrabble.phrases.words.WordUtils;
  */
 public class Main {
 
+	/** The Constant DEFAULT_NUMBER_OF_PHRASES. */
 	private static final int DEFAULT_NUMBER_OF_PHRASES = 40;
+
+	/** The dictionary. */
+	private WordDictionary dictionary;
+
+	public void init() throws IOException {
+		dictionary = getPopulatedDictionaryFromIncludedFile();
+	}
 
 	/**
 	 * The main method.
 	 *
 	 * @param args
 	 *            the arguments
-	 * @throws IOException
-	 *             Signals that an I/O exception has occurred.
+	 * @throws Exception
+	 *             the exception
 	 */
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 
 		System.out.println("Arguments should be one of: phrases <2-5 words> ; haiku ; epigram");
 
-		new Main().work(args);
-
+		Main main = new Main();
+		main.init();
+		main.work(args);
+		main.startRatpack();
 	}
 
+	private void startRatpack() throws Exception {
+		RatpackServer
+				.start(server -> server.handlers(chain -> chain.get(ctx -> ctx.render(this.getSentence(dictionary)))));
+	}
+
+	/**
+	 * Work.
+	 *
+	 * @param args
+	 *            the args
+	 * @throws IOException
+	 *             Signals that an I/O exception has occurred.
+	 */
 	private void work(String[] args) throws IOException {
-		WordDictionary dictionary = getPopulatedDictionaryFromIncludedFile();
 
 		do {
 			dictionary.clearFilters();
@@ -62,9 +85,7 @@ public class Main {
 
 		int count = getNumberOfPhrasesToGenerate(args);
 		for (int i = 1; i <= count; i++) {
-			String sentence = getNACombo(dictionary).replaceAll(" ", " / ") + " " + dictionary.getRandomVerb().getWord() + " / "
-			// + getNACombo(dictionary)
-					+ dictionary.getRandomNoun().getArticulated() + ".";
+			String sentence = getSentence(dictionary);
 			sentence = WordUtils.capitalizeFirstLeter(sentence);
 			System.out.println(i + ". " + sentence);
 		}
@@ -75,6 +96,25 @@ public class Main {
 		}
 	}
 
+	/**
+	 * Gets the sentence.
+	 *
+	 * @param dictionary
+	 *            the dictionary
+	 * @return the sentence
+	 */
+	private String getSentence(WordDictionary dictionary) {
+		return getNACombo(dictionary).replaceAll(" ", " / ") + " " + dictionary.getRandomVerb().getWord() + " / "
+				+ dictionary.getRandomNoun().getArticulated() + ".";
+	}
+
+	/**
+	 * Gets the number of phrases to generate.
+	 *
+	 * @param args
+	 *            the args
+	 * @return the number of phrases to generate
+	 */
 	private int getNumberOfPhrasesToGenerate(String[] args) {
 		int count = DEFAULT_NUMBER_OF_PHRASES;
 		if (args.length > 0) {
@@ -87,12 +127,28 @@ public class Main {
 		return count;
 	}
 
+	/**
+	 * Gets the populated dictionary from included file.
+	 *
+	 * @return the populated dictionary from included file
+	 * @throws FileNotFoundException
+	 *             the file not found exception
+	 * @throws IOException
+	 *             Signals that an I/O exception has occurred.
+	 */
 	public WordDictionary getPopulatedDictionaryFromIncludedFile() throws FileNotFoundException, IOException {
 		BufferedReader reader = getWordStreamReader();
 		WordDictionary dictionary = new WordParser().parse(reader);
 		return dictionary;
 	}
 
+	/**
+	 * Gets the word stream reader.
+	 *
+	 * @return the word stream reader
+	 * @throws FileNotFoundException
+	 *             the file not found exception
+	 */
 	private BufferedReader getWordStreamReader() throws FileNotFoundException {
 		InputStream in = Main.class.getResourceAsStream("/words.txt");
 		if (in == null) {
