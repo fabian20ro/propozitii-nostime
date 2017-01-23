@@ -11,6 +11,12 @@ script:
 jdk:
 - oraclejdk8
 
+addons:
+  apt:
+    packages:
+      - oracle-java8-installer
+      - gradle
+
 notifications:
   email: false
 
