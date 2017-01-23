@@ -7,7 +7,8 @@ cache:
   - "$HOME/.gradle/caches/"
   - "$HOME/.gradle/wrapper/"
 script:
-- gradle build javadoc jacocoTestReport -x checkstyleMain -x checkstyleTest --info
+- gradle -version
+- gradle build javadoc jacocoTestReport --info
 jdk:
 - oraclejdk8
 
