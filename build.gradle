@@ -76,3 +76,5 @@ jacocoTestReport {
 task stage {
   dependsOn installDist
 }
+
+rootProject.name = 'propozitii-nostime'

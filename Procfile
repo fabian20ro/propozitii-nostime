@@ -1,1 +1,1 @@
-web: build/install/gradle-getting-started/bin/gradle-getting-started
+web: build/install/propozitii-nostime/bin/propozitii-nostime
