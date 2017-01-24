@@ -1,4 +1,5 @@
 package scrabble.phrases.decorators;
+
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
@@ -17,14 +18,14 @@ public class DecoratorTest {
 				+ "<iframe src=\"https://dexonline.ro/definitie/are\" width = \"480px\" height = \"800px\"></iframe></div> "
 				+ "<a href=\"https://dexonline.ro/definitie/mere\">mere</a><div class=\"box\">"
 				+ "<iframe src=\"https://dexonline.ro/definitie/mere\" width = \"480px\" height = \"800px\"></iframe></div>.";
-		assertEquals(expected, 
-				new HtmlVerseBreaker(new DexonlineLinkAdder(new ISentenceProvider() {
+		assertEquals(expected,
+				new HtmlVerseBreaker(new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(new ISentenceProvider() {
 					@Override
 					public String getSentence() {
-						return "Ana / are mere.";
+						return "ana / are mere.";
 					}
-				})).getSentence());
-		
+				}))).getSentence());
+
 	}
 
 }
