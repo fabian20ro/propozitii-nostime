@@ -2,14 +2,9 @@ buildscript {
   repositories {
     jcenter()
   }
-  dependencies {
-    classpath 'io.ratpack:ratpack-gradle:1.4.4'
-  }
 }
 
 // Apply the java plugin to add support for Java
-apply plugin: 'io.ratpack.ratpack-java'
-apply plugin: 'idea'
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'jacoco'
@@ -25,9 +20,10 @@ repositories {
 
 // In this section you declare the dependencies for your production and test code
 dependencies {
-    compile 'org.slf4j:slf4j-api:1.7.21'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.7'
-    compile ratpack.dependency("handlebars")
+	compile 'com.sparkjava:spark-core:2.5.4'
+	compile 'com.sparkjava:spark-template-handlebars:2.3'
+//	compile 'com.github.jknack:handlebars:4.0.6'
+//	compile 'com.github.jknack:handlebars-guava-cache:4.0.6'
     testCompile 'junit:junit:4.12'
 }
 
@@ -56,8 +52,6 @@ jar {
   exclude('.empty') 
 }
 
-mainClassName = 'scrabble.phrases.Main'
-
 processResources {
 	ant.get(src: "https://dexonline.ro/static/download/scrabble/loc-baza-5.0.zip", dest: "scrabble.zip")
 	ant.unzip(src: "scrabble.zip", dest: "src/main/resources/")
@@ -73,8 +67,7 @@ jacocoTestReport {
     }
 }
 
-task stage {
-  dependsOn installDist
-}
+defaultTasks = ['clean']
+task stage(dependsOn: ['clean', 'installApp'])
 
-//rootProject.name = 'propozitii-nostime'
+applicationName = 'propozitii-nostime'

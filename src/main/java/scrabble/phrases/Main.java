@@ -1,7 +1,5 @@
 package scrabble.phrases;
 
-import ratpack.handlebars.internal.HandlebarsTemplateRenderer;
-import ratpack.server.RatpackServer;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,16 +8,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
 
 import scrabble.phrases.decorators.DexonlineLinkAdder;
 import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer;
-import scrabble.phrases.filters.IWordFilter;
+import scrabble.phrases.decorators.HtmlVerseBreaker;
+import scrabble.phrases.providers.FiveWordSentenceProvider;
 import scrabble.phrases.providers.HaikuProvider;
-import scrabble.phrases.words.Adjective;
-import scrabble.phrases.words.Noun;
-import scrabble.phrases.words.NounGender;
-import scrabble.phrases.words.Word;
-import scrabble.phrases.words.WordUtils;
+import spark.ModelAndView;
+import spark.Spark;
+import spark.template.handlebars.HandlebarsTemplateEngine;
 
 /**
  * The Class Main.
@@ -33,11 +32,13 @@ public class Main {
 	private WordDictionary dictionary;
 
 	private HaikuProvider haiku;
+	private FiveWordSentenceProvider fiveWord;
 
 	public void init() throws IOException {
 		dictionary = getPopulatedDictionaryFromIncludedFile();
 
 		haiku = new HaikuProvider(new WordDictionary(dictionary));
+		fiveWord = new FiveWordSentenceProvider(new WordDictionary(dictionary));
 	}
 
 	/**
@@ -54,14 +55,29 @@ public class Main {
 
 		Main main = new Main();
 		main.init();
-		main.work(args);
-		main.startRatpack();
+		main.startServer();
 	}
 
-	private void startRatpack() throws Exception {
-		RatpackServer.start(server -> server.handlers(chain -> chain.get(ctx -> ctx.render(haiku.getSentence()))));
+	private void startServer() throws Exception {
+		Spark.port(getHerokuAssignedPort());
+		Spark.staticFileLocation("/public");
+		Spark.get("/", "text/html", (request, response) -> {
+            Map<String, Object> model = new HashMap<>();
+            model.put("test1", new HtmlVerseBreaker(new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(haiku))).getSentence());
+            model.put("test2", new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(fiveWord)).getSentence());
+            return new ModelAndView(model, "index.hbs"); // located in resources/templates
+        }, new HandlebarsTemplateEngine());
 	}
 
+	//needed for heroku
+	static int getHerokuAssignedPort() {
+        ProcessBuilder processBuilder = new ProcessBuilder();
+        if (processBuilder.environment().get("PORT") != null) {
+            return Integer.parseInt(processBuilder.environment().get("PORT"));
+        }
+        return 5050; //return default port if heroku-port isn't set (i.e. on localhost)
+    }
+	
 	/**
 	 * Work.
 	 *
