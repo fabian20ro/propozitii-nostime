@@ -67,6 +67,7 @@ public class Main {
             model.put("test2", new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(fiveWord)).getSentence());
             return new ModelAndView(model, "index.hbs"); // located in resources/templates
         }, new HandlebarsTemplateEngine());
+		
 	}
 
 	//needed for heroku
