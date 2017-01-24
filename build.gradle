@@ -70,4 +70,4 @@ jacocoTestReport {
 defaultTasks = ['clean']
 task stage(dependsOn: ['clean', 'installApp'])
 
-applicationName = 'propozitii-nostime'
+// applicationName = 'propozitii-nostime'
