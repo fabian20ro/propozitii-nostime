@@ -3,13 +3,11 @@
 <listAttribute key="arguments">
 <listEntry value="--rerun-tasks"/>
 <listEntry value="--info"/>
-<listEntry value="-x"/>
-<listEntry value="checkstyleMain"/>
-<listEntry value="-x"/>
-<listEntry value="checkstyleTest"/>
 </listAttribute>
 <stringAttribute key="gradle_distribution" value="GRADLE_DISTRIBUTION(VERSION(3.3))"/>
+<stringAttribute key="java_home" value="C:\Program Files\Java\jdk1.8.0_72"/>
 <listAttribute key="jvm_arguments"/>
+<stringAttribute key="org.eclipse.debug.ui.ATTR_CONSOLE_ENCODING" value="UTF-8"/>
 <listAttribute key="org.eclipse.debug.ui.favoriteGroups">
 <listEntry value="org.eclipse.debug.ui.launchGroup.run"/>
 </listAttribute>

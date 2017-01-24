@@ -1,5 +1,6 @@
 package scrabble.phrases;
 
+import ratpack.handlebars.internal.HandlebarsTemplateRenderer;
 import ratpack.server.RatpackServer;
 import java.io.BufferedReader;
 import java.io.File;
@@ -10,7 +11,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 
+import scrabble.phrases.decorators.DexonlineLinkAdder;
+import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer;
 import scrabble.phrases.filters.IWordFilter;
+import scrabble.phrases.providers.HaikuProvider;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
 import scrabble.phrases.words.NounGender;
@@ -28,8 +32,12 @@ public class Main {
 	/** The dictionary. */
 	private WordDictionary dictionary;
 
+	private HaikuProvider haiku;
+
 	public void init() throws IOException {
 		dictionary = getPopulatedDictionaryFromIncludedFile();
+
+		haiku = new HaikuProvider(new WordDictionary(dictionary));
 	}
 
 	/**
@@ -51,8 +59,7 @@ public class Main {
 	}
 
 	private void startRatpack() throws Exception {
-		RatpackServer
-				.start(server -> server.handlers(chain -> chain.get(ctx -> ctx.render(this.getSentence(dictionary)))));
+		RatpackServer.start(server -> server.handlers(chain -> chain.get(ctx -> ctx.render(haiku.getSentence()))));
 	}
 
 	/**
@@ -65,47 +72,15 @@ public class Main {
 	 */
 	private void work(String[] args) throws IOException {
 
-		do {
-			dictionary.clearFilters();
-			final Noun noun = dictionary.getRandomNoun();
-			dictionary.addFilter(new IWordFilter() {
-				@Override
-				public boolean accepts(Word word) {
-					if (word instanceof Noun) {
-						return WordUtils.computeSyllableNumber(((Noun) word).getArticulated()) == 5
-								&& noun.getRhyme().equals(word.getRhyme());
-					}
-					if (word instanceof Adjective) {
-						return word.getSyllables() == 3 + (noun.getGender() == NounGender.FEMININE ? 0 : 1);
-					}
-					return word.getSyllables() == 3;
-				}
-			});
-		} while (dictionary.getRandomNoun() == null);
-
 		int count = getNumberOfPhrasesToGenerate(args);
 		for (int i = 1; i <= count; i++) {
-			String sentence = getSentence(dictionary);
-			sentence = WordUtils.capitalizeFirstLeter(sentence);
-			System.out.println(i + ". " + sentence);
+			System.out.println(i + ". " + new FirstSentenceLetterCapitalizer(haiku).getSentence());
 		}
 
 		System.out.println("\n\nCuvinte neincluse:");
 		for (int i = 1; i <= 10; i++) {
 			System.out.println(dictionary.getRandomUnknown());
 		}
-	}
-
-	/**
-	 * Gets the sentence.
-	 *
-	 * @param dictionary
-	 *            the dictionary
-	 * @return the sentence
-	 */
-	private String getSentence(WordDictionary dictionary) {
-		return getNACombo(dictionary).replaceAll(" ", " / ") + " " + dictionary.getRandomVerb().getWord() + " / "
-				+ dictionary.getRandomNoun().getArticulated() + ".";
 	}
 
 	/**
@@ -156,21 +131,6 @@ public class Main {
 		}
 		BufferedReader reader = new BufferedReader(new InputStreamReader(in, Charset.forName("UTF-8")));
 		return reader;
-	}
-
-	/**
-	 * Gets the NA combo.
-	 *
-	 * @param dictionary
-	 *            the dictionary
-	 * @return the NA combo
-	 */
-	private String getNACombo(WordDictionary dictionary) {
-		// TODO Auto-generated method stub
-		Noun randomNoun = dictionary.getRandomNoun();
-		Adjective randomAdjective = dictionary.getRandomAdjective();
-		return randomNoun.getArticulated() + " " + (NounGender.FEMININE.equals(randomNoun.getGender())
-				? randomAdjective.getFeminine() : randomAdjective.getWord());
 	}
 
 }

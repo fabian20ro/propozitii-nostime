@@ -321,4 +321,10 @@ public class WordDictionary {
 	public int getTotalWordCount() {
 		return getTotalAcceptedWordCount() + getTotalRefusedWordCount() + getTotalUnknownWordCount();
 	}
+
+	public void addFilters(List<IWordFilter> theFilters) {
+		for (IWordFilter filter : theFilters) {
+			addFilter(filter);
+		}
+	}
 }

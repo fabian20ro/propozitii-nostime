@@ -3,13 +3,10 @@
 <listAttribute key="arguments">
 <listEntry value="--rerun-tasks"/>
 <listEntry value="--info"/>
-<listEntry value="-x"/>
-<listEntry value="checkstyleMain"/>
-<listEntry value="-x"/>
-<listEntry value="checkstyleTest"/>
 </listAttribute>
 <stringAttribute key="gradle_distribution" value="GRADLE_DISTRIBUTION(WRAPPER)"/>
 <listAttribute key="jvm_arguments"/>
+<stringAttribute key="org.eclipse.debug.ui.ATTR_CONSOLE_ENCODING" value="UTF-8"/>
 <listAttribute key="org.eclipse.debug.ui.favoriteGroups">
 <listEntry value="org.eclipse.debug.ui.launchGroup.run"/>
 </listAttribute>
@@ -19,5 +16,6 @@
 <listEntry value="jacocoTestReport"/>
 <listEntry value="run"/>
 </listAttribute>
+<booleanAttribute key="use_gradle_distribution_from_import" value="false"/>
 <stringAttribute key="working_dir" value="${workspace_loc:/propozitii-nostime}"/>
 </launchConfiguration>

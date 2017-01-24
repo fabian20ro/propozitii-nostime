@@ -2,7 +2,6 @@ package scrabble.phrases.words;
 
 import java.util.HashMap;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class WordUtil.
  */

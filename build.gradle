@@ -26,6 +26,8 @@ repositories {
 // In this section you declare the dependencies for your production and test code
 dependencies {
     compile 'org.slf4j:slf4j-api:1.7.21'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.7'
+    compile ratpack.dependency("handlebars")
     testCompile 'junit:junit:4.12'
 }
 
