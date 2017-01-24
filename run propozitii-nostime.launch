@@ -14,7 +14,7 @@
 <booleanAttribute key="show_execution_view" value="true"/>
 <listAttribute key="tasks">
 <listEntry value="jacocoTestReport"/>
-<listEntry value="run"/>
+<listEntry value="installApp"/>
 </listAttribute>
 <booleanAttribute key="use_gradle_distribution_from_import" value="false"/>
 <stringAttribute key="working_dir" value="${workspace_loc:/propozitii-nostime}"/>
