@@ -10,7 +10,10 @@ public class WordUtils {
 	/** The fixes. */
 	static HashMap<String, String> fixes = new HashMap<>();
 
-	/** Diftongi si triftongi. Nu am o idee mai buna. Neologisme nu merg (vezi testele). */
+	/**
+	 * Diftongi si triftongi. Nu am o idee mai buna. Neologisme nu merg (vezi
+	 * testele).
+	 */
 	private static String[] tongs = new String[] { "iai", "eau", "iau", "oai", "ioa", "ia", "oa", "ea", "ua", "âu",
 			"ou", "ei", "ai", "oi", "ie", "ui" };
 
@@ -33,54 +36,16 @@ public class WordUtils {
 	}
 
 	/**
-	 * Capitalize first leter.
+	 * Capitalize first letter. This should work for UTF-8 special chars also
+	 * unlike the ASCII code test.
 	 *
 	 * @param sentence
 	 *            the sentence
 	 * @return the string
 	 */
 	public static String capitalizeFirstLeter(String sentence) {
-		char firstChar = sentence.charAt(0);
-		if (firstChar >= 'a' && firstChar <= 'z') {
-			sentence = ("" + (char) (firstChar - 32)) + sentence.substring(1);
-		}
-		return sentence;
+		return sentence.substring(0, 1).toUpperCase() + sentence.substring(1);
 	}
-
-	// /**
-	// * Compute syllable number. Failed first try for some reason...
-	// *
-	// * @param word
-	// * the name
-	// * @return the int
-	// */
-	// public static int computeSyllableNumber(String word) {
-	// int result = 0;
-	// int length = word.length();
-	// boolean[] context = new boolean[length];
-	// for (int i = 0; i < length; i++) {
-	// context[i] = isVowel(word.charAt(i));
-	// }
-	// int currentChar = 0;
-	// while (currentChar < length) {
-	// if (context[currentChar]) {
-	// result++;
-	// if (currentChar + 1 < length && context[currentChar + 1]) {
-	// //next is also a vowel. we also include it
-	// if (currentChar >= 1 && currentChar + 2 < length && !context[currentChar
-	// - 1] && !context[currentChar + 2]) {
-	// //these two vowels are surrounded by consonants so it's actually two
-	// syllables, not one
-	// result++;
-	// currentChar++;
-	// }
-	// currentChar++;
-	// }
-	// }
-	// currentChar++;
-	// }
-	// return result;
-	// }
 
 	/**
 	 * Compute syllable number.
@@ -93,7 +58,7 @@ public class WordUtils {
 		int result = 0;
 		char[] chars = word.toCharArray();
 		replaceTongsWithChar(chars);
-		for (int i =0; i < chars.length; i++) {
+		for (int i = 0; i < chars.length; i++) {
 			if (isVowel(chars[i])) {
 				result++;
 			}
