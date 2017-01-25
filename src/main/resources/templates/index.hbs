@@ -4,25 +4,39 @@
 		
 		<title>Propozitii nostime</title>
 		
-		<link href="css/href.css" rel="stylesheet" />
 		<link href="css/ingrid.css" rel="stylesheet" />
 		<link href="css/demo-styles.css" rel="stylesheet" />
-  		<meta name="viewport" content="width=device-width">
+  		<link href="css/href.css" rel="stylesheet" />
+		
+		<meta name="viewport" content="width=device-width">
   
 	</head>
 	<body>
+	<div class="wrapper">
 	<div class="grid grid--divide-2">
 		<h2 class="grid_unit">Haiku</h2>
 		<h2 class="grid_unit">Propozitie</h2>
-		<div class="grid_unit">{{{test1}}}</div>
-		<div class="grid_unit">{{{test2}}}</div>
-		<div class="grid_unit">&nbsp</div>
+		<hr/>
+		<div class="grid_unit">{{{haiku}}}</div>
+		<div class="grid_unit">{{{fiveWord}}}</div>
 		<div class="grid_unit">
-<form>
-<input type="button" onClick="location.href = '/reset';" value="Reset rhyme">
-<input type="button" onClick="history.go(0)" value="Get new phrases">
-</form>
+			<form>
+				<input type="button" onClick="location.href = '/reset';" value="Reset rhyme">
+			</form>
 		</div>
-	<div>
+		<div class="grid_unit">
+			<form>
+				<input type="button" onClick="history.go(0)" value="Get new phrases">
+			</form>
+		</div>
+	</div>
+	</div>
+	
+	<footer>
+		<p>Code is available on <a href="https://github.com/fabian20ro/propozitii-nostime/">github</a>.</p>
+		<p>Built with <a href="https://travis-ci.org/fabian20ro/propozitii-nostime">TravisCI <img src="https://travis-ci.org/fabian20ro/propozitii-nostime.svg?branch=master" /></a></p>
+		<p>Jacoco code coverage is located at <a href="jacoco/">report</a>.</p>
+		<p>Page generated at: {{now}}</p>
+	</footer>
 	</body>
 </html>

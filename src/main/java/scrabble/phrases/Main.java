@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -80,9 +81,10 @@ public class Main {
 		staticFileLocation("/public");
 		get("/", "text/html", (request, response) -> {
 			Map<String, Object> model = new HashMap<>();
-			model.put("test1", new HtmlVerseBreaker(new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(haiku)))
+			model.put("haiku", new HtmlVerseBreaker(new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(haiku)))
 					.getSentence());
-			model.put("test2", new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(fiveWord)).getSentence());
+			model.put("fiveWord", new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(fiveWord)).getSentence());
+			model.put("now", new Date().toString());
 			return new ModelAndView(model, "index.hbs"); // located in
 															// resources/templates
 		}, new HandlebarsTemplateEngine());

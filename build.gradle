@@ -58,6 +58,7 @@ processResources {
 	ant.unzip(src: "scrabble.zip", dest: "src/main/resources/")
 	ant.delete(file: "scrabble.zip")
 	ant.move(file: "src/main/resources/loc-baza-5.0.txt", tofile: "src/main/resources/words.txt")
+	ant.mkdir(dir: "src/main/resources/public/jacoco")
 }
 
 jacocoTestReport {
@@ -65,7 +66,9 @@ jacocoTestReport {
         xml.enabled false
         csv.enabled false
         html.enabled true
+        html.destination "src/main/resources/public/jacoco"
     }
+    
 }
 
 
