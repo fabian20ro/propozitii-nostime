@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/fabian20ro/propozitii-nostime.svg?branch=master)](https://travis-ci.org/fabian20ro/propozitii-nostime)
+[![Build Status](https://travis-ci.org/fabian20ro/propozitii-nostime.svg?branch=master)](https://travis-ci.org/fabian20ro/propozitii-nostime) and [Heroku Instance](http://propozitii-nostime.herokuapp.com/)
 
 # propozitii-nostime
 
