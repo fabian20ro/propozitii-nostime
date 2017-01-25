@@ -40,7 +40,7 @@ public class WordUtilsTest {
 	public void testCapitalization() {
 		assertEquals("Aloha", WordUtils.capitalizeFirstLeter("aloha"));
 		assertEquals("Aloha", WordUtils.capitalizeFirstLeter("Aloha"));
-		assertEquals("țâgâlirea", WordUtils.capitalizeFirstLeter("țâgâlirea"));
+		assertEquals("Înăbușeala", WordUtils.capitalizeFirstLeter("înăbușeala"));
 	}
 
 	/**
