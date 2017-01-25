@@ -202,7 +202,7 @@ public class WordDictionary {
 			addNoun(new Noun(word, NounGender.NEUTRAL));
 		} else if (type.equals("MF")) {
 			addNoun(new Noun(word, NounGender.MASCULINE));
-			addNoun(new Noun(word, NounGender.FEMININE));
+//			addNoun(new Noun(word, NounGender.FEMININE));
 		} else if (type.equals("A")) {
 			addAdjective(new Adjective(word));
 		} else if (type.equals("VT") || type.equals("V")) {
