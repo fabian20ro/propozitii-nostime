@@ -1,6 +1,11 @@
 package scrabble.phrases;
 
-import static spark.Spark.*;
+import static spark.Spark.awaitInitialization;
+import static spark.Spark.before;
+import static spark.Spark.get;
+import static spark.Spark.port;
+import static spark.Spark.redirect;
+import static spark.Spark.staticFileLocation;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,9 +18,12 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.gson.Gson;
+
 import scrabble.phrases.decorators.DexonlineLinkAdder;
 import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer;
 import scrabble.phrases.decorators.HtmlVerseBreaker;
+import scrabble.phrases.dictionary.WordDictionary;
 import scrabble.phrases.providers.FiveWordSentenceProvider;
 import scrabble.phrases.providers.HaikuProvider;
 import spark.ModelAndView;
@@ -63,7 +71,7 @@ public class Main {
 
 		Main main = new Main();
 		main.init();
-		main.work(args);
+		// main.work(args);
 		main.startServer();
 	}
 
@@ -78,7 +86,13 @@ public class Main {
 			return new ModelAndView(model, "index.hbs"); // located in
 															// resources/templates
 		}, new HandlebarsTemplateEngine());
-		after("/reset", (request, response) -> {
+
+		Gson gson = new Gson();
+		get("/", "application/json", (request, response) -> new JsonModel(haiku.getSentence(), fiveWord.getSentence()),
+				gson::toJson);
+
+		redirect.get("/reset", "/");
+		before("/reset", (request, response) -> {
 			if (!initializing) {
 				synchronized (Main.this) {
 					if (!initializing) {
@@ -93,8 +107,8 @@ public class Main {
 				}
 			}
 		});
-		redirect.get("/reset", "/");
 
+		awaitInitialization();
 	}
 
 	// needed for heroku

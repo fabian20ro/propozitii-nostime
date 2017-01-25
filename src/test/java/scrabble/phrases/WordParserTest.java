@@ -9,6 +9,7 @@ import java.io.IOException;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import scrabble.phrases.dictionary.WordDictionary;
 import scrabble.phrases.filters.IWordFilter;
 
 /**

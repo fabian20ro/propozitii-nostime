@@ -1,4 +1,4 @@
-package scrabble.phrases;
+package scrabble.phrases.dictionary;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -1,6 +1,6 @@
 package scrabble.phrases.providers;
 
-import scrabble.phrases.WordDictionary;
+import scrabble.phrases.dictionary.WordDictionary;
 
 public class FiveWordSentenceProvider extends SentenceProvider {
 

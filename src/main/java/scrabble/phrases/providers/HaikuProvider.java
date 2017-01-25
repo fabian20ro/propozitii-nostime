@@ -1,6 +1,6 @@
 package scrabble.phrases.providers;
 
-import scrabble.phrases.WordDictionary;
+import scrabble.phrases.dictionary.WordDictionary;
 import scrabble.phrases.filters.IWordFilter;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;

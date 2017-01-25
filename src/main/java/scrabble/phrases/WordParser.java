@@ -3,6 +3,8 @@ package scrabble.phrases;
 import java.io.BufferedReader;
 import java.io.IOException;
 
+import scrabble.phrases.dictionary.WordDictionary;
+
 /**
  * The Class WordParser.
  */

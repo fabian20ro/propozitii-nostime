@@ -1,4 +1,4 @@
-package scrabble.phrases;
+package scrabble.phrases.dictionary;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 
 import org.junit.Test;
 
+import scrabble.phrases.Main;
+import scrabble.phrases.dictionary.WordDictionary;
 import scrabble.phrases.filters.IWordFilter;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
