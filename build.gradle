@@ -79,4 +79,4 @@ applicationName = 'propozitii-nostime'
 mainClassName = 'scrabble.phrases.Main'
 
 defaultTasks = ['clean']
-task stage(dependsOn: ['clean', 'installDist'])
+task stage(dependsOn: ['clean', 'jacocoTestReport', 'installDist'])
