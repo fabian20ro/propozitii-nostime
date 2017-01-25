@@ -1,5 +1,7 @@
 package scrabble.phrases;
 
+import static spark.Spark.*;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,7 +19,6 @@ import scrabble.phrases.decorators.HtmlVerseBreaker;
 import scrabble.phrases.providers.FiveWordSentenceProvider;
 import scrabble.phrases.providers.HaikuProvider;
 import spark.ModelAndView;
-import spark.Spark;
 import spark.template.handlebars.HandlebarsTemplateEngine;
 
 /**
@@ -31,14 +32,21 @@ public class Main {
 	/** The dictionary. */
 	private WordDictionary dictionary;
 
+	private volatile boolean initializing = false;
 	private HaikuProvider haiku;
 	private FiveWordSentenceProvider fiveWord;
 
 	public void init() throws IOException {
 		dictionary = getPopulatedDictionaryFromIncludedFile();
 
-		haiku = new HaikuProvider(new WordDictionary(dictionary));
-		fiveWord = new FiveWordSentenceProvider(new WordDictionary(dictionary));
+		initProviders();
+	}
+
+	private void initProviders() {
+		HaikuProvider nextHaiku = new HaikuProvider(new WordDictionary(dictionary));
+		FiveWordSentenceProvider nextFiveWord = new FiveWordSentenceProvider(new WordDictionary(dictionary));
+		haiku = nextHaiku;
+		fiveWord = nextFiveWord;
 	}
 
 	/**
@@ -55,30 +63,50 @@ public class Main {
 
 		Main main = new Main();
 		main.init();
+		main.work(args);
 		main.startServer();
 	}
 
 	private void startServer() throws Exception {
-		Spark.port(getHerokuAssignedPort());
-		Spark.staticFileLocation("/public");
-		Spark.get("/", "text/html", (request, response) -> {
-            Map<String, Object> model = new HashMap<>();
-            model.put("test1", new HtmlVerseBreaker(new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(haiku))).getSentence());
-            model.put("test2", new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(fiveWord)).getSentence());
-            return new ModelAndView(model, "index.hbs"); // located in resources/templates
-        }, new HandlebarsTemplateEngine());
-		
+		port(getHerokuAssignedPort());
+		staticFileLocation("/public");
+		get("/", "text/html", (request, response) -> {
+			Map<String, Object> model = new HashMap<>();
+			model.put("test1", new HtmlVerseBreaker(new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(haiku)))
+					.getSentence());
+			model.put("test2", new DexonlineLinkAdder(new FirstSentenceLetterCapitalizer(fiveWord)).getSentence());
+			return new ModelAndView(model, "index.hbs"); // located in
+															// resources/templates
+		}, new HandlebarsTemplateEngine());
+		after("/reset", (request, response) -> {
+			if (!initializing) {
+				synchronized (Main.this) {
+					if (!initializing) {
+						initializing = true;
+						new Thread(() -> {
+							synchronized (Main.this) {
+								initProviders();
+								initializing = false;
+							}
+						}).start();
+					}
+				}
+			}
+		});
+		redirect.get("/reset", "/");
+
 	}
 
-	//needed for heroku
+	// needed for heroku
 	static int getHerokuAssignedPort() {
-        ProcessBuilder processBuilder = new ProcessBuilder();
-        if (processBuilder.environment().get("PORT") != null) {
-            return Integer.parseInt(processBuilder.environment().get("PORT"));
-        }
-        return 5050; //return default port if heroku-port isn't set (i.e. on localhost)
-    }
-	
+		ProcessBuilder processBuilder = new ProcessBuilder();
+		if (processBuilder.environment().get("PORT") != null) {
+			return Integer.parseInt(processBuilder.environment().get("PORT"));
+		}
+		return 5050; // return default port if heroku-port isn't set (i.e. on
+						// localhost)
+	}
+
 	/**
 	 * Work.
 	 *

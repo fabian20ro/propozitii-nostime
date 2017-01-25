@@ -20,7 +20,7 @@ public class WordDictionary {
 
 	/** The Constant SEED. */
 	// private static final long SEED = 0;
-	private static final long SEED = System.currentTimeMillis();
+	private final long randomSeed = System.nanoTime();
 
 	/** The nouns. */
 	List<Noun> acceptedNouns = new ArrayList<>();
@@ -44,7 +44,7 @@ public class WordDictionary {
 	List<String> unknowns = new ArrayList<>();
 
 	/** The random. */
-	private Random random = new Random(SEED);
+	private Random random = new Random(randomSeed);
 
 	/** The filters. */
 	private List<IWordFilter> filters = new ArrayList<>();
