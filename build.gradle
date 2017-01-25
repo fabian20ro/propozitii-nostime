@@ -78,5 +78,10 @@ version = '1.0'
 applicationName = 'propozitii-nostime'
 mainClassName = 'scrabble.phrases.Main'
 
-//defaultTasks = ['clean']
-task stage(dependsOn: ['clean', 'build', 'jacocoTestReport', 'installDist'])
+defaultTasks = ['clean']
+task stage { 
+	dependsOn 'clean', 'build', 'test', 'jacocoTestReport', 'installDist'
+}
+jacocoTestReport.mustRunAfter test
+test.mustRunAfter build
+build.mustrunAfter clean
