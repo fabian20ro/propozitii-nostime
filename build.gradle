@@ -45,6 +45,7 @@ jacoco {
 }
 
 jar {
+  dependsOn 'jacocoTestReport'
   manifest {
     attributes(
       'Main-Class': 'scrabble.phrases.Main'
