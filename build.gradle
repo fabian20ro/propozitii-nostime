@@ -80,8 +80,5 @@ mainClassName = 'scrabble.phrases.Main'
 
 defaultTasks = ['clean']
 task stage { 
-	dependsOn 'clean', 'build', 'test', 'jacocoTestReport', 'installDist'
+	dependsOn 'clean', 'build', 'jacocoTestReport', 'installDist'
 }
-jacocoTestReport.mustRunAfter test
-test.mustRunAfter build
-build.mustrunAfter clean
