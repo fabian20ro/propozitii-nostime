@@ -13,7 +13,7 @@ dl, dt, dd, ol, ul, li,
 fieldset, form, label, legend,
 table, caption, tbody, tfoot, thead, tr, th, td,
 article, aside, canvas, details, embed, 
-figure, figcaption, header, hgroup, 
+figure, figcaption, footer, header, hgroup, 
 menu, nav, output, ruby, section, summary,
 time, mark, audio, video {
   margin: 0;
@@ -25,7 +25,7 @@ time, mark, audio, video {
 }
 /* HTML5 display-role reset for older browsers */
 article, aside, details, figcaption, figure, 
-header, hgroup, menu, nav, section {
+footer, header, hgroup, menu, nav, section {
   display: block;
 }
 body {
@@ -158,6 +158,14 @@ h6 {
   margin: 0 auto;
   width: 93%;
   max-width: 1000px;
+}
+
+#footer {
+  margin-top: 2.2em;
+  padding-top: 1em;
+  border-top: 1px dashed rgba(0,0,0,.2);
+  clear: both;
+  text-align: center;
 }
 
 #masthead h1 {
