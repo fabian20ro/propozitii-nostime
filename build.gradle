@@ -63,6 +63,7 @@ processResources {
 }
 
 jacocoTestReport {
+	dependsOn 'test'
     reports {
         xml.enabled false
         csv.enabled false
@@ -81,5 +82,5 @@ mainClassName = 'scrabble.phrases.Main'
 
 defaultTasks = ['clean']
 task stage { 
-	dependsOn 'clean', 'installDist'
+	dependsOn 'clean', 'jacocoTestReport', 'installDist'
 }
