@@ -10,7 +10,7 @@ cache:
   - "$HOME/.gradle/caches/"
   - "$HOME/.gradle/wrapper/"
 before_script:
-- npm install -g elm elm-http
+- npm install elm
 install: echo "skip 'gradle assemble' step"
 script:
 - chmod a+x gradlew 
