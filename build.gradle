@@ -4,6 +4,10 @@ buildscript {
   }
 }
 
+plugins {
+  id "org.mohme.gradle.elm-plugin" version "0.1.3"
+}
+
 // Apply the java plugin to add support for Java
 apply plugin: 'java'
 apply plugin: 'eclipse'
@@ -46,12 +50,15 @@ jacoco {
 
 jar {
   dependsOn 'jacocoTestReport'
+  dependsOn 'elmMake'
   manifest {
     attributes(
       'Main-Class': 'scrabble.phrases.Main'
     )
   }
-  exclude('.empty') 
+  doFirst {
+  	ant.exec(executable: './gradlew.bat build')
+  }
 }
 
 processResources {
