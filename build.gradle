@@ -6,6 +6,9 @@ buildscript {
 
 plugins {
 	id 'org.mohme.gradle.elm-plugin' version '0.1.3'
+	
+	//this plugin minifies js. see https://github.com/eriwen/gradle-js-plugin
+	id 'com.eriwen.gradle.js' version '2.14.1'
 }
 
 // Apply the java plugin to add support for Java
@@ -41,11 +44,11 @@ tasks.withType(JavaCompile) {
 }
 
 test {
-    systemProperty "file.encoding", "utf-8"
+    systemProperty 'file.encoding', 'utf-8'
 }
 
 jacoco {
-	toolVersion = "0.7.8"
+	toolVersion = '0.7.8'
 }
 
 jar {
@@ -55,17 +58,19 @@ jar {
       'Main-Class': 'scrabble.phrases.Main'
     )
   }
-//  doFirst {
-//  	ant.exec(executable: './gradlew.bat build')
-//  }
+  doFirst {
+    ant.delete(dir: 'elm-stuff', failOnError: 'false')
+  	ant.mkdir(dir: 'src/main/resources/public/js/')
+ 	ant.copy(file: 'build/elm/elm.js', todir: 'src/main/resources/public/js/', failOnError: 'false')
+  }
 }
 
 processResources {
-	ant.get(src: "https://dexonline.ro/static/download/scrabble/loc-baza-5.0.zip", dest: "scrabble.zip")
-	ant.unzip(src: "scrabble.zip", dest: "src/main/resources/")
-	ant.delete(file: "scrabble.zip")
-	ant.move(file: "src/main/resources/loc-baza-5.0.txt", tofile: "src/main/resources/words.txt")
-	ant.mkdir(dir: "src/main/resources/public/jacoco")
+	ant.get(src: 'https://dexonline.ro/static/download/scrabble/loc-baza-5.0.zip', dest: 'scrabble.zip')
+	ant.unzip(src: 'scrabble.zip', dest: 'src/main/resources/')
+	ant.delete(file: 'scrabble.zip')
+	ant.move(file: 'src/main/resources/loc-baza-5.0.txt', tofile: 'src/main/resources/words.txt')
+	ant.mkdir(dir: 'src/main/resources/public/jacoco')
 }
 
 jacocoTestReport {
@@ -74,7 +79,7 @@ jacocoTestReport {
         xml.enabled false
         csv.enabled false
         html.enabled true
-        html.destination "src/main/resources/public/jacoco"
+        html.destination 'src/main/resources/public/jacoco'
     }
     
 }
@@ -88,5 +93,5 @@ mainClassName = 'scrabble.phrases.Main'
 
 defaultTasks = ['clean']
 task stage { 
-	dependsOn 'clean', 'installDist'
+	dependsOn 'clean', 'jar', 'installDist'
 }

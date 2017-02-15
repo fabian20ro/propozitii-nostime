@@ -15,6 +15,7 @@ hs_err_pid*
 /build/
 /src/main/resources/words.txt
 /src/main/resources/public/jacoco/
+/src/main/resources/public/js/
 
 /elm-stuff/
 elm-package.json
