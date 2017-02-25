@@ -51,22 +51,26 @@ jacoco {
 	toolVersion = '0.7.8'
 }
 
-jar {
+task prepareJar(type: Copy) {
   dependsOn 'jacocoTestReport', 'elmMake'
+
+  inputs.file 'build/elm/elm.js'
+  outputs.dir 'src/main/resources/public/js/'
+	
+  ant.delete(dir: 'elm-stuff', failOnError: 'false')
+  ant.mkdir(dir: 'src/main/resources/public/js/')
+  copy {
+  	from 'build/elm/elm.js'
+  	into 'src/main/resources/public/js/'
+  }
+}
+
+jar {
+  dependsOn 'prepareJar'
   manifest {
     attributes(
       'Main-Class': 'scrabble.phrases.Main'
     )
-  }
-  inputs.file 'build/elm/elm.js'
-  outputs.dir 'src/main/resources/public/js/'
-  doFirst {
-    ant.delete(dir: 'elm-stuff', failOnError: 'false')
-  	ant.mkdir(dir: 'src/main/resources/public/js/')
-  	copy {
-  		from 'build/elm/elm.js'
-  		into 'src/main/resources/public/js/'
-  	}
   }
 }
 
