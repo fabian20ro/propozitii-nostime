@@ -93,7 +93,5 @@ mainClassName = 'scrabble.phrases.Main'
 
 defaultTasks = ['clean']
 task stage { 
-	dependsOn 'clean', 'elmMake', 'build', 'test', 'jacocoTestReport', 'jar', 'installDist'
+	dependsOn 'clean', 'jar', 'installDist'
 }
-elmMake.mustRunAfter 'clean'
-jar.mustRunAfter 'jacocoTestReport'
