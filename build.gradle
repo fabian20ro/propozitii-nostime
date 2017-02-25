@@ -95,3 +95,8 @@ defaultTasks = ['clean']
 task stage { 
 	dependsOn 'clean', 'elmMake', 'build', 'jacocoTestReport', 'jar', 'installDist'
 }
+elmMake.mustRunAfter 'clean'
+build.mustRunAfter 'elmMake'
+jacocoTestReport.mustRunAfter 'build'
+jar.mustRunAfter 'jacocoTestReport'
+installDist.mustRunAfter 'jar'
