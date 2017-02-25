@@ -93,5 +93,5 @@ mainClassName = 'scrabble.phrases.Main'
 
 defaultTasks = ['clean']
 task stage { 
-	dependsOn 'clean', 'jar', 'installDist'
+	dependsOn 'clean', 'elmMake', 'build', 'jacocoTestReport', 'jar', 'installDist'
 }
