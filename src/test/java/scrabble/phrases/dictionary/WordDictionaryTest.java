@@ -21,7 +21,6 @@ import scrabble.phrases.words.Noun;
 import scrabble.phrases.words.NounGender;
 import scrabble.phrases.words.Word;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class WordDictionaryTest.
  */
