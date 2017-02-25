@@ -1,20 +1,21 @@
 {
-"name": "propozitii-nostime",
-"version": "0.2.5",
-"description": "Node.js package file",
-"engines": {
-"node": "7.6.0"
-},
-"dependencies": {
-"elm": "0.18.0"
-},
-"repository": {
-"type": "git",
-"url": "https://github.com/fabian20ro/propozitii-nostime"
-},
-"keywords": [
-"node",
-"heroku"
-],
-"license": "GPL-3.0"
+	"name": "propozitii-nostime",
+	"version": "0.2.5",
+	"description": "Node.js package file",
+	"engines": {
+		"node": "7.6.0",
+		"npm": "4.1.2"
+	},
+	"dependencies": {
+		"elm": "0.18.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/fabian20ro/propozitii-nostime"
+	},
+	"keywords": [
+		"node",
+		"heroku"
+	],
+	"license": "GPL-3.0"
 }
