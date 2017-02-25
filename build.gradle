@@ -58,10 +58,15 @@ jar {
       'Main-Class': 'scrabble.phrases.Main'
     )
   }
+  inputs.file 'build/elm/elm.js'
+  outputs.dir 'src/main/resources/public/js/'
   doFirst {
     ant.delete(dir: 'elm-stuff', failOnError: 'false')
   	ant.mkdir(dir: 'src/main/resources/public/js/')
- 	ant.copy(file: 'build/elm/elm.js', todir: 'src/main/resources/public/js/', failOnError: 'false')
+  	copy {
+  		from 'build/elm/elm.js'
+  		into 'src/main/resources/public/js/'
+  	}
   }
 }
 
