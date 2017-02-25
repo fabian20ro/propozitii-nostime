@@ -51,8 +51,7 @@ jacoco {
 	toolVersion = '0.7.8'
 }
 
-task prepareJar(type: Copy) {
-  dependsOn 'jacocoTestReport', 'elmMake'
+task prepareJar(type: Copy, dependsOn: ['jacocoTestReport', 'elmMake']) << {
 
   inputs.file 'build/elm/elm.js'
   outputs.dir 'src/main/resources/public/js/'
