@@ -96,7 +96,8 @@ version = '1.0'
 applicationName = 'propozitii-nostime'
 mainClassName = 'scrabble.phrases.Main'
 
-defaultTasks = ['clean']
+defaultTasks = ['clean', 'jar']
 task stage { 
 	dependsOn 'clean', 'jar', 'installDist'
 }
+jar.mustRunAfter 'clean'
