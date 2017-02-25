@@ -97,4 +97,3 @@ task stage {
 }
 elmMake.mustRunAfter 'clean'
 jar.mustRunAfter 'jacocoTestReport'
-installDist.mustRunAfter 'jar'
