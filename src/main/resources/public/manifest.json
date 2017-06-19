@@ -3,7 +3,14 @@
   "name": "Propozitii Nostime",
   "start_url": "index.html",
   "background_color": "#2196F3",
-  "display": "browser",
+  "display": "standalone",
   "orientation": "landscape",
-  "theme_color": "#2196F3"
+  "theme_color": "#2196F3",
+  "icons":[
+    {
+      "src": "img/icon_48.png",
+      "type": "image/png",
+      "sizes": "48x48"
+    }
+  ]
 }
