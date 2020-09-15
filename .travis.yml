@@ -1,6 +1,6 @@
 language: java
 jdk:
-- oraclejdk8
+- openjdk8
 
 
 before_cache:
@@ -12,13 +12,14 @@ cache:
   - "$HOME/.gradle/wrapper/"
 
 before_script:
-- nvm install 0.12
-- nvm use 0.12
+- nvm install 0.35.3
+- nvm use 0.35.3
 - npm install elm
 - which elm
 install: echo "skip default 'gradle assemble' step"
 script:
-- chmod a+x gradlew 
+- chmod a+x gradlew
+- ./gradlew wrapper --gradle-version=6.6.1 --distribution-type=bin
 - ./gradlew build --info
 
 notifications:
