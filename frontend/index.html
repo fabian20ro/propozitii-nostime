@@ -8,10 +8,15 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="48x48" href="img/icon_48.png">
     <link rel="apple-touch-icon" sizes="192x192" href="img/icon_192.png">
-    <meta name="theme-color" content="#fa2400">
+    <meta name="theme-color" content="#5a8a7a">
     <meta name="description" content="Generator de propozitii hazoase in limba romana">
 </head>
 <body>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
+        <span class="icon-sun">&#9728;</span>
+        <span class="icon-moon">&#9790;</span>
+    </button>
+
     <main class="container">
         <header>
             <h1>Propozitii Nostime</h1>
@@ -27,8 +32,36 @@
             </section>
 
             <section class="card">
-                <h2>Propozitie</h2>
-                <div class="sentence" id="fiveword-text">
+                <h2>Cuplet</h2>
+                <div class="sentence" id="couplet-text">
+                    <span class="loading">Se incarca...</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Comparatie</h2>
+                <div class="sentence" id="comparison-text">
+                    <span class="loading">Se incarca...</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Definitie</h2>
+                <div class="sentence" id="definition-text">
+                    <span class="loading">Se incarca...</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Tautograma</h2>
+                <div class="sentence" id="tautogram-text">
+                    <span class="loading">Se incarca...</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Oglinda</h2>
+                <div class="sentence" id="mirror-text">
                     <span class="loading">Se incarca...</span>
                 </div>
             </section>
@@ -43,7 +76,7 @@
             </button>
         </div>
 
-        <div id="error-message" class="error hidden"></div>
+        <div id="error-message" class="message hidden"></div>
     </main>
 
     <footer>

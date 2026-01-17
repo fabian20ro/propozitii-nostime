@@ -22,10 +22,42 @@ class ProvidersTest {
     }
 
     @Test
-    void shouldGenerateFiveWordSentence() throws IOException {
-        FiveWordSentenceProvider provider = new FiveWordSentenceProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+    void shouldGenerateCouplet() throws IOException {
+        CoupletProvider provider = new CoupletProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
         String sentence = provider.getSentence();
         assertNotNull(sentence);
-        System.out.println("Generated five-word sentence: " + sentence);
+        System.out.println("Generated couplet: " + sentence);
+    }
+
+    @Test
+    void shouldGenerateComparison() throws IOException {
+        ComparisonProvider provider = new ComparisonProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+        String sentence = provider.getSentence();
+        assertNotNull(sentence);
+        System.out.println("Generated comparison: " + sentence);
+    }
+
+    @Test
+    void shouldGenerateDefinition() throws IOException {
+        DefinitionProvider provider = new DefinitionProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+        String sentence = provider.getSentence();
+        assertNotNull(sentence);
+        System.out.println("Generated definition: " + sentence);
+    }
+
+    @Test
+    void shouldGenerateTautogram() throws IOException {
+        TautogramProvider provider = new TautogramProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+        String sentence = provider.getSentence();
+        assertNotNull(sentence);
+        System.out.println("Generated tautogram: " + sentence);
+    }
+
+    @Test
+    void shouldGenerateMirror() throws IOException {
+        MirrorProvider provider = new MirrorProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+        String sentence = provider.getSentence();
+        assertNotNull(sentence);
+        System.out.println("Generated mirror: " + sentence);
     }
 }

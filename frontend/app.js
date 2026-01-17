@@ -1,3 +1,32 @@
+// Theme handling
+const themeToggle = document.getElementById('theme-toggle');
+const THEME_KEY = 'theme';
+
+function initTheme() {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    if (newTheme === 'light') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', newTheme);
+    }
+    localStorage.setItem(THEME_KEY, newTheme);
+}
+
+// Initialize theme immediately
+initTheme();
+themeToggle.addEventListener('click', toggleTheme);
+
 // API configuration
 const API_BASE = 'https://propozitii-nostime.onrender.com/api';
 const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
@@ -5,9 +34,17 @@ const HEALTH_TIMEOUT = 5000; // 5 seconds
 const MAX_RETRIES = 12; // ~60 seconds total wait time
 const RETRY_DELAY = 5000; // 5 seconds between retries
 
+// Endpoint configuration
+const ENDPOINTS = [
+    { id: 'haiku-text', endpoint: 'haiku' },
+    { id: 'couplet-text', endpoint: 'couplet' },
+    { id: 'comparison-text', endpoint: 'comparison' },
+    { id: 'definition-text', endpoint: 'definition' },
+    { id: 'tautogram-text', endpoint: 'tautogram' },
+    { id: 'mirror-text', endpoint: 'mirror' }
+];
+
 // DOM elements
-const haikuText = document.getElementById('haiku-text');
-const fivewordText = document.getElementById('fiveword-text');
 const refreshBtn = document.getElementById('refresh');
 const resetBtn = document.getElementById('reset');
 const errorMessage = document.getElementById('error-message');
@@ -47,8 +84,15 @@ async function waitForBackend() {
 
         const secondsWaited = (i + 1) * (RETRY_DELAY / 1000);
         const message = `Backend-ul porneste... (${secondsWaited}s)`;
-        haikuText.innerHTML = `<span class="loading">${message}</span>`;
-        fivewordText.innerHTML = '<span class="loading">Render Free Tier - cold start</span>';
+
+        ENDPOINTS.forEach((e, idx) => {
+            const el = document.getElementById(e.id);
+            if (idx === 0) {
+                el.innerHTML = `<span class="loading">${message}</span>`;
+            } else {
+                el.innerHTML = '<span class="loading">Render Free Tier - cold start</span>';
+            }
+        });
 
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
     }
@@ -57,7 +101,7 @@ async function waitForBackend() {
 
 /**
  * Fetch a sentence from the API
- * @param {string} endpoint - The API endpoint (haiku or five-word)
+ * @param {string} endpoint - The API endpoint
  * @returns {Promise<string>} The sentence HTML
  */
 async function fetchSentence(endpoint) {
@@ -73,8 +117,9 @@ async function fetchSentence(endpoint) {
  * Show loading state
  */
 function showLoading() {
-    haikuText.innerHTML = '<span class="loading">Se incarca...</span>';
-    fivewordText.innerHTML = '<span class="loading">Se incarca...</span>';
+    ENDPOINTS.forEach(e => {
+        document.getElementById(e.id).innerHTML = '<span class="loading">Se incarca...</span>';
+    });
 }
 
 /**
@@ -83,9 +128,8 @@ function showLoading() {
  */
 function showInfo(message) {
     errorMessage.textContent = message;
-    errorMessage.classList.remove('hidden');
-    errorMessage.style.background = '#e8f4fd';
-    errorMessage.style.color = '#0066cc';
+    errorMessage.classList.remove('hidden', 'error');
+    errorMessage.classList.add('info');
 }
 
 /**
@@ -94,9 +138,8 @@ function showInfo(message) {
  */
 function showError(message) {
     errorMessage.textContent = message;
-    errorMessage.classList.remove('hidden');
-    errorMessage.style.background = '#fee';
-    errorMessage.style.color = '#c00';
+    errorMessage.classList.remove('hidden', 'info');
+    errorMessage.classList.add('error');
     setTimeout(() => errorMessage.classList.add('hidden'), 5000);
 }
 
@@ -117,7 +160,7 @@ function setButtonsDisabled(disabled) {
 }
 
 /**
- * Refresh both sentences
+ * Refresh all sentences
  */
 async function refresh() {
     hideMessage();
@@ -135,25 +178,27 @@ async function refresh() {
 
             if (!ready) {
                 showError('Backend-ul nu a pornit. Incercati din nou mai tarziu.');
-                haikuText.innerHTML = '<span class="loading">Timeout</span>';
-                fivewordText.innerHTML = '<span class="loading">Timeout</span>';
+                ENDPOINTS.forEach(e => {
+                    document.getElementById(e.id).innerHTML = '<span class="loading">Timeout</span>';
+                });
                 setButtonsDisabled(false);
                 return;
             }
         }
 
-        const [haiku, fiveword] = await Promise.all([
-            fetchSentence('haiku'),
-            fetchSentence('five-word')
-        ]);
+        const results = await Promise.all(
+            ENDPOINTS.map(e => fetchSentence(e.endpoint))
+        );
 
-        haikuText.innerHTML = haiku;
-        fivewordText.innerHTML = fiveword;
+        ENDPOINTS.forEach((e, i) => {
+            document.getElementById(e.id).innerHTML = results[i];
+        });
     } catch (error) {
         console.error('Error fetching sentences:', error);
         showError('Eroare la incarcarea propozitiilor. Incercati din nou.');
-        haikuText.innerHTML = '<span class="loading">Eroare</span>';
-        fivewordText.innerHTML = '<span class="loading">Eroare</span>';
+        ENDPOINTS.forEach(e => {
+            document.getElementById(e.id).innerHTML = '<span class="loading">Eroare</span>';
+        });
     } finally {
         setButtonsDisabled(false);
     }
