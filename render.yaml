@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: propozitii-nostime
+    runtime: docker
+    plan: free
+    healthCheckPath: /q/health
+    envVars:
+      - key: PORT
+        value: 8080

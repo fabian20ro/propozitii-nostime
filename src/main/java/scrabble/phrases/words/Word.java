@@ -1,68 +1,28 @@
 package scrabble.phrases.words;
 
 /**
- * The Class Word.
+ * Sealed interface for all word types in the dictionary.
  */
-public class Word {
+public sealed interface Word permits Noun, Adjective, Verb {
 
-	/** The name. */
-	private String name;
+    /**
+     * Gets the word text.
+     *
+     * @return the word
+     */
+    String word();
 
-	/** The length. */
-	private int length;
+    /**
+     * Gets the number of syllables.
+     *
+     * @return syllable count
+     */
+    int syllables();
 
-	/** The syllables. */
-	private int syllables;
-
-	/** The rhyme. */
-	private String rhyme;
-
-	/**
-	 * Instantiates a new word.
-	 *
-	 * @param name
-	 *            the name
-	 */
-	public Word(String name) {
-		this.name = name;
-		this.length = name.length();
-		this.syllables = WordUtils.computeSyllableNumber(name);
-		this.rhyme = WordUtils.computeRhyme(name);
-	}
-
-	/**
-	 * Gets the name.
-	 *
-	 * @return the name
-	 */
-	public String getWord() {
-		return name;
-	}
-
-	/**
-	 * Gets the length.
-	 *
-	 * @return the length
-	 */
-	public int getLength() {
-		return length;
-	}
-
-	/**
-	 * Gets the syllables.
-	 *
-	 * @return the syllables
-	 */
-	public int getSyllables() {
-		return syllables;
-	}
-
-	/**
-	 * Gets the rhyme.
-	 *
-	 * @return the rhyme
-	 */
-	public String getRhyme() {
-		return rhyme;
-	}
+    /**
+     * Gets the rhyme suffix (last 3 characters).
+     *
+     * @return the rhyme
+     */
+    String rhyme();
 }

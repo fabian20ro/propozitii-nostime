@@ -1,89 +1,87 @@
 package scrabble.phrases.words;
 
+import java.util.Objects;
+
 /**
- * The Class Adjective.
+ * Romanian adjective with feminine form derivation.
+ *
+ * @param word the adjective in masculine form
+ * @param syllables the number of syllables
+ * @param rhyme the rhyme suffix (last 3 characters)
  */
-public class Adjective extends Word {
+public record Adjective(
+    String word,
+    int syllables,
+    String rhyme
+) implements Word {
 
-	/** The feminine. */
-	private String feminine;
+    /**
+     * Creates a new Adjective with computed syllables and rhyme.
+     *
+     * @param word the adjective in masculine form
+     */
+    public Adjective(String word) {
+        this(
+            word,
+            WordUtils.computeSyllableNumber(word),
+            WordUtils.computeRhyme(word)
+        );
+    }
 
-	/** The plural. */
-	private String plural;
+    /**
+     * Compact constructor for validation.
+     */
+    public Adjective {
+        Objects.requireNonNull(word, "word cannot be null");
+    }
 
-	/** The plural feminine. */
-	private String pluralFeminine;
+    /**
+     * Gets the feminine form of the adjective.
+     *
+     * @return the feminine form
+     */
+    public String feminine() {
+        if (word.endsWith("esc")) {
+            return word.substring(0, word.length() - 2) + "ască";
+        }
+        if (word.endsWith("eț")) {
+            return word.substring(0, word.length() - 1) + "ață";
+        }
+        if (word.endsWith("or")) {
+            return word.substring(0, word.length() - 1) + "are";
+        }
+        if (word.endsWith("os")) {
+            return word.substring(0, word.length() - 1) + "asă";
+        }
+        if (word.endsWith("iu")) {
+            return word.substring(0, word.length() - 1) + "e";
+        }
+        if (word.endsWith("ci")) {
+            return word.substring(0, word.length() - 1) + "e";
+        }
+        if (word.endsWith("ru")) {
+            return word.substring(0, word.length() - 1) + "ă";
+        }
+        if (word.endsWith("e") || word.endsWith("o") || word.endsWith("i")) {
+            return word;
+        }
+        return word + "ă";
+    }
 
-	/**
-	 * Instantiates a new adjective.
-	 *
-	 * @param word
-	 *            the word
-	 */
-	public Adjective(String word) {
-		super(word);
-		this.feminine = feminizeAdjective(word);
-	}
+    // Legacy method names for compatibility
+    public String getWord() {
+        return word;
+    }
 
-	/**
-	 * Gets the feminine.
-	 *
-	 * @return the feminine
-	 */
-	public String getFeminine() {
-		return feminine;
-	}
+    public int getSyllables() {
+        return syllables;
+    }
 
-	/**
-	 * Gets the plural.
-	 *
-	 * @return the plural
-	 */
-	public String getPlural() {
-		return plural;
-	}
+    public String getRhyme() {
+        return rhyme;
+    }
 
-	/**
-	 * Gets the plural feminine.
-	 *
-	 * @return the plural feminine
-	 */
-	public String getPluralFeminine() {
-		return pluralFeminine;
-	}
-
-	/**
-	 * Feminize adjective.
-	 *
-	 * @param adjective
-	 *            the adjective
-	 * @return the string
-	 */
-	private String feminizeAdjective(String adjective) {
-		if (adjective.endsWith("esc")) {
-			return adjective.substring(0, adjective.length() - 2) + "ască";
-		}
-		if (adjective.endsWith("eț")) {
-			return adjective.substring(0, adjective.length() - 1) + "ață";
-		}
-		if (adjective.endsWith("or")) {
-			return adjective.substring(0, adjective.length() - 1) + "are";
-		}
-		if (adjective.endsWith("os")) {
-			return adjective.substring(0, adjective.length() - 1) + "asă";
-		}
-		if (adjective.endsWith("iu")) {
-			return adjective.substring(0, adjective.length() - 1) + "e";
-		}
-		if (adjective.endsWith("ci")) {
-			return adjective.substring(0, adjective.length() - 1) + "e";
-		}
-		if (adjective.endsWith("ru")) {
-			return adjective.substring(0, adjective.length() - 1) + "ă";
-		}
-		if (adjective.endsWith("e") || adjective.endsWith("o") || adjective.endsWith("i")) {
-			return adjective;
-		}
-		return adjective + "ă";
-	}
+    public String getFeminine() {
+        return feminine();
+    }
 }

@@ -1,113 +1,74 @@
-buildscript {
-    repositories {
-        jcenter()
-//        maven {
-//            url "https://plugins.gradle.org/m2/"
-//        }
-    }
-//    dependencies {
-//        classpath "org.mohme.gradle:elm-plugin:4.0.1"
-//    }
-}
-
 plugins {
-    id "org.mohme.gradle.elm-plugin" version '4.0.1'
-	
-	//this plugin minifies js. see https://github.com/eriwen/gradle-js-plugin
-	id 'com.eriwen.gradle.js' version '2.14.1'
+    id 'java'
+    id 'io.quarkus' version '3.17.0'
+    id 'jacoco'
 }
 
-// Apply the java plugin to add support for Java
-apply plugin: 'java'
-apply plugin: 'eclipse'
-apply plugin: 'jacoco'
-//apply plugin: 'checkstyle'
-apply plugin: 'application'
+group = 'scrabble.phrases'
+version = '2.0.0'
 
-sourceCompatibility = 1.8
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
-// In this section you declare where to find the dependencies of your project
 repositories {
-   jcenter()
-    
+    mavenCentral()
 }
 
-// In this section you declare the dependencies for your production and test code
 dependencies {
-	compile 'com.sparkjava:spark-core:2.5.4'
-	compile 'com.sparkjava:spark-template-handlebars:2.3'
-	compile group: 'com.google.code.gson', name: 'gson', version: '2.8.0'
+    implementation enforcedPlatform('io.quarkus.platform:quarkus-bom:3.17.0')
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-smallrye-health'
+    implementation 'io.quarkus:quarkus-arc'
 
-    testCompile 'junit:junit:4.12'
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.rest-assured:rest-assured'
+    testImplementation 'org.assertj:assertj-core:3.26.3'
 }
 
-//checkstyle {
-//	configFile = rootProject.file('checkstyle.xml')
-//}
-
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs.add('-parameters')
 }
 
 test {
-    systemProperty 'file.encoding', 'utf-8'
+    systemProperty 'java.util.logging.manager', 'org.jboss.logmanager.LogManager'
+    systemProperty 'file.encoding', 'UTF-8'
+    useJUnitPlatform()
 }
 
 jacoco {
-	toolVersion = '0.7.8'
-}
-
-task prepareJar(type: Copy, dependsOn: ['jacocoTestReport', 'elmMake']) {
-  doLast {
-      inputs.file 'build/elm/elm.js'
-      outputs.dir 'src/main/resources/public/js/'
-
-      ant.delete(dir: 'elm-stuff', failOnError: 'false')
-      ant.mkdir(dir: 'src/main/resources/public/js/')
-      copy {
-          from 'build/elm/elm.js'
-          into 'src/main/resources/public/js/'
-      }
-  }
-}
-
-jar {
-  dependsOn 'prepareJar'
-  manifest {
-    attributes(
-      'Main-Class': 'scrabble.phrases.Main'
-    )
-  }
-}
-
-processResources {
-	ant.get(src: 'https://dexonline.ro/static/download/scrabble/loc-baza-5.0.zip', dest: 'scrabble.zip')
-	ant.unzip(src: 'scrabble.zip', dest: 'src/main/resources/')
-	ant.delete(file: 'scrabble.zip')
-	ant.move(file: 'src/main/resources/loc-baza-5.0.txt', tofile: 'src/main/resources/words.txt')
-	ant.mkdir(dir: 'src/main/resources/public/jacoco')
+    toolVersion = '0.8.12'
 }
 
 jacocoTestReport {
-	dependsOn 'test'
+    dependsOn test
     reports {
-        xml.enabled false
-        csv.enabled false
-        html.enabled true
-        html.destination 'src/main/resources/public/jacoco'
+        xml.required = false
+        csv.required = false
+        html.required = true
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco')
     }
-    
 }
 
+// Download Romanian Scrabble dictionary during resource processing
+tasks.register('downloadDictionary') {
+    def wordsFile = file('src/main/resources/words.txt')
+    outputs.file(wordsFile)
 
-// some stuff heroku needs
-archivesBaseName = 'propozitii-nostime'
-version = '1.0'
-applicationName = 'propozitii-nostime'
-mainClassName = 'scrabble.phrases.Main'
-
-defaultTasks = ['clean', 'jar']
-task stage { 
-	dependsOn 'clean', 'jar', 'installDist'
+    doLast {
+        if (!wordsFile.exists()) {
+            def zipFile = file("${buildDir}/scrabble.zip")
+            ant.mkdir(dir: buildDir)
+            ant.get(src: 'https://dexonline.ro/static/download/scrabble/loc-baza-5.0.zip', dest: zipFile)
+            ant.unzip(src: zipFile, dest: 'src/main/resources/')
+            ant.delete(file: zipFile)
+            ant.move(file: 'src/main/resources/loc-baza-5.0.txt', tofile: wordsFile)
+        }
+    }
 }
-jar.mustRunAfter 'clean'
+
+processResources.dependsOn downloadDictionary

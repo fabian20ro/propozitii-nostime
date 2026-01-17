@@ -1,109 +1,99 @@
 package scrabble.phrases;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.IOException;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import scrabble.phrases.dictionary.WordDictionary;
 import scrabble.phrases.filters.IWordFilter;
 
 /**
- * The Class WordParserTest.
+ * Tests for WordParser.
  */
-public class WordParserTest {
+class WordParserTest {
 
-	private IWordFilter refuseAll = word -> false;
-	private IWordFilter wordsWithMoreThan10Chars = word -> word.getLength() > 10;
+    private final IWordFilter refuseAll = word -> false;
+    private final IWordFilter wordsWithMoreThan10Chars = word -> word.word().length() > 10;
 
-	
-	/**
-	 * This test works but it takes too long to be run after each commit!.
-	 *
-	 * @throws IOException
-	 *             Signals that an I/O exception has occurred.
-	 */
-	@Test
-	@Ignore
-	public void test() throws IOException {
+    @Test
+    @Disabled("Integration test - takes too long for CI")
+    void shouldParseAndFilterDictionary() throws IOException {
+        long t1 = System.currentTimeMillis();
 
-		long t1 = System.currentTimeMillis();
+        WordDictionary dictionary = TestHelper.getPopulatedDictionaryFromIncludedFile();
 
-		WordDictionary dictionary = new Main().getPopulatedDictionaryFromIncludedFile();
+        long t2 = System.currentTimeMillis();
 
-		long t2 = System.currentTimeMillis();
+        int accepted = dictionary.getTotalAcceptedWordCount();
+        int refused = dictionary.getTotalRefusedWordCount();
+        int unknown = dictionary.getTotalUnknownWordCount();
+        int total = dictionary.getTotalWordCount();
 
-		int accepted = dictionary.getTotalAcceptedWordCount();
-		int refused = dictionary.getTotalRefusedWordCount();
-		int unknown = dictionary.getTotalUnknownWordCount();
-		int total = dictionary.getTotalWordCount();
-		System.out.println(
-				"accepted: " + accepted + "\nrefused: " + refused + "\nunknown: " + unknown + "\ntotal: " + total);
-		assertNotNull(dictionary.getRandomNoun());
-		assertNotNull(dictionary.getRandomAdjective());
-		assertNotNull(dictionary.getRandomVerb());
+        System.out.println(
+            "accepted: " + accepted + "\nrefused: " + refused + "\nunknown: " + unknown + "\ntotal: " + total);
 
-		dictionary.addFilter(refuseAll);
-		assertEquals(accepted, dictionary.getTotalRefusedWordCount());
-		assertNull(dictionary.getRandomNoun());
-		assertNull(dictionary.getRandomAdjective());
-		assertNull(dictionary.getRandomVerb());
-		assertEquals(total, dictionary.getTotalWordCount());
+        assertNotNull(dictionary.getRandomNoun());
+        assertNotNull(dictionary.getRandomAdjective());
+        assertNotNull(dictionary.getRandomVerb());
 
-		long t3 = System.currentTimeMillis();
+        dictionary.addFilter(refuseAll);
+        assertEquals(accepted, dictionary.getTotalRefusedWordCount());
+        assertNull(dictionary.getRandomNoun());
+        assertNull(dictionary.getRandomAdjective());
+        assertNull(dictionary.getRandomVerb());
+        assertEquals(total, dictionary.getTotalWordCount());
 
-		dictionary.removeFilter(refuseAll);
-		assertEquals(accepted, dictionary.getTotalAcceptedWordCount());
-		assertNotNull(dictionary.getRandomNoun());
-		assertNotNull(dictionary.getRandomAdjective());
-		assertNotNull(dictionary.getRandomVerb());
-		assertEquals(total, dictionary.getTotalWordCount());
+        long t3 = System.currentTimeMillis();
 
-		long t4 = System.currentTimeMillis();
+        dictionary.removeFilter(refuseAll);
+        assertEquals(accepted, dictionary.getTotalAcceptedWordCount());
+        assertNotNull(dictionary.getRandomNoun());
+        assertNotNull(dictionary.getRandomAdjective());
+        assertNotNull(dictionary.getRandomVerb());
+        assertEquals(total, dictionary.getTotalWordCount());
 
-		dictionary.addFilter(refuseAll); // TODO see why this second filter
-											// adition takes so much more
-											// compared to the first one
-		assertEquals(accepted, dictionary.getTotalRefusedWordCount());
-		assertNull(dictionary.getRandomNoun());
-		assertNull(dictionary.getRandomAdjective());
-		assertNull(dictionary.getRandomVerb());
-		assertEquals(total, dictionary.getTotalWordCount());
+        long t4 = System.currentTimeMillis();
 
-		long t5 = System.currentTimeMillis();
+        dictionary.addFilter(refuseAll);
+        assertEquals(accepted, dictionary.getTotalRefusedWordCount());
+        assertNull(dictionary.getRandomNoun());
+        assertNull(dictionary.getRandomAdjective());
+        assertNull(dictionary.getRandomVerb());
+        assertEquals(total, dictionary.getTotalWordCount());
 
-		dictionary.clearFilters();
-		assertNotNull(dictionary.getRandomNoun());
-		assertNotNull(dictionary.getRandomAdjective());
-		assertNotNull(dictionary.getRandomVerb());
-		assertEquals(total, dictionary.getTotalWordCount());
+        long t5 = System.currentTimeMillis();
 
-		long t6 = System.currentTimeMillis();
+        dictionary.clearFilters();
+        assertNotNull(dictionary.getRandomNoun());
+        assertNotNull(dictionary.getRandomAdjective());
+        assertNotNull(dictionary.getRandomVerb());
+        assertEquals(total, dictionary.getTotalWordCount());
 
-		dictionary.addFilter(wordsWithMoreThan10Chars);
-		assertEquals(total, dictionary.getTotalWordCount());
+        long t6 = System.currentTimeMillis();
 
-		long t7 = System.currentTimeMillis();
+        dictionary.addFilter(wordsWithMoreThan10Chars);
+        assertEquals(total, dictionary.getTotalWordCount());
 
-		dictionary.removeFilter(wordsWithMoreThan10Chars);
-		assertEquals(total, dictionary.getTotalWordCount());
-		assertEquals(accepted, dictionary.getTotalAcceptedWordCount());
+        long t7 = System.currentTimeMillis();
 
-		long t8 = System.currentTimeMillis();
+        dictionary.removeFilter(wordsWithMoreThan10Chars);
+        assertEquals(total, dictionary.getTotalWordCount());
+        assertEquals(accepted, dictionary.getTotalAcceptedWordCount());
 
-		System.out.println("Initial dictionary population took: " + (t2 - t1) + " millis.");
-		System.out.println("Adding filter to remove them all took: " + (t3 - t2) + " millis.");
-		System.out.println("Removing filter to add them all back took: " + (t4 - t3) + " millis.");
-		System.out.println("Adding filter to remove them all again took: " + (t5 - t4) + " millis.");
-		System.out.println("Clearing all filters took: " + (t6 - t5) + " millis.");
-		System.out.println("Adding filter to remove all words with less than 11 characters: " + (t7 - t6) + " millis.");
-		System.out.println(
-				"Removing filter that removes all words with less than 11 characters: " + (t8 - t7) + " millis.");
-		System.out.println("Overall, it took: " + (t8 - t1) + " millis.");
-	}
+        long t8 = System.currentTimeMillis();
 
+        System.out.println("Initial dictionary population took: " + (t2 - t1) + " millis.");
+        System.out.println("Adding filter to remove them all took: " + (t3 - t2) + " millis.");
+        System.out.println("Removing filter to add them all back took: " + (t4 - t3) + " millis.");
+        System.out.println("Adding filter to remove them all again took: " + (t5 - t4) + " millis.");
+        System.out.println("Clearing all filters took: " + (t6 - t5) + " millis.");
+        System.out.println("Adding filter for words with more than 10 chars: " + (t7 - t6) + " millis.");
+        System.out.println("Removing that filter: " + (t8 - t7) + " millis.");
+        System.out.println("Overall, it took: " + (t8 - t1) + " millis.");
+    }
 }

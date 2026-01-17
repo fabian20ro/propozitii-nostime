@@ -1,16 +1,31 @@
 package scrabble.phrases.words;
 
 /**
- * The Enum NounType.
+ * Romanian noun gender.
  */
 public enum NounGender {
 
-	/** The masculine. */
-	MASCULINE,
+    /** Masculine gender. */
+    M,
 
-	/** The feminine. */
-	FEMININE,
+    /** Feminine gender. */
+    F,
 
-	/** The neutral. */
-	NEUTRAL
+    /** Neutral gender (masculine singular, feminine plural). */
+    N;
+
+    /**
+     * Parse gender from dictionary format.
+     *
+     * @param s the gender string (m, f, n, or legacy MASCULINE, FEMININE, NEUTRAL)
+     * @return the gender
+     */
+    public static NounGender fromString(String s) {
+        return switch (s.toLowerCase()) {
+            case "m", "masculine" -> M;
+            case "f", "feminine" -> F;
+            case "n", "neutral" -> N;
+            default -> throw new IllegalArgumentException("Unknown gender: " + s);
+        };
+    }
 }

@@ -1,7 +1,6 @@
 package scrabble.phrases.dictionary;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -14,317 +13,189 @@ import scrabble.phrases.words.Word;
 import scrabble.phrases.words.WordUtils;
 
 /**
- * The Class WordDictionary.
+ * Dictionary of Romanian words organized by type.
  */
 public class WordDictionary {
 
-	/** The Constant SEED. */
-	// private static final long SEED = 0;
-	private final long randomSeed = System.nanoTime();
+    private final long randomSeed = System.nanoTime();
 
-	/** The nouns. */
-	List<Noun> acceptedNouns = new ArrayList<>();
+    private List<Noun> acceptedNouns = new ArrayList<>();
+    private List<Noun> refusedNouns = new ArrayList<>();
+    private List<Adjective> acceptedAdjectives = new ArrayList<>();
+    private List<Adjective> refusedAdjectives = new ArrayList<>();
+    private List<Verb> acceptedVerbs = new ArrayList<>();
+    private List<Verb> refusedVerbs = new ArrayList<>();
+    private List<String> unknowns = new ArrayList<>();
 
-	/** The refused nouns. */
-	List<Noun> refusedNouns = new ArrayList<>();
+    private Random random = new Random(randomSeed);
+    private List<IWordFilter> filters = new ArrayList<>();
 
-	/** The adjectives. */
-	List<Adjective> acceptedAdjectives = new ArrayList<>();
+    public WordDictionary() {
+        this(new ArrayList<>());
+    }
 
-	/** The refused adjectives. */
-	List<Adjective> refusedAdjectives = new ArrayList<>();
+    public WordDictionary(WordDictionary dictionary) {
+        this.filters = new ArrayList<>(dictionary.filters);
+        this.acceptedNouns = new ArrayList<>(dictionary.acceptedNouns);
+        this.refusedNouns = new ArrayList<>(dictionary.refusedNouns);
+        this.acceptedAdjectives = new ArrayList<>(dictionary.acceptedAdjectives);
+        this.refusedAdjectives = new ArrayList<>(dictionary.refusedAdjectives);
+        this.acceptedVerbs = new ArrayList<>(dictionary.acceptedVerbs);
+        this.refusedVerbs = new ArrayList<>(dictionary.refusedVerbs);
+        this.unknowns = new ArrayList<>(dictionary.unknowns);
+    }
 
-	/** The verbs. */
-	List<Verb> acceptedVerbs = new ArrayList<>();
+    public WordDictionary(List<IWordFilter> filters) {
+        this.filters = filters;
+    }
 
-	/** The refused verbs. */
-	List<Verb> refusedVerbs = new ArrayList<>();
+    public void addFilter(IWordFilter filter) {
+        this.filters.add(filter);
+        updateAcceptedWordsOnFilterAdded(filter, acceptedNouns, refusedNouns);
+        updateAcceptedWordsOnFilterAdded(filter, acceptedAdjectives, refusedAdjectives);
+        updateAcceptedWordsOnFilterAdded(filter, acceptedVerbs, refusedVerbs);
+    }
 
-	/** The unknowns. */
-	List<String> unknowns = new ArrayList<>();
+    private <T extends Word> void updateAcceptedWordsOnFilterAdded(
+            IWordFilter filter, List<T> accepted, List<T> refused) {
+        List<T> movingWords = new ArrayList<>();
+        for (T word : accepted) {
+            if (!filter.accepts(word)) {
+                movingWords.add(word);
+            }
+        }
+        accepted.removeAll(movingWords);
+        refused.addAll(movingWords);
+    }
 
-	/** The random. */
-	private Random random = new Random(randomSeed);
+    public void clearFilters() {
+        this.filters.clear();
+        acceptedNouns.addAll(refusedNouns);
+        refusedNouns.clear();
+        acceptedAdjectives.addAll(refusedAdjectives);
+        refusedAdjectives.clear();
+        acceptedVerbs.addAll(refusedVerbs);
+        refusedVerbs.clear();
+    }
 
-	/** The filters. */
-	private List<IWordFilter> filters = new ArrayList<>();
+    public void removeFilter(IWordFilter filter) {
+        this.filters.remove(filter);
+        updateAcceptedWordsOnFilterRemoved(filters, acceptedNouns, refusedNouns);
+        updateAcceptedWordsOnFilterRemoved(filters, acceptedAdjectives, refusedAdjectives);
+        updateAcceptedWordsOnFilterRemoved(filters, acceptedVerbs, refusedVerbs);
+    }
 
-	/**
-	 * Instantiates a new word dictionary.
-	 */
-	public WordDictionary() {
-		this(new ArrayList<>());
-	}
+    private <T extends Word> void updateAcceptedWordsOnFilterRemoved(
+            List<IWordFilter> filters, List<T> accepted, List<T> refused) {
+        List<T> movingWords = new ArrayList<>();
+        nextWord:
+        for (T word : refused) {
+            for (IWordFilter filter : filters) {
+                if (!filter.accepts(word)) {
+                    continue nextWord;
+                }
+            }
+            movingWords.add(word);
+        }
+        accepted.addAll(movingWords);
+        refused.removeAll(movingWords);
+    }
 
-	public WordDictionary(WordDictionary dictionary) {
-		Collections.copy(this.filters, dictionary.filters);
-		this.acceptedNouns = new ArrayList<Noun>(dictionary.acceptedNouns);
-		this.refusedNouns = new ArrayList<Noun>(dictionary.refusedNouns);
-		this.acceptedAdjectives = new ArrayList<Adjective>(dictionary.acceptedAdjectives);
-		this.refusedAdjectives = new ArrayList<Adjective>(dictionary.refusedAdjectives);
-		this.acceptedVerbs = new ArrayList<Verb>(dictionary.acceptedVerbs);
-		this.refusedVerbs = new ArrayList<Verb>(dictionary.refusedVerbs);
-		this.unknowns = new ArrayList<String>(dictionary.unknowns);
-	}
-	
-	/**
-	 * Instantiates a new word dictionary.
-	 *
-	 * @param filters
-	 *            the filters
-	 */
-	public WordDictionary(List<IWordFilter> filters) {
-		this.filters = filters;
-	}
+    public void addWord(String word, String type) {
+        word = WordUtils.fixWordCharacters(word);
+        if (type == null) {
+            return;
+        }
+        try {
+            Integer.parseInt(type);
+            int breakIndex = 1;
+            if (word.charAt(word.length() - 2) <= 'Z') {
+                breakIndex = 2;
+            }
+            type = word.substring(word.length() - breakIndex);
+            word = word.substring(0, word.length() - breakIndex);
+        } catch (NumberFormatException e) {
+            // nothing to do
+        }
+        switch (type) {
+            case "M" -> addNoun(new Noun(word, NounGender.M));
+            case "F" -> addNoun(new Noun(word, NounGender.F));
+            case "N" -> addNoun(new Noun(word, NounGender.N));
+            case "MF" -> addNoun(new Noun(word, NounGender.M));
+            case "A" -> addAdjective(new Adjective(word));
+            case "VT", "V" -> addVerb(new Verb(word));
+            default -> unknowns.add(word + " : " + type);
+        }
+    }
 
-	/**
-	 * Adds the filter.
-	 *
-	 * @param filter
-	 *            the filter
-	 */
-	public void addFilter(IWordFilter filter) {
-		this.filters.add(filter);
-		updateAcceptedWordsOnFilterAdded(filter, acceptedNouns, refusedNouns);
-		updateAcceptedWordsOnFilterAdded(filter, acceptedAdjectives, refusedAdjectives);
-		updateAcceptedWordsOnFilterAdded(filter, acceptedVerbs, refusedVerbs);
-	}
+    private void addVerb(Verb verb) {
+        if (matchesFilters(verb)) {
+            acceptedVerbs.add(verb);
+        } else {
+            refusedVerbs.add(verb);
+        }
+    }
 
-	/**
-	 * Update accepted words on filter added.
-	 *
-	 * @param <T>
-	 *            the generic type
-	 * @param filter
-	 *            the filter
-	 * @param accepted
-	 *            the accepted
-	 * @param refused
-	 *            the refused
-	 */
-	private <T extends Word> void updateAcceptedWordsOnFilterAdded(IWordFilter filter, List<T> accepted,
-			List<T> refused) {
-		List<T> movingWords = new ArrayList<>();
-		for (T word : accepted) {
-			if (!filter.accepts(word)) {
-				movingWords.add(word);
-			}
-		}
-		accepted.removeAll(movingWords);
-		refused.addAll(movingWords);
-		movingWords.clear();
-	}
+    private void addNoun(Noun noun) {
+        if (matchesFilters(noun)) {
+            acceptedNouns.add(noun);
+        } else {
+            refusedNouns.add(noun);
+        }
+    }
 
-	/**
-	 * Clear filters.
-	 */
-	public void clearFilters() {
-		this.filters.clear();
-		acceptedNouns.addAll(refusedNouns);
-		refusedNouns.clear();
-		acceptedAdjectives.addAll(refusedAdjectives);
-		refusedAdjectives.clear();
-		acceptedVerbs.addAll(refusedVerbs);
-		refusedVerbs.clear();
-	}
+    private void addAdjective(Adjective adjective) {
+        if (matchesFilters(adjective)) {
+            acceptedAdjectives.add(adjective);
+        } else {
+            refusedAdjectives.add(adjective);
+        }
+    }
 
-	/**
-	 * This operation is more expensive than the addition because the updates
-	 * need to go through all filters.
-	 *
-	 * @param filter
-	 *            the filter
-	 */
-	public void removeFilter(IWordFilter filter) {
-		this.filters.remove(filter);
-		updateAcceptedWordsOnFilterRemoved(filters, acceptedNouns, refusedNouns);
-		updateAcceptedWordsOnFilterRemoved(filters, acceptedAdjectives, refusedAdjectives);
-		updateAcceptedWordsOnFilterRemoved(filters, acceptedVerbs, refusedVerbs);
-	}
+    private boolean matchesFilters(Word word) {
+        for (IWordFilter filter : filters) {
+            if (!filter.accepts(word)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-	/**
-	 * Update accepted words on filter removed.
-	 *
-	 * @param <T>
-	 *            the generic type
-	 * @param filters
-	 *            the filters
-	 * @param accepted
-	 *            the accepted
-	 * @param refused
-	 *            the refused
-	 */
-	private <T extends Word> void updateAcceptedWordsOnFilterRemoved(List<IWordFilter> filters, List<T> accepted,
-			List<T> refused) {
-		List<T> movingWords = new ArrayList<>();
-		nextWord: for (T word : refused) {
-			for (IWordFilter filter : filters) {
-				if (!filter.accepts(word)) {
-					continue nextWord;
-				}
-			}
-			movingWords.add(word);
-		}
-		accepted.addAll(movingWords);
-		refused.removeAll(movingWords);
-		movingWords.clear();
-	}
+    public Noun getRandomNoun() {
+        return acceptedNouns.isEmpty() ? null : acceptedNouns.get(random.nextInt(acceptedNouns.size()));
+    }
 
-	/**
-	 * Adds the word.
-	 *
-	 * @param word
-	 *            the word
-	 * @param type
-	 *            the type
-	 */
-	public void addWord(String word, String type) {
-		word = WordUtils.fixWordCharacters(word);
-		if (type == null) {
-			return;
-		}
-		try {
-			Integer.parseInt(type);
-			int breakIndex = 1;
-			if (word.charAt(word.length() - 2) <= 'Z') {
-				breakIndex = 2;
-			}
-			type = word.substring(word.length() - breakIndex);
-			word = word.substring(0, word.length() - breakIndex);
-		} catch (NumberFormatException e) {
-			//nothing to do.
-		}
-		if (type.equals("M")) {
-			addNoun(new Noun(word, NounGender.MASCULINE));
-		} else if (type.equals("F")) {
-			addNoun(new Noun(word, NounGender.FEMININE));
-		} else if (type.equals("N")) {
-			addNoun(new Noun(word, NounGender.NEUTRAL));
-		} else if (type.equals("MF")) {
-			addNoun(new Noun(word, NounGender.MASCULINE));
-//			addNoun(new Noun(word, NounGender.FEMININE));
-		} else if (type.equals("A")) {
-			addAdjective(new Adjective(word));
-		} else if (type.equals("VT") || type.equals("V")) {
-			addVerb(new Verb(word));
-		} else {
-			unknowns.add(word + " : " + type);
-		}
-	}
+    public Adjective getRandomAdjective() {
+        return acceptedAdjectives.isEmpty() ? null : acceptedAdjectives.get(random.nextInt(acceptedAdjectives.size()));
+    }
 
-	/**
-	 * Adds the verb.
-	 *
-	 * @param verb
-	 *            the verb
-	 */
-	private void addVerb(Verb verb) {
-		if (matchesFilters(verb)) {
-			acceptedVerbs.add(verb);
-		} else {
-			refusedVerbs.add(verb);
-		}
-	}
+    public Verb getRandomVerb() {
+        return acceptedVerbs.isEmpty() ? null : acceptedVerbs.get(random.nextInt(acceptedVerbs.size()));
+    }
 
-	/**
-	 * Adds the noun.
-	 *
-	 * @param noun
-	 *            the noun
-	 */
-	private void addNoun(Noun noun) {
-		if (matchesFilters(noun)) {
-			acceptedNouns.add(noun);
-		} else {
-			refusedNouns.add(noun);
-		}
-	}
+    public String getRandomUnknown() {
+        return unknowns.isEmpty() ? null : unknowns.get(random.nextInt(unknowns.size()));
+    }
 
-	/**
-	 * Adds the adjective.
-	 *
-	 * @param adjective
-	 *            the adjective
-	 */
-	private void addAdjective(Adjective adjective) {
-		if (matchesFilters(adjective)) {
-			acceptedAdjectives.add(adjective);
-		} else {
-			refusedAdjectives.add(adjective);
-		}
-	}
+    public int getTotalAcceptedWordCount() {
+        return acceptedNouns.size() + acceptedAdjectives.size() + acceptedVerbs.size();
+    }
 
-	/**
-	 * Matches filters.
-	 *
-	 * @param word
-	 *            the word
-	 * @return true, if successful
-	 */
-	private boolean matchesFilters(Word word) {
-		for (IWordFilter filter : filters) {
-			if (!filter.accepts(word)) {
-				return false;
-			}
-		}
-		return true;
-	}
+    public int getTotalRefusedWordCount() {
+        return refusedNouns.size() + refusedAdjectives.size() + refusedVerbs.size();
+    }
 
-	/**
-	 * Gets the random noun.
-	 *
-	 * @return the random noun
-	 */
-	public Noun getRandomNoun() {
-		return acceptedNouns.isEmpty() ? null : acceptedNouns.get(random.nextInt(acceptedNouns.size()));
-	}
+    public int getTotalUnknownWordCount() {
+        return unknowns.size();
+    }
 
-	/**
-	 * Gets the random adjective.
-	 *
-	 * @return the random adjective
-	 */
-	public Adjective getRandomAdjective() {
-		return acceptedAdjectives.isEmpty() ? null : acceptedAdjectives.get(random.nextInt(acceptedAdjectives.size()));
-	}
+    public int getTotalWordCount() {
+        return getTotalAcceptedWordCount() + getTotalRefusedWordCount() + getTotalUnknownWordCount();
+    }
 
-	/**
-	 * Gets the random verb.
-	 *
-	 * @return the random verb
-	 */
-	public Verb getRandomVerb() {
-		return acceptedVerbs.isEmpty() ? null : acceptedVerbs.get(random.nextInt(acceptedVerbs.size()));
-	}
-
-	/**
-	 * Gets the random unknown.
-	 *
-	 * @return the random unknown
-	 */
-	public String getRandomUnknown() {
-		return unknowns.isEmpty() ? null : unknowns.get(random.nextInt(unknowns.size()));
-	}
-	
-	public int getTotalAcceptedWordCount() {
-		return acceptedNouns.size() + acceptedAdjectives.size() + acceptedVerbs.size();
-	}
-	
-	public int getTotalRefusedWordCount() {
-		return refusedNouns.size() + refusedAdjectives.size() + refusedVerbs.size();
-	}
-	
-	public int getTotalUnknownWordCount() {
-		return unknowns.size();
-	}
-	
-	public int getTotalWordCount() {
-		return getTotalAcceptedWordCount() + getTotalRefusedWordCount() + getTotalUnknownWordCount();
-	}
-
-	public void addFilters(List<IWordFilter> theFilters) {
-		for (IWordFilter filter : theFilters) {
-			addFilter(filter);
-		}
-	}
+    public void addFilters(List<IWordFilter> theFilters) {
+        for (IWordFilter filter : theFilters) {
+            addFilter(filter);
+        }
+    }
 }

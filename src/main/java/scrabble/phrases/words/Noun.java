@@ -1,111 +1,92 @@
 package scrabble.phrases.words;
 
-// TODO: Auto-generated Javadoc
+import java.util.Objects;
+
 /**
- * The Class Noun.
+ * Romanian noun with gender and articulation support.
+ *
+ * @param word the noun in base form
+ * @param gender the grammatical gender
+ * @param syllables the number of syllables
+ * @param rhyme the rhyme suffix (last 3 characters)
  */
-public class Noun extends Word {
+public record Noun(
+    String word,
+    NounGender gender,
+    int syllables,
+    String rhyme
+) implements Word {
 
-	/** The gender. */
-	private NounGender gender;
+    /**
+     * Creates a new Noun with computed syllables and rhyme.
+     *
+     * @param word the noun in base form
+     * @param gender the grammatical gender
+     */
+    public Noun(String word, NounGender gender) {
+        this(
+            word,
+            gender,
+            WordUtils.computeSyllableNumber(word),
+            WordUtils.computeRhyme(word)
+        );
+    }
 
-	/** The articulated form. */
-	private String articulatedForm;
+    /**
+     * Compact constructor for validation.
+     */
+    public Noun {
+        Objects.requireNonNull(word, "word cannot be null");
+        Objects.requireNonNull(gender, "gender cannot be null");
+    }
 
-	/** The plural articulated. */
-	private String pluralArticulated;
+    /**
+     * Gets the articulated form of the noun.
+     *
+     * @return the articulated form
+     */
+    public String articulated() {
+        return switch (gender) {
+            case M, N -> articulateMasculine();
+            case F -> articulateFeminine();
+        };
+    }
 
-	/** The plural. */
-	private String plural;
+    private String articulateMasculine() {
+        if (word.endsWith("u")) {
+            return word + "l";
+        }
+        return word + "ul";
+    }
 
-	/**
-	 * Instantiates a new noun.
-	 *
-	 * @param word
-	 *            the word
-	 * @param gender
-	 *            the gender
-	 */
-	public Noun(String word, NounGender gender) {
-		super(word);
-		this.gender = gender;
-		switch (gender) {
-		case FEMININE:
-			articulatedForm = articulateFeminineSingularNoun(word);
-			break;
-		case MASCULINE:
-			articulatedForm = articulateMasculineNoun(word);
-			break;
-		default: //NEUTRAL
-			articulatedForm = articulateMasculineNoun(word);
-			break;
-		}
-	}
+    private String articulateFeminine() {
+        if (word.endsWith("ă") || word.endsWith("ie")) {
+            return word.substring(0, word.length() - 1) + "a";
+        }
+        if (word.endsWith("a")) {
+            return word + "ua";
+        }
+        return word + "a";
+    }
 
-	/**
-	 * Masculinize noun.
-	 *
-	 * @param word
-	 *            the word
-	 * @return the string
-	 */
-	private String articulateMasculineNoun(String word) {
-		if (word.endsWith("u")) {
-			return word + "l";
-		}
-		return word + "ul";
-	}
+    // Legacy method names for compatibility
+    public String getWord() {
+        return word;
+    }
 
-	/**
-	 * Feminize noun.
-	 *
-	 * @param word
-	 *            the word
-	 * @return the string
-	 */
-	private String articulateFeminineSingularNoun(String word) {
-		if (word.endsWith("ă") || word.endsWith("ie")) {
-			return word.substring(0, word.length() - 1) + "a";
-		}
-		if (word.endsWith("a")) {
-			return word + "ua";
-		}
-		return word + "a";
-	}
+    public NounGender getGender() {
+        return gender;
+    }
 
-	/**
-	 * Gets the gender.
-	 *
-	 * @return the gender
-	 */
-	public NounGender getGender() {
-		return gender;
-	}
+    public int getSyllables() {
+        return syllables;
+    }
 
-	/**
-	 * Gets the articulated form.
-	 *
-	 * @return the articulated form
-	 */
-	public String getArticulated() {
-		return this.articulatedForm;
-	}
+    public String getRhyme() {
+        return rhyme;
+    }
 
-	/**
-	 * Gets the plural.
-	 *
-	 * @return the plural
-	 */
-	public String getPlural() {
-		return this.plural;
-	}
-
-	/**
-	 * Gets the articulated plural form.
-	 *
-	 * @return the articulated plural form
-	 */
-	public String getArticulatedPlural() {
-		return this.pluralArticulated;
-	}
+    public String getArticulated() {
+        return articulated();
+    }
 }

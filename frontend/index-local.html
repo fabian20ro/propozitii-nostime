@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propozitii Nostime (Local Test)</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" sizes="48x48" href="img/icon_48.png">
+    <meta name="theme-color" content="#fa2400">
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>Propozitii Nostime</h1>
+            <p class="subtitle">Generator de propozitii hazoase in limba romana</p>
+            <p style="color: #666; font-size: 0.8rem;">(Local Test - localhost:8080)</p>
+        </header>
+
+        <div class="grid">
+            <section class="card">
+                <h2>Haiku</h2>
+                <div class="sentence" id="haiku-text">
+                    <span class="loading">Se incarca...</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Propozitie</h2>
+                <div class="sentence" id="fiveword-text">
+                    <span class="loading">Se incarca...</span>
+                </div>
+            </section>
+        </div>
+
+        <div class="actions">
+            <button id="refresh" class="btn btn-primary">
+                Genereaza altele
+            </button>
+            <button id="reset" class="btn btn-secondary">
+                Reseteaza rima
+            </button>
+        </div>
+
+        <div id="error-message" class="error hidden"></div>
+    </main>
+
+    <footer>
+        <p>
+            Codul este disponibil pe
+            <a href="https://github.com/fabian20ro/propozitii-nostime/" target="_blank" rel="noopener">GitHub</a>.
+        </p>
+        <p class="tech">
+            Java 21 + Quarkus | Local Development
+        </p>
+    </footer>
+
+    <script>
+        // Local API URL
+        const API_BASE = 'http://localhost:8080/api';
+
+        // DOM elements
+        const haikuText = document.getElementById('haiku-text');
+        const fivewordText = document.getElementById('fiveword-text');
+        const refreshBtn = document.getElementById('refresh');
+        const resetBtn = document.getElementById('reset');
+        const errorMessage = document.getElementById('error-message');
+
+        async function fetchSentence(endpoint) {
+            const response = await fetch(`${API_BASE}/${endpoint}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data.sentence;
+        }
+
+        function showLoading() {
+            haikuText.innerHTML = '<span class="loading">Se incarca...</span>';
+            fivewordText.innerHTML = '<span class="loading">Se incarca...</span>';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+        }
+
+        function setButtonsDisabled(disabled) {
+            refreshBtn.disabled = disabled;
+            resetBtn.disabled = disabled;
+        }
+
+        async function refresh() {
+            errorMessage.classList.add('hidden');
+            showLoading();
+            setButtonsDisabled(true);
+
+            try {
+                const [haiku, fiveword] = await Promise.all([
+                    fetchSentence('haiku'),
+                    fetchSentence('five-word')
+                ]);
+                haikuText.innerHTML = haiku;
+                fivewordText.innerHTML = fiveword;
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Eroare la incarcarea propozitiilor. Verificati ca serverul ruleaza pe localhost:8080');
+                haikuText.innerHTML = '<span class="loading">Eroare</span>';
+                fivewordText.innerHTML = '<span class="loading">Eroare</span>';
+            } finally {
+                setButtonsDisabled(false);
+            }
+        }
+
+        async function resetAndRefresh() {
+            errorMessage.classList.add('hidden');
+            showLoading();
+            setButtonsDisabled(true);
+
+            try {
+                await fetch(`${API_BASE}/reset`, { method: 'POST' });
+                await refresh();
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Eroare la resetare.');
+            } finally {
+                setButtonsDisabled(false);
+            }
+        }
+
+        refreshBtn.addEventListener('click', refresh);
+        resetBtn.addEventListener('click', resetAndRefresh);
+
+        // Initial load
+        refresh();
+    </script>
+</body>
+</html>

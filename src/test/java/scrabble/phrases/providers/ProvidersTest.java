@@ -1,18 +1,31 @@
 package scrabble.phrases.providers;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import scrabble.phrases.Main;
+import scrabble.phrases.TestHelper;
 
-public class ProvidersTest {
+/**
+ * Tests for sentence providers.
+ */
+class ProvidersTest {
 
-	@Test
-	public void test() throws IOException {
-		assertNotNull(new HaikuProvider(new Main().getPopulatedDictionaryFromIncludedFile()).getSentence());
-	}
+    @Test
+    void shouldGenerateHaiku() throws IOException {
+        HaikuProvider provider = new HaikuProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+        String sentence = provider.getSentence();
+        assertNotNull(sentence);
+        System.out.println("Generated haiku: " + sentence);
+    }
 
+    @Test
+    void shouldGenerateFiveWordSentence() throws IOException {
+        FiveWordSentenceProvider provider = new FiveWordSentenceProvider(TestHelper.getPopulatedDictionaryFromIncludedFile());
+        String sentence = provider.getSentence();
+        assertNotNull(sentence);
+        System.out.println("Generated five-word sentence: " + sentence);
+    }
 }

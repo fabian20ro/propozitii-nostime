@@ -1,20 +1,16 @@
 package scrabble.phrases.dictionary;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import scrabble.phrases.Main;
-import scrabble.phrases.dictionary.WordDictionary;
+import scrabble.phrases.TestHelper;
 import scrabble.phrases.filters.IWordFilter;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
@@ -22,229 +18,116 @@ import scrabble.phrases.words.NounGender;
 import scrabble.phrases.words.Word;
 
 /**
- * The Class WordDictionaryTest.
+ * Tests for WordDictionary.
  */
-public class WordDictionaryTest {
+class WordDictionaryTest {
 
-	/**
-	 * Test dictionary copy.
-	 *
-	 * @throws IOException
-	 *             Signals that an I/O exception has occurred.
-	 */
-	@Test
-	public void testDictionaryCopy() throws IOException {
+    @Test
+    void shouldCopyDictionary() throws IOException {
+        WordDictionary dictionary = TestHelper.getPopulatedDictionaryFromIncludedFile();
+        WordDictionary secondDictionary = new WordDictionary(dictionary);
 
-		WordDictionary dictionary = new Main().getPopulatedDictionaryFromIncludedFile();
-		WordDictionary secondDictionary = new WordDictionary(dictionary);
+        assertEquals(secondDictionary.getTotalWordCount(), dictionary.getTotalWordCount());
+        assertEquals(secondDictionary.getTotalAcceptedWordCount(), dictionary.getTotalAcceptedWordCount());
+        assertEquals(secondDictionary.getTotalUnknownWordCount(), dictionary.getTotalUnknownWordCount());
 
-		assertEquals(secondDictionary.getTotalWordCount(), dictionary.getTotalWordCount());
-		assertEquals(secondDictionary.getTotalAcceptedWordCount(), dictionary.getTotalAcceptedWordCount());
-		assertEquals(secondDictionary.getTotalUnknownWordCount(), dictionary.getTotalUnknownWordCount());
+        dictionary.addFilter(word -> false);
+        assertEquals(secondDictionary.getTotalWordCount(), dictionary.getTotalWordCount());
+        assertEquals(secondDictionary.getTotalRefusedWordCount(), dictionary.getTotalAcceptedWordCount());
+        assertEquals(secondDictionary.getTotalUnknownWordCount(), dictionary.getTotalUnknownWordCount());
+    }
 
-		dictionary.addFilter(word -> false);
-		assertEquals(secondDictionary.getTotalWordCount(), dictionary.getTotalWordCount());
-		assertEquals(secondDictionary.getTotalRefusedWordCount(), dictionary.getTotalAcceptedWordCount());
-		assertEquals(secondDictionary.getTotalUnknownWordCount(), dictionary.getTotalUnknownWordCount());
-	}
+    @Test
+    void shouldArticulateNouns() {
+        List<String> nouns = List.of(
+            "macara F", "fată F", "acar M", "ploaie F", "maestru M", "rodie F", "staul N", "abolitionist MF"
+        );
+        List<String> articulated = List.of(
+            "macaraua", "fata", "acarul", "ploaia", "maestrul", "rodia", "staulul", "abolitionistul", "abolitionista"
+        );
 
-	/**
-	 * Test is feminine.
-	 */
-	@Test
-	public void testNouns() {
+        WordDictionary dictionary = new WordDictionary();
+        nouns.forEach(word -> dictionary.addWord(
+            word.substring(0, word.indexOf(" ")),
+            word.substring(word.lastIndexOf(" ") + 1)
+        ));
 
-		// initialize word lists
-		List<String> nouns = l("macara F", "fată F", "acar M", "ploaie F", "maestru M", "rodie F", "staul N",
-				"abolitionist MF");
-		List<String> articulated = l("macaraua", "fata", "acarul", "ploaia", "maestrul", "rodia", "staulul",
-				"abolitionistul", "abolitionista");
+        List<String> words = nouns.stream()
+            .map(word -> word.substring(0, word.indexOf(" ")))
+            .toList();
 
-		// populate dictionary
-		WordDictionary dictionary = new WordDictionary();
-		nouns.stream().forEach(word -> dictionary.addWord(word.substring(0, word.indexOf(" ")),
-				word.substring(word.lastIndexOf(" ") + 1)));
+        verifyNounsInDictionary(dictionary, words, articulated);
+    }
 
-		// adapt the words
-		List<String> words = nouns.stream().map(word -> word.substring(0, word.indexOf(" ")))
-				.collect(Collectors.toList());
+    @Test
+    void shouldFeminizeAdjectives() {
+        List<String> adjectives = List.of(
+            "bor", "frumos", "pitoresc", "zglobiu", "citeț", "stângaci", "alb", "acru", "verde", "maro", "gri"
+        );
+        List<String> feminines = List.of(
+            "boare", "frumoasă", "pitorească", "zglobie", "citeață", "stângace", "albă", "acră", "verde", "maro", "gri"
+        );
 
-		// compare the random outputs
-		compareNounWithExpected(dictionary, words, articulated);
-	}
+        WordDictionary dictionary = new WordDictionary();
+        adjectives.forEach(word -> dictionary.addWord(word, "A"));
 
-	/**
-	 * Test adjective.
-	 */
-	@Test
-	public void testAdjective() {
+        verifyAdjectivesInDictionary(dictionary, adjectives, feminines);
+    }
 
-		// initialize word lists
-		List<String> adjectives = l("bor", "frumos", "pitoresc", "zglobiu", "citeț", "stângaci", "alb", "acru", "verde",
-				"maro", "gri");
-		List<String> feminines = l("boare", "frumoasă", "pitorească", "zglobie", "citeață", "stângace", "albă", "acră",
-				"verde", "maro", "gri");
+    @Test
+    void shouldManageFilters() {
+        IWordFilter lengthFilter = word -> word.word().length() == 6;
+        IWordFilter genderFilter = word -> ((Noun) word).gender() == NounGender.F;
 
-		// populate dictionary
-		WordDictionary dictionary = new WordDictionary();
-		adjectives.stream().forEach(word -> dictionary.addWord(word, "A"));
+        WordDictionary dictionary = new WordDictionary();
 
-		// compare the random outputs
-		compareAdjectiveWithExpected(dictionary, adjectives, feminines);
-	}
+        dictionary.addFilter(lengthFilter);
+        dictionary.addWord("corabie", "F");
+        dictionary.addWord("martor", "M");
 
-	/**
-	 * Test add, remove and clear filters.
-	 */
-	@Test
-	public void testFilters() {
+        verifyNounsInDictionary(dictionary, List.of("martor"), List.of("martorul"));
 
-		// init some filters
-		IWordFilter lengthFilter = word -> word.getLength() == 6;
-		IWordFilter genderFilter = word -> ((Noun) word).getGender().equals(NounGender.FEMININE);
+        dictionary.clearFilters();
+        verifyNounsInDictionary(dictionary, List.of("martor", "corabie"), List.of("martorul", "corabia"));
 
-		WordDictionary dictionary = new WordDictionary();
+        dictionary.addFilter(genderFilter);
+        verifyNounsInDictionary(dictionary, List.of("corabie"), List.of("corabia"));
 
-		dictionary.addFilter(lengthFilter);
-		// add words with filters
-		dictionary.addWord("corabie", "F");
-		dictionary.addWord("martor", "M");
+        dictionary.removeFilter(genderFilter);
+        verifyNounsInDictionary(dictionary, List.of("martor", "corabie"), List.of("martorul", "corabia"));
 
-		compareNounWithExpected(dictionary, l("martor"), l("martorul"));
+        dictionary.addFilter(lengthFilter);
+        dictionary.addFilter(genderFilter);
+        assertNull(dictionary.getRandomNoun());
 
-		dictionary.clearFilters();
-		compareNounWithExpected(dictionary, l("martor", "corabie"), l("martorul", "corabia"));
+        dictionary.clearFilters();
+        verifyNounsInDictionary(dictionary, List.of("martor", "corabie"), List.of("martorul", "corabia"));
 
-		dictionary.addFilter(genderFilter);
-		compareNounWithExpected(dictionary, l("corabie"), l("corabia"));
+        dictionary.addFilter(word -> word instanceof Adjective);
+        assertNull(dictionary.getRandomNoun());
+    }
 
-		dictionary.removeFilter(genderFilter);
-		compareNounWithExpected(dictionary, l("martor", "corabie"), l("martorul", "corabia"));
+    private void verifyNounsInDictionary(WordDictionary dictionary, List<String> expectedWords,
+            List<String> expectedArticulated) {
+        int iterations = 10 * expectedWords.size();
+        for (int i = 0; i < iterations; i++) {
+            Noun noun = dictionary.getRandomNoun();
+            assertTrue(expectedWords.contains(noun.word()),
+                "Expected word not found: " + noun.word());
+            assertTrue(expectedArticulated.contains(noun.articulated()),
+                "Expected articulated form not found: " + noun.articulated());
+        }
+    }
 
-		dictionary.addFilter(lengthFilter);
-		dictionary.addFilter(genderFilter);
-		assertNull(dictionary.getRandomNoun());
-
-		dictionary.clearFilters();
-		compareNounWithExpected(dictionary, l("martor", "corabie"), l("martorul", "corabia"));
-
-		dictionary.addFilter(word -> word instanceof Adjective);
-		assertNull(dictionary.getRandomNoun());
-	}
-
-	/**
-	 * Short way to make a list.
-	 *
-	 * @param <T>
-	 *            the generic type
-	 * @param t
-	 *            the t
-	 * @return the list
-	 */
-	private <T> List<T> l(@SuppressWarnings("unchecked") T... t) {
-		return Arrays.asList(t);
-	}
-
-	/**
-	 * Compare noun with expected.
-	 *
-	 * @param dictionary
-	 *            the dictionary
-	 * @param expectedNormal
-	 *            the expected normal
-	 * @param expectedSecondForm
-	 *            the expected second form
-	 */
-	private void compareNounWithExpected(WordDictionary dictionary, List<String> expectedNormal,
-			List<String> expectedSecondForm) {
-		compareWithExpected(dictionary, "getRandomNoun", "getArticulated", expectedNormal, expectedSecondForm);
-	}
-
-	/**
-	 * Compare with expected.
-	 *
-	 * @param dictionary
-	 *            the dictionary
-	 * @param randomWordGetter
-	 *            the random word getter
-	 * @param secondFormGetter
-	 *            the second form getter
-	 * @param expectedNormal
-	 *            the expected normal
-	 * @param expectedSecondForm
-	 *            the expected second form
-	 */
-	private void compareWithExpected(WordDictionary dictionary, String randomWordGetter, String secondFormGetter,
-			List<String> expectedNormal, List<String> expectedSecondForm) {
-		compareWithExpected(dictionary, randomWordGetter, secondFormGetter, expectedNormal, expectedSecondForm,
-				10 * expectedNormal.size());
-	}
-
-	/**
-	 * Invoke getter.
-	 *
-	 * @param <T>
-	 *            the generic type
-	 * @param object
-	 *            the object
-	 * @param methodName
-	 *            the method name
-	 * @param t
-	 *            the t
-	 * @return the t
-	 */
-	@SuppressWarnings("unchecked")
-	private <T> T invokeGetter(Object object, String methodName, Class<T> t) {
-		try {
-			Method method = object.getClass().getMethod(methodName);
-			return (T) method.invoke(object);
-		} catch (ReflectiveOperationException e) {
-			fail(e.getMessage());
-		}
-		return null;
-	}
-
-	/**
-	 * Compare with expected.
-	 *
-	 * @param dictionary
-	 *            the dictionary
-	 * @param randomWordGetter
-	 *            the random word getter
-	 * @param secondFormGetter
-	 *            the second form getter
-	 * @param words
-	 *            the words
-	 * @param secondForms
-	 *            the second forms
-	 * @param count
-	 *            the count
-	 */
-	private void compareWithExpected(WordDictionary dictionary, String randomWordGetter, String secondFormGetter,
-			final List<String> words, final List<String> secondForms, int count) {
-		for (int i = 0; i < count; i++) {
-			Word word = (Word) invokeGetter(dictionary, randomWordGetter, Word.class);
-			assertTrue(words.contains(word.getWord()));
-			String secondForm = invokeGetter(word, secondFormGetter, String.class);
-			assertTrue("Didn't find " + secondForm + " in second form list.", secondForms.contains(secondForm));
-			// assertNull(noun.getPlural());
-			// assertNull(noun.getArticulatedPlural());
-		}
-	}
-
-	/**
-	 * Compare adjective with expected.
-	 *
-	 * @param dictionary
-	 *            the dictionary
-	 * @param expectedWords
-	 *            the expected words
-	 * @param expectedFeminines
-	 *            the expected feminines
-	 */
-	private void compareAdjectiveWithExpected(WordDictionary dictionary, List<String> expectedWords,
-			List<String> expectedFeminines) {
-		compareWithExpected(dictionary, "getRandomAdjective", "getFeminine", expectedWords, expectedFeminines);
-	}
-
+    private void verifyAdjectivesInDictionary(WordDictionary dictionary, List<String> expectedWords,
+            List<String> expectedFeminines) {
+        int iterations = 10 * expectedWords.size();
+        for (int i = 0; i < iterations; i++) {
+            Adjective adjective = dictionary.getRandomAdjective();
+            assertTrue(expectedWords.contains(adjective.word()),
+                "Expected adjective not found: " + adjective.word());
+            assertTrue(expectedFeminines.contains(adjective.feminine()),
+                "Expected feminine form not found: " + adjective.feminine());
+        }
+    }
 }
