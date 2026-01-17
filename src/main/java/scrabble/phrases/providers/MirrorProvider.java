@@ -2,14 +2,13 @@ package scrabble.phrases.providers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import scrabble.phrases.dictionary.WordDictionary;
-import scrabble.phrases.filters.IWordFilter;
 import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
 import scrabble.phrases.words.NounGender;
 import scrabble.phrases.words.Verb;
-import scrabble.phrases.words.Word;
 
 /**
  * Provides mirror-style sentences with ABBA rhyme scheme.
@@ -17,8 +16,9 @@ import scrabble.phrases.words.Word;
  */
 public class MirrorProvider extends SentenceProvider {
 
-    private String rhymeA;
-    private String rhymeB;
+    private static final Random random = new Random();
+    private List<Noun> nounsA;
+    private List<Noun> nounsB;
 
     public MirrorProvider(WordDictionary dictionary) {
         super(dictionary);
@@ -26,77 +26,91 @@ public class MirrorProvider extends SentenceProvider {
 
     @Override
     protected void initFilters() {
-        // Find two different rhyme patterns
-        do {
-            getDictionary().clearFilters();
-            Noun noun1 = getDictionary().getRandomNoun();
-            Noun noun2 = getDictionary().getRandomNoun();
-
-            // Make sure we have two different rhymes
-            while (noun1.rhyme().equals(noun2.rhyme())) {
-                noun2 = getDictionary().getRandomNoun();
-            }
-
-            rhymeA = noun1.rhyme();
-            rhymeB = noun2.rhyme();
-        } while (!hasEnoughNounsForBothRhymes());
+        // Initialize lists here since initFilters is called from super constructor
+        nounsA = new ArrayList<>();
+        nounsB = new ArrayList<>();
+        collectRhymingNouns();
     }
 
-    private boolean hasEnoughNounsForBothRhymes() {
-        int countA = countNounsWithRhyme(rhymeA);
-        int countB = countNounsWithRhyme(rhymeB);
-        return countA >= 2 && countB >= 2;
-    }
-
-    private int countNounsWithRhyme(String rhyme) {
-        getDictionary().clearFilters();
-        getDictionary().addFilter(new IWordFilter() {
-            @Override
-            public boolean accepts(Word word) {
-                if (word instanceof Noun n) {
-                    return rhyme.equals(n.rhyme());
-                }
-                return true;
-            }
-        });
-
-        List<Noun> found = new ArrayList<>();
-        for (int i = 0; i < 20; i++) {
+    private void collectRhymingNouns() {
+        // Collect many nouns and group by rhyme
+        List<Noun> allNouns = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
             Noun n = getDictionary().getRandomNoun();
-            if (n != null && !found.contains(n)) {
-                found.add(n);
+            if (n != null && !allNouns.contains(n)) {
+                allNouns.add(n);
             }
         }
-        return found.size();
+
+        // Find first rhyme group with at least 2 nouns
+        String rhymeA = null;
+        for (Noun n : allNouns) {
+            long count = allNouns.stream().filter(x -> x.rhyme().equals(n.rhyme())).count();
+            if (count >= 2) {
+                rhymeA = n.rhyme();
+                break;
+            }
+        }
+
+        if (rhymeA == null) {
+            // Fallback: just use first two nouns
+            nounsA.addAll(allNouns.subList(0, Math.min(2, allNouns.size())));
+            nounsB.addAll(allNouns.subList(Math.min(2, allNouns.size()), Math.min(4, allNouns.size())));
+            return;
+        }
+
+        // Find second rhyme group different from first
+        String rhymeB = null;
+        final String finalRhymeA = rhymeA;
+        for (Noun n : allNouns) {
+            if (!n.rhyme().equals(finalRhymeA)) {
+                long count = allNouns.stream().filter(x -> x.rhyme().equals(n.rhyme())).count();
+                if (count >= 2) {
+                    rhymeB = n.rhyme();
+                    break;
+                }
+            }
+        }
+
+        if (rhymeB == null) {
+            // Fallback: use any nouns not in group A
+            for (Noun n : allNouns) {
+                if (n.rhyme().equals(rhymeA)) {
+                    nounsA.add(n);
+                } else if (nounsB.size() < 2) {
+                    nounsB.add(n);
+                }
+            }
+            return;
+        }
+
+        // Collect nouns for both groups
+        final String finalRhymeB = rhymeB;
+        for (Noun n : allNouns) {
+            if (n.rhyme().equals(finalRhymeA)) {
+                nounsA.add(n);
+            } else if (n.rhyme().equals(finalRhymeB)) {
+                nounsB.add(n);
+            }
+        }
     }
 
     @Override
     public String getSentence() {
         // Line 1: rhyme A
-        String line1 = buildLine(rhymeA);
+        String line1 = buildLine(nounsA) + ",";
         // Line 2: rhyme B
-        String line2 = buildLine(rhymeB);
+        String line2 = buildLine(nounsB) + ",";
         // Line 3: rhyme B
-        String line3 = buildLine(rhymeB);
+        String line3 = buildLine(nounsB) + ",";
         // Line 4: rhyme A
-        String line4 = buildLine(rhymeA) + ".";
+        String line4 = buildLine(nounsA) + ".";
 
         return line1 + " / " + line2 + " / " + line3 + " / " + line4;
     }
 
-    private String buildLine(String rhyme) {
-        getDictionary().clearFilters();
-        getDictionary().addFilter(new IWordFilter() {
-            @Override
-            public boolean accepts(Word word) {
-                if (word instanceof Noun n) {
-                    return rhyme.equals(n.rhyme());
-                }
-                return true;
-            }
-        });
-
-        Noun noun = getDictionary().getRandomNoun();
+    private String buildLine(List<Noun> nouns) {
+        Noun noun = nouns.get(random.nextInt(nouns.size()));
         Adjective adj = getDictionary().getRandomAdjective();
         Verb verb = getDictionary().getRandomVerb();
 

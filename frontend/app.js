@@ -83,14 +83,14 @@ async function waitForBackend() {
         }
 
         const secondsWaited = (i + 1) * (RETRY_DELAY / 1000);
-        const message = `Backend-ul porneste... (${secondsWaited}s)`;
+        const message = `Backend-ul pornește... (${secondsWaited}s)`;
 
         ENDPOINTS.forEach((e, idx) => {
             const el = document.getElementById(e.id);
             if (idx === 0) {
                 el.innerHTML = `<span class="loading">${message}</span>`;
             } else {
-                el.innerHTML = '<span class="loading">Render Free Tier - cold start</span>';
+                el.innerHTML = '<span class="loading">Render Free Tier – pornire la rece</span>';
             }
         });
 
@@ -118,7 +118,7 @@ async function fetchSentence(endpoint) {
  */
 function showLoading() {
     ENDPOINTS.forEach(e => {
-        document.getElementById(e.id).innerHTML = '<span class="loading">Se incarca...</span>';
+        document.getElementById(e.id).innerHTML = '<span class="loading">Se încarcă...</span>';
     });
 }
 
@@ -172,12 +172,12 @@ async function refresh() {
         const isHealthy = await checkHealth();
 
         if (!isHealthy) {
-            showInfo('Backend-ul porneste... Render Free Tier poate dura pana la 60s la prima accesare.');
+            showInfo('Backend-ul pornește... Render Free Tier poate dura până la 60s la prima accesare.');
             const ready = await waitForBackend();
             hideMessage();
 
             if (!ready) {
-                showError('Backend-ul nu a pornit. Incercati din nou mai tarziu.');
+                showError('Backend-ul nu a pornit. Încercați din nou mai târziu.');
                 ENDPOINTS.forEach(e => {
                     document.getElementById(e.id).innerHTML = '<span class="loading">Timeout</span>';
                 });
@@ -195,7 +195,7 @@ async function refresh() {
         });
     } catch (error) {
         console.error('Error fetching sentences:', error);
-        showError('Eroare la incarcarea propozitiilor. Incercati din nou.');
+        showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
         ENDPOINTS.forEach(e => {
             document.getElementById(e.id).innerHTML = '<span class="loading">Eroare</span>';
         });
@@ -217,7 +217,7 @@ async function resetAndRefresh() {
         await refresh();
     } catch (error) {
         console.error('Error resetting:', error);
-        showError('Eroare la resetare. Incercati din nou.');
+        showError('Eroare la resetare. Încercați din nou.');
         setButtonsDisabled(false);
     }
 }

@@ -1,11 +1,13 @@
 package scrabble.phrases.providers;
 
 import scrabble.phrases.dictionary.WordDictionary;
+import scrabble.phrases.words.Adjective;
 import scrabble.phrases.words.Noun;
+import scrabble.phrases.words.NounGender;
 
 /**
  * Provides comparison sentences.
- * Format: [Noun] e mai [adjective] decat [noun].
+ * Format: [Noun] e mai [adjective] decât [noun].
  */
 public class ComparisonProvider extends SentenceProvider {
 
@@ -21,9 +23,10 @@ public class ComparisonProvider extends SentenceProvider {
     @Override
     public String getSentence() {
         Noun noun1 = getDictionary().getRandomNoun();
-        String adj = getDictionary().getRandomAdjective().word();
+        Adjective adj = getDictionary().getRandomAdjective();
         Noun noun2 = getDictionary().getRandomNoun();
 
-        return noun1.articulated() + " e mai " + adj + " decat " + noun2.articulated() + ".";
+        String adjForm = (noun1.gender() == NounGender.F) ? adj.feminine() : adj.word();
+        return noun1.articulated() + " e mai " + adjForm + " decât " + noun2.articulated() + ".";
     }
 }

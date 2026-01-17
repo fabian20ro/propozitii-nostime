@@ -1,7 +1,7 @@
 {
     "name": "Propozitii Nostime",
     "short_name": "Propozitii",
-    "description": "Generator de propozitii hazoase in limba romana",
+    "description": "Generator de propoziții hazlii în limba română",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#f8faf9",

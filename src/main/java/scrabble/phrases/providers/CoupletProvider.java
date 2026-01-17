@@ -48,12 +48,15 @@ public class CoupletProvider extends SentenceProvider {
 
         String line1 = getNounAdjectiveCombo(dict) + " "
             + dict.getRandomVerb().word() + " "
-            + dict.getRandomNoun().articulated();
+            + dict.getRandomNoun().articulated() + ".";
 
         String line2 = getNounAdjectiveCombo(dict) + " "
             + dict.getRandomVerb().word() + " "
             + dict.getRandomNoun().articulated() + ".";
 
-        return line1 + " / " + line2;
+        // Capitalize first letter of second line
+        String line2Capitalized = Character.toUpperCase(line2.charAt(0)) + line2.substring(1);
+
+        return line1 + " / " + line2Capitalized;
     }
 }
