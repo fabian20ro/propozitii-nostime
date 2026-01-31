@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Freshness: 2026-01-31 | 21 production files, ~785 lines
+> Freshness: 2026-01-31 | 23 production files, ~850 lines
 
 ## Package Structure
 
@@ -9,6 +9,8 @@ src/main/kotlin/scrabble/phrases/
   PhraseResource.kt          # REST controller, 7 endpoints (6 individual + /api/all batch)
   SentenceResponse.kt        # JSON DTO (single sentence)
   AllSentencesResponse.kt    # JSON DTO (all 6 sentences)
+  GlobalExceptionMapper.kt   # @Provider, returns generic 500 (no internal details leaked)
+  RateLimitFilter.kt         # @Provider, per-IP sliding window rate limiter (30 req/min)
   words/
     Word.kt                  # sealed interface
     NounGender.kt            # enum M/F/N
