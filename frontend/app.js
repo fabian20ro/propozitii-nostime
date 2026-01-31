@@ -73,19 +73,20 @@ function sanitizeHtml(html) {
 // API configuration
 const API_BASE = 'https://propozitii-nostime.onrender.com/api';
 const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
-const HEALTH_TIMEOUT = 5000; // 5 seconds
-const MAX_RETRIES = 12; // ~60 seconds total wait time
-const RETRY_DELAY = 5000; // 5 seconds between retries
+const HEALTH_TIMEOUT = 5000;
+const MAX_RETRIES = 12;
+const RETRY_DELAY = 5000;
 
-// Endpoint configuration
-const ENDPOINTS = [
-    { id: 'haiku-text', endpoint: 'haiku' },
-    { id: 'couplet-text', endpoint: 'couplet' },
-    { id: 'comparison-text', endpoint: 'comparison' },
-    { id: 'definition-text', endpoint: 'definition' },
-    { id: 'tautogram-text', endpoint: 'tautogram' },
-    { id: 'mirror-text', endpoint: 'mirror' }
-];
+// Maps /api/all response keys to DOM element IDs
+const FIELD_MAP = {
+    haiku: 'haiku-text',
+    couplet: 'couplet-text',
+    comparison: 'comparison-text',
+    definition: 'definition-text',
+    tautogram: 'tautogram-text',
+    mirror: 'mirror-text'
+};
+const FIELD_IDS = Object.values(FIELD_MAP);
 
 // DOM elements
 const refreshBtn = document.getElementById('refresh');
@@ -108,7 +109,7 @@ async function checkHealth() {
             return data.status === 'UP';
         }
         return false;
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -127,12 +128,12 @@ async function waitForBackend() {
         const secondsWaited = (i + 1) * (RETRY_DELAY / 1000);
         const message = `Backend-ul pornește... (${secondsWaited}s)`;
 
-        ENDPOINTS.forEach((e, idx) => {
-            const el = document.getElementById(e.id);
+        FIELD_IDS.forEach((id, idx) => {
+            const el = document.getElementById(id);
             if (idx === 0) {
-                el.innerHTML = `<span class="loading">${message}</span>`;
+                el.textContent = message;
             } else {
-                el.innerHTML = '<span class="loading">Render Free Tier – pornire la rece</span>';
+                el.textContent = 'Render Free Tier – pornire la rece';
             }
         });
 
@@ -142,28 +143,29 @@ async function waitForBackend() {
 }
 
 /**
- * Fetch a sentence from the API
- * @param {string} endpoint - The API endpoint
- * @returns {Promise<string>} The sentence HTML
+ * Fetch all sentences in a single request
+ * @returns {Promise<Object>} Parsed JSON with all sentence fields
  */
-async function fetchSentence(endpoint) {
-    const response = await fetch(`${API_BASE}/${endpoint}`);
+async function fetchAllSentences() {
+    const response = await fetch(`${API_BASE}/all`);
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
-    if (!data || typeof data.sentence !== 'string') {
-        throw new Error(`Invalid response for ${endpoint}: missing sentence`);
+    for (const key of Object.keys(FIELD_MAP)) {
+        if (!data[key] || typeof data[key] !== 'string') {
+            throw new Error(`Invalid response: missing ${key}`);
+        }
     }
-    return sanitizeHtml(data.sentence);
+    return data;
 }
 
 /**
  * Show loading state
  */
 function showLoading() {
-    ENDPOINTS.forEach(e => {
-        document.getElementById(e.id).innerHTML = '<span class="loading">Se încarcă...</span>';
+    FIELD_IDS.forEach(id => {
+        document.getElementById(id).textContent = 'Se încarcă...';
     });
 }
 
@@ -204,6 +206,19 @@ function setButtonsDisabled(disabled) {
 }
 
 /**
+ * Apply fetched sentences to the DOM (sanitized HTML from backend)
+ * @param {Object} data - Response from /api/all
+ */
+function applySentences(data) {
+    for (const [key, id] of Object.entries(FIELD_MAP)) {
+        const el = document.getElementById(id);
+        // Backend returns HTML with <a> tags for dexonline links — sanitize before inserting
+        const safe = sanitizeHtml(data[key]);
+        el.innerHTML = safe;
+    }
+}
+
+/**
  * Refresh all sentences
  */
 async function refresh() {
@@ -212,37 +227,34 @@ async function refresh() {
     setButtonsDisabled(true);
 
     try {
-        // Quick health check first
-        const isHealthy = await checkHealth();
+        // Try fetching directly — no health check on warm backend
+        const data = await fetchAllSentences();
+        applySentences(data);
+    } catch {
+        // Fetch failed — backend likely cold-starting
+        showInfo('Backend-ul pornește... Render Free Tier poate dura până la 60s la prima accesare.');
+        const ready = await waitForBackend();
+        hideMessage();
 
-        if (!isHealthy) {
-            showInfo('Backend-ul pornește... Render Free Tier poate dura până la 60s la prima accesare.');
-            const ready = await waitForBackend();
-            hideMessage();
-
-            if (!ready) {
-                showError('Backend-ul nu a pornit. Încercați din nou mai târziu.');
-                ENDPOINTS.forEach(e => {
-                    document.getElementById(e.id).innerHTML = '<span class="loading">Timeout</span>';
-                });
-                setButtonsDisabled(false);
-                return;
-            }
+        if (!ready) {
+            showError('Backend-ul nu a pornit. Încercați din nou mai târziu.');
+            FIELD_IDS.forEach(id => {
+                document.getElementById(id).textContent = 'Timeout';
+            });
+            setButtonsDisabled(false);
+            return;
         }
 
-        const results = await Promise.all(
-            ENDPOINTS.map(e => fetchSentence(e.endpoint))
-        );
-
-        ENDPOINTS.forEach((e, i) => {
-            document.getElementById(e.id).innerHTML = results[i];
-        });
-    } catch (error) {
-        console.error('Error fetching sentences:', error);
-        showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
-        ENDPOINTS.forEach(e => {
-            document.getElementById(e.id).innerHTML = '<span class="loading">Eroare</span>';
-        });
+        // Backend is up — retry once
+        try {
+            const data = await fetchAllSentences();
+            applySentences(data);
+        } catch {
+            showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
+            FIELD_IDS.forEach(id => {
+                document.getElementById(id).textContent = 'Eroare';
+            });
+        }
     } finally {
         setButtonsDisabled(false);
     }

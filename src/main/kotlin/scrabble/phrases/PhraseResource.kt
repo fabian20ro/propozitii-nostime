@@ -67,6 +67,17 @@ class PhraseResource {
     }
 
     @GET
+    @Path("/all")
+    fun getAll(): AllSentencesResponse = AllSentencesResponse(
+        haiku = getHaiku().sentence,
+        couplet = getCouplet().sentence,
+        comparison = getComparison().sentence,
+        definition = getDefinition().sentence,
+        tautogram = getTautogram().sentence,
+        mirror = getMirror().sentence
+    )
+
+    @GET
     @Path("/mirror")
     fun getMirror(): SentenceResponse {
         val decorated = HtmlVerseBreaker(

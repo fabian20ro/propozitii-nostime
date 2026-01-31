@@ -68,4 +68,18 @@ class PhraseResourceTest {
             .body("sentence", notNullValue())
             .body("sentence", containsString("<a href="))
     }
+
+    @Test
+    fun shouldReturnAllSentences() {
+        given()
+            .`when`().get("/api/all")
+            .then()
+            .statusCode(200)
+            .body("haiku", notNullValue())
+            .body("couplet", notNullValue())
+            .body("comparison", notNullValue())
+            .body("definition", notNullValue())
+            .body("tautogram", notNullValue())
+            .body("mirror", notNullValue())
+    }
 }
