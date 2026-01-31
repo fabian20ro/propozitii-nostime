@@ -77,8 +77,8 @@ export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
 
 ## Credential Safety
 
-- Pre-commit hook (`.githooks/pre-commit`) scans for hardcoded JDBC URLs, Supabase/GitHub/OpenAI tokens
-- CI runs the same check before build
+- Pre-commit hook (`.githooks/pre-commit`) runs `gitleaks protect --staged` to scan for secrets
+- CI runs `gitleaks/gitleaks-action@v2` before build
 - Never commit real credentials -- use environment variables
 
 ## Loading the Dictionary (one-time)
