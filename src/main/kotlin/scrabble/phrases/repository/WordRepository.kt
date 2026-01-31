@@ -116,6 +116,34 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         }
     }
 
+    fun getRandomPrefixWithAllTypes(): String? {
+        dataSource.connection.use { conn ->
+            conn.prepareStatement("""
+                SELECT prefix FROM (
+                    SELECT LEFT(word, 2) AS prefix
+                    FROM words
+                    WHERE LENGTH(word) >= 2
+                    GROUP BY LEFT(word, 2)
+                    HAVING COUNT(DISTINCT type) = 3
+                ) valid_prefixes
+                ORDER BY RANDOM() LIMIT 1
+            """.trimIndent()).use { stmt ->
+                stmt.executeQuery().use { rs ->
+                    return if (rs.next()) rs.getString("prefix") else null
+                }
+            }
+        }
+    }
+
+    fun getRandomNounByPrefix(prefix: String): Noun? =
+        queryNoun("SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? ORDER BY RANDOM() LIMIT 1", "$prefix%")
+
+    fun getRandomAdjectiveByPrefix(prefix: String): Adjective? =
+        queryAdjective("SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND word LIKE ? ORDER BY RANDOM() LIMIT 1", "$prefix%")
+
+    fun getRandomVerbByPrefix(prefix: String): Verb? =
+        queryVerb("SELECT word, syllables, rhyme FROM words WHERE type='V' AND word LIKE ? ORDER BY RANDOM() LIMIT 1", "$prefix%")
+
     private fun queryNoun(sql: String, vararg params: Any): Noun? {
         dataSource.connection.use { conn ->
             conn.prepareStatement(sql).use { stmt ->

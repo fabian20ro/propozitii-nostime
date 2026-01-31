@@ -2,7 +2,7 @@
 -- Words chosen to satisfy all provider constraints:
 --   CoupletProvider: 4+ nouns sharing a rhyme
 --   HaikuProvider: nouns with 5-syllable articulated forms, 3-syllable adj/verb
---   TautogramProvider: nouns, adjectives, verbs sharing first letter 'm'
+--   TautogramProvider: nouns, adjectives, verbs sharing two-letter prefix 'ma'
 --   MirrorProvider: 2 rhyme groups with 2+ nouns each
 --   ComparisonProvider / DefinitionProvider: basic variety
 
@@ -43,6 +43,7 @@ INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulat
 
 -- Verbs (type='V')
 INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine) VALUES
+  ('marchează','V', NULL, 3, 'ază', 'm', NULL, NULL),
   ('merge',    'V', NULL, 2, 'rge', 'm', NULL, NULL),
   ('aleargă',  'V', NULL, 3, 'rgă', 'a', NULL, NULL),
   ('mănâncă',  'V', NULL, 3, 'ncă', 'm', NULL, NULL),
