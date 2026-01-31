@@ -135,31 +135,84 @@ header h1 {
     display: none;
 }
 
-/* Dexonline iframe popup - clips header to show definitions directly */
-.dex-popup {
+/* Dexonline bottom drawer */
+.dex-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    transition: visibility 0.3s;
+}
+
+.dex-drawer.dex-drawer-hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.dex-drawer-backdrop {
     position: absolute;
-    z-index: 100;
-    width: 480px;
-    height: 500px;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.dex-drawer:not(.dex-drawer-hidden) .dex-drawer-backdrop {
+    opacity: 1;
+}
+
+.dex-drawer-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50vh;
     background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    margin-top: 0.5rem;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+}
+
+.dex-drawer:not(.dex-drawer-hidden) .dex-drawer-panel {
+    transform: translateY(0);
+}
+
+.dex-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.dex-drawer-title {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.dex-drawer-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0 0.5rem;
+    line-height: 1;
+}
+
+.dex-drawer-body {
+    flex: 1;
     overflow: hidden;
 }
 
-.dex-popup-clipper {
+.dex-drawer-body iframe {
     width: 100%;
     height: 100%;
-    overflow: hidden;
-}
-
-.dex-popup-clipper iframe {
-    width: 480px;
-    height: 1200px;
     border: none;
-    margin-top: -380px;
 }
 
 /* Buttons */

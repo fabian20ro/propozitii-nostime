@@ -241,71 +241,81 @@ async function refresh() {
     }
 }
 
-// Dexonline hover preview
-function initDexonlinePreview() {
-    let activePopup = null;
-    let hideTimeout = null;
+// Dexonline bottom drawer
+function initDexonlineDrawer() {
+    const drawer = document.getElementById('dex-drawer');
+    const iframe = document.getElementById('dex-drawer-iframe');
+    const titleEl = drawer.querySelector('.dex-drawer-title');
+    const closeBtn = drawer.querySelector('.dex-drawer-close');
+    const backdrop = drawer.querySelector('.dex-drawer-backdrop');
 
-    function removePopup() {
-        if (activePopup) {
-            activePopup.remove();
-            activePopup = null;
+    let activeWord = null;
+    let triggerLink = null;
+
+    function openDrawer(word, url, link) {
+        titleEl.textContent = decodeURIComponent(word);
+        iframe.src = url;
+        drawer.classList.remove('dex-drawer-hidden');
+        drawer.setAttribute('aria-hidden', 'false');
+        activeWord = word;
+        triggerLink = link;
+        closeBtn.focus();
+    }
+
+    function closeDrawer() {
+        drawer.classList.add('dex-drawer-hidden');
+        drawer.setAttribute('aria-hidden', 'true');
+        iframe.src = '';
+        activeWord = null;
+        if (triggerLink) {
+            triggerLink.focus();
+            triggerLink = null;
         }
     }
 
-    function scheduleHide() {
-        hideTimeout = setTimeout(removePopup, 200);
-    }
-
-    function cancelHide() {
-        if (hideTimeout) {
-            clearTimeout(hideTimeout);
-            hideTimeout = null;
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.dex-drawer-close')) {
+            closeDrawer();
+            return;
         }
-    }
 
-    document.addEventListener('mouseover', function (e) {
+        if (e.target.closest('.dex-drawer-backdrop')) {
+            closeDrawer();
+            return;
+        }
+
+        if (e.target.closest('.dex-drawer-panel')) {
+            return;
+        }
+
         const link = e.target.closest('.sentence a[data-word]');
-        if (!link) return;
 
-        cancelHide();
-        if (activePopup && activePopup.dataset.word === link.dataset.word) return;
-        removePopup();
+        if (!link) {
+            if (activeWord) closeDrawer();
+            return;
+        }
+
+        e.preventDefault();
 
         const word = link.dataset.word;
-        const url = 'https://dexonline.ro/definitie/' + word;
+        const url = link.href;
 
-        const popup = document.createElement('div');
-        popup.className = 'dex-popup';
-        popup.dataset.word = word;
-
-        const clipper = document.createElement('div');
-        clipper.className = 'dex-popup-clipper';
-
-        const iframe = document.createElement('iframe');
-        iframe.src = url;
-        iframe.setAttribute('loading', 'lazy');
-
-        clipper.appendChild(iframe);
-        popup.appendChild(clipper);
-
-        popup.addEventListener('mouseover', cancelHide);
-        popup.addEventListener('mouseout', scheduleHide);
-
-        link.after(popup);
-        activePopup = popup;
+        if (activeWord === word) {
+            window.open(url, '_blank', 'noopener');
+            closeDrawer();
+        } else {
+            openDrawer(word, url, link);
+        }
     });
 
-    document.addEventListener('mouseout', function (e) {
-        const link = e.target.closest('.sentence a[data-word]');
-        if (!link) return;
-        scheduleHide();
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && activeWord) closeDrawer();
     });
 }
 
 // Event listeners
 refreshBtn.addEventListener('click', refresh);
-initDexonlinePreview();
+initDexonlineDrawer();
 
 // Initial load
 refresh();
