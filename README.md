@@ -112,7 +112,7 @@ Indexes on `(type)`, `(type, rhyme)`, `(type, syllables)`, `(type, first_letter)
 
 ## Acknowledgements
 
-The Romanian word dictionary used in this project comes from [dexonline.ro](https://dexonline.ro), an exceptional open-source Romanian dictionary project. Many thanks to the dexonline team for maintaining such a comprehensive and freely available linguistic resource. Clicking any word in a sentence opens a bottom sheet drawer with its dexonline.ro definition.
+The Romanian word dictionary used in this project comes from [dexonline.ro](https://dexonline.ro), an exceptional open-source Romanian dictionary project. Many thanks to the dexonline team for maintaining such a comprehensive and freely available linguistic resource. Clicking any word in a sentence opens a draggable bottom sheet drawer with its dexonline.ro definition. The drawer can be resized by dragging the header, and the chosen height persists across sessions.
 
 ## License
 

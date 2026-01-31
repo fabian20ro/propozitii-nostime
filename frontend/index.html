@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="48x48" href="img/icon_48.png">
     <link rel="apple-touch-icon" sizes="192x192" href="img/icon_192.png">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src https://dexonline.ro; img-src 'self' https://github.com; connect-src https://propozitii-nostime.onrender.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src https://dexonline.ro; img-src 'self' https://github.com; connect-src https://propozitii-nostime.onrender.com; object-src 'none'; base-uri 'self'; form-action 'none';">
     <meta name="theme-color" content="#5a8a7a">
     <meta name="description" content="Generator de propoziții hazlii în limba română">
 </head>
@@ -103,7 +103,7 @@
                 <button class="dex-drawer-close" aria-label="Închide">&times;</button>
             </div>
             <div class="dex-drawer-body">
-                <iframe id="dex-drawer-iframe" loading="lazy"></iframe>
+                <iframe id="dex-drawer-iframe" loading="lazy" sandbox="allow-scripts allow-same-origin"></iframe>
             </div>
         </div>
     </div>

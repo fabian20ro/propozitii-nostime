@@ -14,9 +14,6 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     fun getRandomNounByRhyme(rhyme: String): Noun? =
         queryNoun("SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? ORDER BY RANDOM() LIMIT 1", rhyme)
 
-    fun getRandomNounByFirstLetter(letter: Char): Noun? =
-        queryNoun("SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND first_letter=? ORDER BY RANDOM() LIMIT 1", letter.lowercaseChar().toString())
-
     fun getRandomNounByArticulatedSyllables(articulatedSyllables: Int): Noun? {
         // Filter by articulated syllable count in code since it's computed from the articulated form
         dataSource.connection.use { conn ->
@@ -45,18 +42,12 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     fun getRandomAdjectiveBySyllables(syllables: Int): Adjective? =
         queryAdjective("SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND syllables=? ORDER BY RANDOM() LIMIT 1", syllables)
 
-    fun getRandomAdjectiveByFirstLetter(letter: Char): Adjective? =
-        queryAdjective("SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND first_letter=? ORDER BY RANDOM() LIMIT 1", letter.lowercaseChar().toString())
-
     fun getRandomVerb(): Verb =
         queryVerb("SELECT word, syllables, rhyme FROM words WHERE type='V' ORDER BY RANDOM() LIMIT 1")
             ?: throw IllegalStateException("No verbs found in database")
 
     fun getRandomVerbBySyllables(syllables: Int): Verb? =
         queryVerb("SELECT word, syllables, rhyme FROM words WHERE type='V' AND syllables=? ORDER BY RANDOM() LIMIT 1", syllables)
-
-    fun getRandomVerbByFirstLetter(letter: Char): Verb? =
-        queryVerb("SELECT word, syllables, rhyme FROM words WHERE type='V' AND first_letter=? ORDER BY RANDOM() LIMIT 1", letter.lowercaseChar().toString())
 
     fun findRhymeGroup(type: String, minCount: Int): String? {
         dataSource.connection.use { conn ->
@@ -96,24 +87,6 @@ class WordRepository(private val dataSource: AgroalDataSource) {
             }
         }
         return nouns
-    }
-
-    fun getRandomLetterWithAllTypes(): Char? {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement("""
-                SELECT first_letter FROM (
-                    SELECT first_letter
-                    FROM words
-                    GROUP BY first_letter
-                    HAVING COUNT(DISTINCT type) = 3
-                ) valid_letters
-                ORDER BY RANDOM() LIMIT 1
-            """.trimIndent()).use { stmt ->
-                stmt.executeQuery().use { rs ->
-                    return if (rs.next()) rs.getString("first_letter")[0] else null
-                }
-            }
-        }
     }
 
     fun getRandomPrefixWithAllTypes(): String? {

@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Freshness: 2026-01-31 | 20 production files, ~685 lines
+> Freshness: 2026-01-31 | 21 production files, ~785 lines
 
 ## Package Structure
 
@@ -27,6 +27,7 @@ src/main/kotlin/scrabble/phrases/
     MirrorProvider.kt        # ABBA rhyme scheme (4 lines)
   decorators/
     FirstSentenceLetterCapitalizer.kt
+    VerseLineCapitalizer.kt  # capitalizes first letter of each verse line
     DexonlineLinkAdder.kt    # wraps words in <a> to dexonline.ro
     HtmlVerseBreaker.kt      # " / " -> <br/>
   tools/
@@ -37,26 +38,26 @@ src/main/kotlin/scrabble/phrases/
 
 | Endpoint | Chain |
 |----------|-------|
-| /api/haiku | Provider -> Capitalize -> Links -> VerseBreak |
-| /api/couplet | Provider -> Capitalize -> Links -> VerseBreak |
+| /api/haiku | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
+| /api/couplet | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
 | /api/comparison | Provider -> Capitalize -> Links |
 | /api/definition | Provider -> Links |
 | /api/tautogram | Provider -> Capitalize -> Links |
-| /api/mirror | Provider -> Capitalize -> Links -> VerseBreak |
+| /api/mirror | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
 
-## WordRepository Query Methods (15)
+## WordRepository Query Methods (14)
 
-Nouns: `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByFirstLetter`, `getRandomNounByPrefix`, `getRandomNounByArticulatedSyllables`, `getRandomNounByRhymeAndArticulatedSyllables`, `getNounsByRhyme`
-Adjectives: `getRandomAdjective`, `getRandomAdjectiveBySyllables`, `getRandomAdjectiveByFirstLetter`, `getRandomAdjectiveByPrefix`
-Verbs: `getRandomVerb`, `getRandomVerbBySyllables`, `getRandomVerbByFirstLetter`, `getRandomVerbByPrefix`
-Grouping: `findRhymeGroup`, `findTwoRhymeGroups`, `hasWordsForLetter`, `getRandomPrefixWithAllTypes`
+Nouns (5): `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByPrefix`, `getRandomNounByArticulatedSyllables`, `getNounsByRhyme`
+Adjectives (3): `getRandomAdjective`, `getRandomAdjectiveBySyllables`, `getRandomAdjectiveByPrefix`
+Verbs (3): `getRandomVerb`, `getRandomVerbBySyllables`, `getRandomVerbByPrefix`
+Grouping (3): `findRhymeGroup`, `findTwoRhymeGroups`, `getRandomPrefixWithAllTypes`
 
-## Test Files (6, ~277 lines)
+## Test Files (6, ~284 lines)
 
 ```
 src/test/kotlin/scrabble/phrases/
   PhraseResourceTest.kt      # @QuarkusTest, 6 endpoints, Testcontainers
-  decorators/DecoratorTest.kt # 4 unit tests
+  decorators/DecoratorTest.kt # 5 unit tests (includes VerseLineCapitalizer)
   words/
     AdjectiveTest.kt          # 11 feminine form pairs
     NounTest.kt               # masc/fem/neutral articulation

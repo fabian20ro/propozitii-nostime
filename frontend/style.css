@@ -130,11 +130,6 @@ header h1 {
     text-decoration: underline;
 }
 
-/* Hide legacy .box popups from old backend responses */
-.sentence .box {
-    display: none;
-}
-
 /* Dexonline bottom drawer */
 .dex-drawer-panel {
     position: fixed;
@@ -210,9 +205,9 @@ header h1 {
 
 .dex-drawer-body iframe {
     width: 100%;
-    height: calc(100% + 384px);
+    height: calc(100% + 300px);
     border: none;
-    margin-top: -384px;
+    margin-top: -300px;
 }
 
 /* Buttons */
@@ -248,16 +243,6 @@ header h1 {
 
 .btn-primary:hover {
     background: var(--primary-hover);
-}
-
-.btn-secondary {
-    background: var(--card-bg);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-    background: var(--bg-color);
 }
 
 .btn:disabled {

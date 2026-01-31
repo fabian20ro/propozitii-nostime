@@ -50,8 +50,15 @@ function sanitizeHtml(html) {
                 for (const attr of Array.from(child.attributes)) {
                     if (!safeAttrs.includes(attr.name)) {
                         child.removeAttribute(attr.name);
-                    } else if (attr.name === 'href' && attr.value.trimStart().startsWith('javascript:')) {
-                        child.removeAttribute(attr.name);
+                    } else if (attr.name === 'href') {
+                        try {
+                            const parsed = new URL(attr.value, window.location.href);
+                            if (parsed.protocol !== 'https:' || parsed.hostname !== 'dexonline.ro') {
+                                child.removeAttribute(attr.name);
+                            }
+                        } catch {
+                            child.removeAttribute(attr.name);
+                        }
                     }
                 }
                 cleanNode(child);

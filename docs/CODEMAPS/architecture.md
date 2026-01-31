@@ -24,7 +24,7 @@ Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80
 1. Frontend `refresh()` calls all 6 `/api/*` endpoints in parallel
 2. Each endpoint constructs: `Provider -> Decorator chain -> SentenceResponse`
 3. Provider queries `WordRepository` (random words from PostgreSQL)
-4. Decorators: capitalize, add dexonline links, break verses
+4. Decorators: capitalize (sentence or per-verse-line), add dexonline links, break verses
 5. Frontend sanitizes HTML, renders into DOM
 
 ## Deployment
@@ -41,13 +41,19 @@ Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80
 - Frontend handles Render cold starts with health polling (up to 60s)
 - `%prod` profile for DB credentials; dev/test use Testcontainers via Quarkus Dev Services
 
+## Security Hardening
+
+- **CSP**: `object-src 'none'`, `base-uri 'self'`, `form-action 'none'` block plugin injection, base-tag hijacking, and form exfiltration
+- **Sanitizer**: href attributes validated via `URL` parsing; only `https://dexonline.ro` origins are allowed
+- **Iframe**: `sandbox="allow-scripts allow-same-origin"` restricts the dexonline.ro embed to script execution and same-origin access only
+
 ## Dependency Graph
 
 ```
 PhraseResource
   +-- WordRepository
   +-- 6 Providers (each use WordRepository)
-  +-- 3 Decorators (chain wrapping ISentenceProvider)
+  +-- 4 Decorators (chain wrapping ISentenceProvider)
   +-- SentenceResponse
 
 WordRepository
