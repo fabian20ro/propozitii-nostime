@@ -247,7 +247,6 @@ function initDexonlineDrawer() {
     const iframe = document.getElementById('dex-drawer-iframe');
     const titleEl = drawer.querySelector('.dex-drawer-title');
     const closeBtn = drawer.querySelector('.dex-drawer-close');
-    const backdrop = drawer.querySelector('.dex-drawer-backdrop');
 
     let activeWord = null;
     let triggerLink = null;
@@ -279,11 +278,6 @@ function initDexonlineDrawer() {
             return;
         }
 
-        if (e.target.closest('.dex-drawer-backdrop')) {
-            closeDrawer();
-            return;
-        }
-
         if (e.target.closest('.dex-drawer-panel')) {
             return;
         }
@@ -291,7 +285,6 @@ function initDexonlineDrawer() {
         const link = e.target.closest('.sentence a[data-word]');
 
         if (!link) {
-            if (activeWord) closeDrawer();
             return;
         }
 
