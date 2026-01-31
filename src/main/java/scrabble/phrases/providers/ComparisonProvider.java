@@ -25,6 +25,9 @@ public class ComparisonProvider extends SentenceProvider {
         Noun noun1 = getDictionary().getRandomNoun();
         Adjective adj = getDictionary().getRandomAdjective();
         Noun noun2 = getDictionary().getRandomNoun();
+        if (noun1 == null || adj == null || noun2 == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for comparison");
+        }
 
         String adjForm = (noun1.gender() == NounGender.F) ? adj.feminine() : adj.word();
         return noun1.articulated() + " e mai " + adjForm + " decât " + noun2.articulated() + ".";

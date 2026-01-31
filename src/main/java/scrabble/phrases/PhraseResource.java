@@ -30,12 +30,16 @@ public class PhraseResource {
     @Inject
     WordDictionary baseDictionary;
 
-    private volatile HaikuProvider haiku;
-    private volatile CoupletProvider couplet;
-    private volatile ComparisonProvider comparison;
-    private volatile DefinitionProvider definition;
-    private volatile TautogramProvider tautogram;
-    private volatile MirrorProvider mirror;
+    private record Providers(
+        HaikuProvider haiku,
+        CoupletProvider couplet,
+        ComparisonProvider comparison,
+        DefinitionProvider definition,
+        TautogramProvider tautogram,
+        MirrorProvider mirror
+    ) {}
+
+    private volatile Providers providers;
 
     @PostConstruct
     void init() {
@@ -45,9 +49,10 @@ public class PhraseResource {
     @GET
     @Path("/haiku")
     public SentenceResponse getHaiku() {
+        var p = providers;
         var decorated = new HtmlVerseBreaker(
             new DexonlineLinkAdder(
-                new FirstSentenceLetterCapitalizer(haiku)
+                new FirstSentenceLetterCapitalizer(p.haiku)
             )
         );
         return new SentenceResponse(decorated.getSentence());
@@ -56,9 +61,10 @@ public class PhraseResource {
     @GET
     @Path("/couplet")
     public SentenceResponse getCouplet() {
+        var p = providers;
         var decorated = new HtmlVerseBreaker(
             new DexonlineLinkAdder(
-                new FirstSentenceLetterCapitalizer(couplet)
+                new FirstSentenceLetterCapitalizer(p.couplet)
             )
         );
         return new SentenceResponse(decorated.getSentence());
@@ -67,8 +73,9 @@ public class PhraseResource {
     @GET
     @Path("/comparison")
     public SentenceResponse getComparison() {
+        var p = providers;
         var decorated = new DexonlineLinkAdder(
-            new FirstSentenceLetterCapitalizer(comparison)
+            new FirstSentenceLetterCapitalizer(p.comparison)
         );
         return new SentenceResponse(decorated.getSentence());
     }
@@ -76,15 +83,17 @@ public class PhraseResource {
     @GET
     @Path("/definition")
     public SentenceResponse getDefinition() {
-        var decorated = new DexonlineLinkAdder(definition);
+        var p = providers;
+        var decorated = new DexonlineLinkAdder(p.definition);
         return new SentenceResponse(decorated.getSentence());
     }
 
     @GET
     @Path("/tautogram")
     public SentenceResponse getTautogram() {
+        var p = providers;
         var decorated = new DexonlineLinkAdder(
-            new FirstSentenceLetterCapitalizer(tautogram)
+            new FirstSentenceLetterCapitalizer(p.tautogram)
         );
         return new SentenceResponse(decorated.getSentence());
     }
@@ -92,9 +101,10 @@ public class PhraseResource {
     @GET
     @Path("/mirror")
     public SentenceResponse getMirror() {
+        var p = providers;
         var decorated = new HtmlVerseBreaker(
             new DexonlineLinkAdder(
-                new FirstSentenceLetterCapitalizer(mirror)
+                new FirstSentenceLetterCapitalizer(p.mirror)
             )
         );
         return new SentenceResponse(decorated.getSentence());
@@ -107,12 +117,14 @@ public class PhraseResource {
         return Response.ok().build();
     }
 
-    private synchronized void resetProviders() {
-        this.haiku = new HaikuProvider(new WordDictionary(baseDictionary));
-        this.couplet = new CoupletProvider(new WordDictionary(baseDictionary));
-        this.comparison = new ComparisonProvider(new WordDictionary(baseDictionary));
-        this.definition = new DefinitionProvider(new WordDictionary(baseDictionary));
-        this.tautogram = new TautogramProvider(new WordDictionary(baseDictionary));
-        this.mirror = new MirrorProvider(new WordDictionary(baseDictionary));
+    private void resetProviders() {
+        this.providers = new Providers(
+            new HaikuProvider(new WordDictionary(baseDictionary)),
+            new CoupletProvider(new WordDictionary(baseDictionary)),
+            new ComparisonProvider(new WordDictionary(baseDictionary)),
+            new DefinitionProvider(new WordDictionary(baseDictionary)),
+            new TautogramProvider(new WordDictionary(baseDictionary)),
+            new MirrorProvider(new WordDictionary(baseDictionary))
+        );
     }
 }

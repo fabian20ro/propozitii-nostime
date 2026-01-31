@@ -46,16 +46,25 @@ public class CoupletProvider extends SentenceProvider {
     public String getSentence() {
         WordDictionary dict = getDictionary();
 
+        var verb1 = dict.getRandomVerb();
+        var noun1 = dict.getRandomNoun();
+        var verb2 = dict.getRandomVerb();
+        var noun2 = dict.getRandomNoun();
+        if (verb1 == null || noun1 == null || verb2 == null || noun2 == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for couplet");
+        }
+
         String line1 = getNounAdjectiveCombo(dict) + " "
-            + dict.getRandomVerb().word() + " "
-            + dict.getRandomNoun().articulated() + ".";
+            + verb1.word() + " "
+            + noun1.articulated() + ".";
 
         String line2 = getNounAdjectiveCombo(dict) + " "
-            + dict.getRandomVerb().word() + " "
-            + dict.getRandomNoun().articulated() + ".";
+            + verb2.word() + " "
+            + noun2.articulated() + ".";
 
         // Capitalize first letter of second line
-        String line2Capitalized = Character.toUpperCase(line2.charAt(0)) + line2.substring(1);
+        String line2Capitalized = line2.isEmpty() ? line2
+            : Character.toUpperCase(line2.charAt(0)) + line2.substring(1);
 
         return line1 + " / " + line2Capitalized;
     }

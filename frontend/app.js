@@ -27,6 +27,48 @@ function toggleTheme() {
 initTheme();
 themeToggle.addEventListener('click', toggleTheme);
 
+/**
+ * Sanitize HTML to only allow safe tags used by the backend.
+ * Strips everything except <a>, <div>, <iframe>, <br>, and <span> with safe attributes.
+ * @param {string} html
+ * @returns {string}
+ */
+function sanitizeHtml(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    function cleanNode(node) {
+        const allowed = ['A', 'DIV', 'IFRAME', 'BR', 'SPAN'];
+        const children = Array.from(node.childNodes);
+        for (const child of children) {
+            if (child.nodeType === Node.ELEMENT_NODE) {
+                if (!allowed.includes(child.tagName)) {
+                    child.remove();
+                    continue;
+                }
+                // Strip event handler attributes
+                for (const attr of Array.from(child.attributes)) {
+                    if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trimStart().startsWith('javascript:'))) {
+                        child.removeAttribute(attr.name);
+                    }
+                }
+                // For iframes, only allow dexonline.ro src
+                if (child.tagName === 'IFRAME') {
+                    const src = child.getAttribute('src') || '';
+                    if (!src.startsWith('https://dexonline.ro/')) {
+                        child.remove();
+                        continue;
+                    }
+                }
+                cleanNode(child);
+            }
+        }
+    }
+
+    cleanNode(div);
+    return div.innerHTML;
+}
+
 // API configuration
 const API_BASE = 'https://propozitii-nostime.onrender.com/api';
 const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
@@ -110,7 +152,10 @@ async function fetchSentence(endpoint) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
-    return data.sentence;
+    if (!data || typeof data.sentence !== 'string') {
+        throw new Error(`Invalid response for ${endpoint}: missing sentence`);
+    }
+    return sanitizeHtml(data.sentence);
 }
 
 /**

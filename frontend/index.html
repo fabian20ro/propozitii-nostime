@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="48x48" href="img/icon_48.png">
     <link rel="apple-touch-icon" sizes="192x192" href="img/icon_192.png">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src https://dexonline.ro; img-src 'self' https://github.com; connect-src https://propozitii-nostime.onrender.com;">
     <meta name="theme-color" content="#5a8a7a">
     <meta name="description" content="Generator de propoziții hazlii în limba română">
 </head>
@@ -68,15 +69,15 @@
         </div>
 
         <div class="actions">
-            <button id="refresh" class="btn btn-primary">
+            <button id="refresh" class="btn btn-primary" aria-label="Generează propoziții noi">
                 Generează altele
             </button>
-            <button id="reset" class="btn btn-secondary">
+            <button id="reset" class="btn btn-secondary" aria-label="Resetează grupurile de rimă">
                 Resetează rima
             </button>
         </div>
 
-        <div id="error-message" class="message hidden"></div>
+        <div id="error-message" class="message hidden" role="alert" aria-live="assertive"></div>
     </main>
 
     <footer>

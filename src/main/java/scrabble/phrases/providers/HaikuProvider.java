@@ -40,8 +40,13 @@ public class HaikuProvider extends SentenceProvider {
 
     @Override
     public String getSentence() {
+        var verb = getDictionary().getRandomVerb();
+        var noun = getDictionary().getRandomNoun();
+        if (verb == null || noun == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for haiku");
+        }
         return getNounAdjectiveCombo(getDictionary()).replaceAll(" ", " / ") + " "
-            + getDictionary().getRandomVerb().word() + " / "
-            + getDictionary().getRandomNoun().articulated() + ".";
+            + verb.word() + " / "
+            + noun.articulated() + ".";
     }
 }

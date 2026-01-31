@@ -32,6 +32,9 @@ public abstract class SentenceProvider implements ISentenceProvider {
     protected String getNounAdjectiveCombo(WordDictionary dictionary) {
         Noun randomNoun = dictionary.getRandomNoun();
         Adjective randomAdjective = dictionary.getRandomAdjective();
+        if (randomNoun == null || randomAdjective == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for noun-adjective combo");
+        }
         return randomNoun.articulated() + " " +
             (NounGender.F == randomNoun.gender() ? randomAdjective.feminine() : randomAdjective.word());
     }

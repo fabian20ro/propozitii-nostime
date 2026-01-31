@@ -1,10 +1,13 @@
 package scrabble.phrases;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,29 @@ class WordParserTest {
 
     private final IWordFilter refuseAll = word -> false;
     private final IWordFilter wordsWithMoreThan10Chars = word -> word.word().length() > 10;
+
+    @Test
+    void shouldParseWordsFromReader() throws IOException {
+        String input = "carte F\nfrumos A\nmerge VT\nbăiat M\ncasă F\nalerg V\n";
+        BufferedReader reader = new BufferedReader(new StringReader(input));
+
+        WordDictionary dictionary = new WordParser().parse(reader);
+
+        assertThat(dictionary.getRandomNoun()).isNotNull();
+        assertThat(dictionary.getRandomAdjective()).isNotNull();
+        assertThat(dictionary.getRandomVerb()).isNotNull();
+        assertThat(dictionary.getTotalAcceptedWordCount()).isEqualTo(6);
+    }
+
+    @Test
+    void shouldSkipLinesWithInsufficientParts() throws IOException {
+        String input = "singleword\ncarte F\n";
+        BufferedReader reader = new BufferedReader(new StringReader(input));
+
+        WordDictionary dictionary = new WordParser().parse(reader);
+
+        assertThat(dictionary.getTotalAcceptedWordCount()).isEqualTo(1);
+    }
 
     @Test
     @Disabled("Integration test - takes too long for CI")

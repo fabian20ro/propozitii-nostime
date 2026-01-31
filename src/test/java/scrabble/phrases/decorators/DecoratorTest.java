@@ -13,6 +13,7 @@ class DecoratorTest {
 
     @Test
     void shouldDecorateWithLinksAndBreaks() {
+        // Words are URL-encoded in href/src and HTML-escaped in text content
         String expected = "<a href=\"https://dexonline.ro/definitie/ana\">Ana</a><div class=\"box\">"
             + "<iframe src=\"https://dexonline.ro/definitie/ana\" width = \"480px\" height = \"800px\"></iframe></div><br/>"
             + "<a href=\"https://dexonline.ro/definitie/are\">are</a><div class=\"box\">"
@@ -28,6 +29,19 @@ class DecoratorTest {
         );
 
         assertEquals(expected, decorated.getSentence());
+    }
+
+    @Test
+    void shouldUrlEncodeWordsInHref() {
+        ISentenceProvider baseProvider = () -> "pățit";
+        DexonlineLinkAdder adder = new DexonlineLinkAdder(baseProvider);
+        String result = adder.getSentence();
+
+        // Romanian diacritics should be URL-encoded in href/src
+        assert result.contains("href=\"https://dexonline.ro/definitie/p%C4%83%C8%9Bit\"")
+            : "Expected URL-encoded href, got: " + result;
+        // But displayed text should be HTML-escaped (unchanged for normal chars)
+        assert result.contains(">pățit</a>") : "Expected readable text content, got: " + result;
     }
 
     @Test

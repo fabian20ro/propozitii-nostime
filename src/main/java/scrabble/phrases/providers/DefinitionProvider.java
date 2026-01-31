@@ -27,6 +27,9 @@ public class DefinitionProvider extends SentenceProvider {
         Noun noun = getDictionary().getRandomNoun();
         Adjective adj = getDictionary().getRandomAdjective();
         Verb verb = getDictionary().getRandomVerb();
+        if (defined == null || noun == null || adj == null || verb == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for definition");
+        }
 
         String adjForm = (noun.gender() == NounGender.F) ? adj.feminine() : adj.word();
         return defined.word().toUpperCase() + ": " + noun.articulated() + " " + adjForm + " care " + verb.word() + ".";

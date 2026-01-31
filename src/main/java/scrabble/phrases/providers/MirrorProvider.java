@@ -1,8 +1,12 @@
 package scrabble.phrases.providers;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import scrabble.phrases.dictionary.WordDictionary;
 import scrabble.phrases.words.Adjective;
@@ -33,66 +37,53 @@ public class MirrorProvider extends SentenceProvider {
     }
 
     private void collectRhymingNouns() {
-        // Collect many nouns and group by rhyme
-        List<Noun> allNouns = new ArrayList<>();
+        // Collect unique nouns and build rhyme groups in one pass
+        Set<Noun> seen = new HashSet<>();
+        Map<String, List<Noun>> rhymeGroups = new HashMap<>();
+
         for (int i = 0; i < 200; i++) {
             Noun n = getDictionary().getRandomNoun();
-            if (n != null && !allNouns.contains(n)) {
-                allNouns.add(n);
+            if (n != null && seen.add(n)) {
+                rhymeGroups.computeIfAbsent(n.rhyme(), k -> new ArrayList<>()).add(n);
             }
         }
 
-        // Find first rhyme group with at least 2 nouns
+        List<Noun> allNouns = new ArrayList<>(seen);
+
+        // Find two rhyme groups with at least 2 nouns each
         String rhymeA = null;
-        for (Noun n : allNouns) {
-            long count = allNouns.stream().filter(x -> x.rhyme().equals(n.rhyme())).count();
-            if (count >= 2) {
-                rhymeA = n.rhyme();
-                break;
-            }
-        }
-
-        if (rhymeA == null) {
-            // Fallback: just use first two nouns
-            nounsA.addAll(allNouns.subList(0, Math.min(2, allNouns.size())));
-            nounsB.addAll(allNouns.subList(Math.min(2, allNouns.size()), Math.min(4, allNouns.size())));
-            return;
-        }
-
-        // Find second rhyme group different from first
         String rhymeB = null;
-        final String finalRhymeA = rhymeA;
-        for (Noun n : allNouns) {
-            if (!n.rhyme().equals(finalRhymeA)) {
-                long count = allNouns.stream().filter(x -> x.rhyme().equals(n.rhyme())).count();
-                if (count >= 2) {
-                    rhymeB = n.rhyme();
+        for (List<Noun> group : rhymeGroups.values()) {
+            if (group.size() >= 2) {
+                if (rhymeA == null) {
+                    rhymeA = group.getFirst().rhyme();
+                } else if (rhymeB == null) {
+                    rhymeB = group.getFirst().rhyme();
                     break;
                 }
             }
         }
 
+        if (rhymeA == null) {
+            // Fallback: just use first nouns available
+            nounsA.addAll(allNouns.subList(0, Math.min(2, allNouns.size())));
+            nounsB.addAll(allNouns.subList(Math.min(2, allNouns.size()), Math.min(4, allNouns.size())));
+            return;
+        }
+
+        nounsA.addAll(rhymeGroups.get(rhymeA));
+
         if (rhymeB == null) {
             // Fallback: use any nouns not in group A
             for (Noun n : allNouns) {
-                if (n.rhyme().equals(rhymeA)) {
-                    nounsA.add(n);
-                } else if (nounsB.size() < 2) {
+                if (!n.rhyme().equals(rhymeA) && nounsB.size() < 2) {
                     nounsB.add(n);
                 }
             }
             return;
         }
 
-        // Collect nouns for both groups
-        final String finalRhymeB = rhymeB;
-        for (Noun n : allNouns) {
-            if (n.rhyme().equals(finalRhymeA)) {
-                nounsA.add(n);
-            } else if (n.rhyme().equals(finalRhymeB)) {
-                nounsB.add(n);
-            }
-        }
+        nounsB.addAll(rhymeGroups.get(rhymeB));
     }
 
     @Override
@@ -110,9 +101,15 @@ public class MirrorProvider extends SentenceProvider {
     }
 
     private String buildLine(List<Noun> nouns) {
+        if (nouns.isEmpty()) {
+            throw new IllegalStateException("No nouns available for mirror line");
+        }
         Noun noun = nouns.get(random.nextInt(nouns.size()));
         Adjective adj = getDictionary().getRandomAdjective();
         Verb verb = getDictionary().getRandomVerb();
+        if (adj == null || verb == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for mirror");
+        }
 
         String adjForm = (noun.gender() == NounGender.F) ? adj.feminine() : adj.word();
         return noun.articulated() + " " + adjForm + " " + verb.word();

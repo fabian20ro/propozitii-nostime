@@ -13,7 +13,7 @@ public class FirstSentenceLetterCapitalizer implements ISentenceProvider {
 
 	@Override
 	public String getSentence() {
-		return WordUtils.capitalizeFirstLeter(provider.getSentence().trim());
+		return WordUtils.capitalizeFirstLetter(provider.getSentence().trim());
 	}
 	
 	

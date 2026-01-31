@@ -44,8 +44,13 @@ public class TautogramProvider extends SentenceProvider {
 
     @Override
     public String getSentence() {
+        var verb = getDictionary().getRandomVerb();
+        var noun = getDictionary().getRandomNoun();
+        if (verb == null || noun == null) {
+            throw new IllegalStateException("Dictionary has insufficient words for tautogram");
+        }
         return getNounAdjectiveCombo(getDictionary()) + " "
-            + getDictionary().getRandomVerb().word() + " "
-            + getDictionary().getRandomNoun().articulated() + ".";
+            + verb.word() + " "
+            + noun.articulated() + ".";
     }
 }

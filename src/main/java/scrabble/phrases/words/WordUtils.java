@@ -43,8 +43,17 @@ public class WordUtils {
 	 *            the sentence
 	 * @return the string
 	 */
-	public static String capitalizeFirstLeter(String sentence) {
+	public static String capitalizeFirstLetter(String sentence) {
+		if (sentence == null || sentence.isEmpty()) {
+			return sentence;
+		}
 		return sentence.substring(0, 1).toUpperCase() + sentence.substring(1);
+	}
+
+	/** @deprecated Use {@link #capitalizeFirstLetter(String)} instead. */
+	@Deprecated
+	public static String capitalizeFirstLeter(String sentence) {
+		return capitalizeFirstLetter(sentence);
 	}
 
 	/**

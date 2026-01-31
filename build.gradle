@@ -61,9 +61,30 @@ tasks.register('downloadDictionary') {
 
     doLast {
         if (!wordsFile.exists()) {
-            def zipFile = file("${buildDir}/scrabble.zip")
-            ant.mkdir(dir: buildDir)
+            def zipFile = file("${layout.buildDirectory.get()}/scrabble.zip")
+            ant.mkdir(dir: layout.buildDirectory.get())
             ant.get(src: 'https://dexonline.ro/static/download/scrabble/loc-baza-5.0.zip', dest: zipFile)
+
+            // Verify SHA-256 checksum of the downloaded file
+            def digest = java.security.MessageDigest.getInstance('SHA-256')
+            zipFile.withInputStream { is ->
+                byte[] buf = new byte[8192]
+                int len
+                while ((len = is.read(buf)) != -1) {
+                    digest.update(buf, 0, len)
+                }
+            }
+            def actualHash = digest.digest().collect { String.format('%02x', it) }.join()
+            // To update: delete src/main/resources/words.txt, run build, and use the actual hash from the error message
+            def expectedHash = '90b05117d397c845e0e65478a5084ed29a82877d7dd0099e91533434ae3ed95d'
+            if (actualHash != expectedHash) {
+                ant.delete(file: zipFile)
+                throw new GradleException(
+                    "Dictionary checksum mismatch!\nExpected: ${expectedHash}\nActual:   ${actualHash}\n" +
+                    "If the dictionary was intentionally updated, update the expected hash in build.gradle."
+                )
+            }
+
             ant.unzip(src: zipFile, dest: 'src/main/resources/')
             ant.delete(file: zipFile)
             ant.move(file: 'src/main/resources/loc-baza-5.0.txt', tofile: wordsFile)

@@ -29,9 +29,9 @@ class WordUtilsTest {
 
     @Test
     void shouldCapitalizeFirstLetter() {
-        assertEquals("Aloha", WordUtils.capitalizeFirstLeter("aloha"));
-        assertEquals("Aloha", WordUtils.capitalizeFirstLeter("Aloha"));
-        assertEquals("Înăbușeala", WordUtils.capitalizeFirstLeter("înăbușeala"));
+        assertEquals("Aloha", WordUtils.capitalizeFirstLetter("aloha"));
+        assertEquals("Aloha", WordUtils.capitalizeFirstLetter("Aloha"));
+        assertEquals("Înăbușeala", WordUtils.capitalizeFirstLetter("înăbușeala"));
     }
 
     @Test

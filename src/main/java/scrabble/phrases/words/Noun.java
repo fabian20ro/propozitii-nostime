@@ -60,7 +60,7 @@ public record Noun(
     }
 
     private String articulateFeminine() {
-        if (word.endsWith("ă") || word.endsWith("ie")) {
+        if (word.length() > 1 && (word.endsWith("ă") || word.endsWith("ie"))) {
             return word.substring(0, word.length() - 1) + "a";
         }
         if (word.endsWith("a")) {
