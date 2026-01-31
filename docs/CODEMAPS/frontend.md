@@ -30,7 +30,9 @@ Iframe: `sandbox="allow-scripts allow-same-origin"`
 | `checkHealth()` | Pings `/q/health` with 5s timeout |
 | `waitForBackend()` | Polls health 12x (60s total) for Render cold starts |
 | `fetchSentence(endpoint)` | GET + validate + sanitize |
-| `refresh()` | Health check -> wait if needed -> parallel fetch all 6 -> update DOM |
+| `fetchAllSentences()` | Single `GET /api/all` request returning all 6 sentences |
+| `applySentences(data)` | Sanitize + render all sentences into DOM |
+| `refresh()` | Fetch via `/api/all` -> on failure, wait for backend cold start -> retry once |
 | `initDexonlineDrawer()` | Draggable bottom sheet drawer for word definitions (see below) |
 
 ## Dexonline Drawer

@@ -80,7 +80,7 @@ Returns HTTP 200 with `{"status": "UP"}` when healthy.
 ### Connection Pool Exhaustion
 
 **Symptom**: Requests timeout with `AgroalException`.
-**Cause**: Pool `max-size=2` exhausted under concurrent load.
+**Cause**: Pool `max-size=4` exhausted under concurrent load.
 **Fix**: Increase `quarkus.datasource.jdbc.max-size` in `application.properties` (check Supabase connection limits first).
 
 ## Rollback Procedures
@@ -115,11 +115,13 @@ DROP TABLE IF EXISTS flyway_schema_history;
 ```
 Then restart the backend (Flyway recreates everything) and run `./gradlew loadDictionary`.
 
+After loading the dictionary, the backend's `@PostConstruct` caches (rhyme groups, prefix lists, word counts) are populated automatically on next startup.
+
 ## Operational Parameters
 
 | Parameter | Value | Location |
 |-----------|-------|----------|
-| Connection pool max | 2 | `application.properties` |
+| Connection pool max | 4 | `application.properties` |
 | Connection pool idle timeout | 5 min | `application.properties` |
 | HTTP port | `${PORT:8080}` | `application.properties` |
 | Flyway migrate at start | true | `application.properties` |

@@ -6,8 +6,9 @@
 
 ```
 src/main/kotlin/scrabble/phrases/
-  PhraseResource.kt          # REST controller, 6 endpoints
-  SentenceResponse.kt        # JSON DTO
+  PhraseResource.kt          # REST controller, 7 endpoints (6 individual + /api/all batch)
+  SentenceResponse.kt        # JSON DTO (single sentence)
+  AllSentencesResponse.kt    # JSON DTO (all 6 sentences)
   words/
     Word.kt                  # sealed interface
     NounGender.kt            # enum M/F/N
@@ -20,11 +21,11 @@ src/main/kotlin/scrabble/phrases/
   providers/
     ISentenceProvider.kt     # fun interface
     HaikuProvider.kt         # 5-7-5 syllable structure
-    CoupletProvider.kt       # two rhyming lines (AABB)
+    CoupletProvider.kt       # ABBA embraced rhyme (4 lines, 2 rhyme groups)
     ComparisonProvider.kt    # "X e mai adj decat Y"
     DefinitionProvider.kt    # dictionary-style definition
     TautogramProvider.kt     # all words same two-letter prefix
-    MirrorProvider.kt        # ABBA rhyme scheme (4 lines)
+    MirrorProvider.kt        # ABBA rhyme scheme (4 lines, verbs rhyme at line endings)
   decorators/
     FirstSentenceLetterCapitalizer.kt
     VerseLineCapitalizer.kt  # capitalizes first letter of each verse line
@@ -45,12 +46,16 @@ src/main/kotlin/scrabble/phrases/
 | /api/tautogram | Provider -> Capitalize -> Links |
 | /api/mirror | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
 
-## WordRepository Query Methods (14)
+## WordRepository Query Methods (13)
 
-Nouns (5): `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByPrefix`, `getRandomNounByArticulatedSyllables`, `getNounsByRhyme`
+Nouns (4): `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByPrefix`, `getRandomNounByArticulatedSyllables`
 Adjectives (3): `getRandomAdjective`, `getRandomAdjectiveBySyllables`, `getRandomAdjectiveByPrefix`
-Verbs (3): `getRandomVerb`, `getRandomVerbBySyllables`, `getRandomVerbByPrefix`
-Grouping (3): `findRhymeGroup`, `findTwoRhymeGroups`, `getRandomPrefixWithAllTypes`
+Verbs (4): `getRandomVerb`, `getRandomVerbByRhyme`, `getRandomVerbBySyllables`, `getRandomVerbByPrefix`
+Grouping (2): `findTwoRhymeGroups`, `getRandomPrefixWithAllTypes`
+
+**Word exclusion**: Methods that providers call multiple times accept an optional `exclude: Set<String>` parameter. When non-empty, SQL appends `AND word NOT IN (?, ...)` and falls back to `ORDER BY RANDOM()` instead of OFFSET-based random selection (since the cached counts don't account for exclusions).
+
+**Startup caches** (`@PostConstruct`): count-by-type, count-by-(type,syllables), count-by-(type,articulated_syllables), noun rhyme groups (min 2 and min 4), verb rhyme groups (min 2), valid 2-letter prefixes with all 3 word types.
 
 ## Test Files (6, ~284 lines)
 
@@ -67,5 +72,5 @@ src/test/kotlin/scrabble/phrases/
 
 ## Configuration
 
-- `application.properties`: `%prod` DB credentials, Flyway migrate-at-start, pool max=2
+- `application.properties`: `%prod` DB credentials, Flyway migrate-at-start, pool max=4
 - `test/application.properties`: postgres:16-alpine, Flyway with testmigration location

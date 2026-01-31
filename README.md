@@ -26,8 +26,9 @@ The backend runs as a JVM uber-jar on Render free tier. Cold starts may take up 
 
 ## API Endpoints
 
+- `GET /api/all` — All 6 sentence types in a single response
 - `GET /api/haiku` — Haiku-style sentence (5-7-5 syllables)
-- `GET /api/couplet` — Two rhyming lines
+- `GET /api/couplet` — ABBA embraced rhyme (4 lines, 2 rhyme groups)
 - `GET /api/comparison` — Comparison sentence ("X e mai adj decât Y")
 - `GET /api/definition` — Dictionary-style definition
 - `GET /api/tautogram` — All words start with same two-letter prefix
@@ -108,7 +109,7 @@ propozitii-nostime/
 
 Schema is defined by [Flyway](https://flywaydb.org/) migrations in `src/main/resources/db/migration/`. Flyway runs automatically in dev/test but is **disabled in production** (`%prod.quarkus.flyway.migrate-at-start=false`). Schema changes must be applied manually to Supabase.
 
-Indexes on `(type)`, `(type, rhyme)`, `(type, syllables)`, `(type, first_letter)`, and `(type, rhyme, syllables)`.
+Indexes on `(type)`, `(type, rhyme)`, `(type, syllables)`, `(type, first_letter)`, `(type, rhyme, syllables)`, and `(type, articulated_syllables)`.
 
 ## Acknowledgements
 

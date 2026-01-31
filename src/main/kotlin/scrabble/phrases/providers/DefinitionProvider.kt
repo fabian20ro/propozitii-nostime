@@ -1,18 +1,16 @@
 package scrabble.phrases.providers
 
 import scrabble.phrases.repository.WordRepository
-import scrabble.phrases.words.NounGender
 
 class DefinitionProvider(private val repo: WordRepository) : ISentenceProvider {
 
     override fun getSentence(): String {
         val defined = repo.getRandomNoun()
-        val noun = repo.getRandomNoun()
+        val noun = repo.getRandomNoun(exclude = setOf(defined.word))
         val adj = repo.getRandomAdjective()
         val verb = repo.getRandomVerb()
-        val object_ = repo.getRandomNoun()
+        val object_ = repo.getRandomNoun(exclude = setOf(defined.word, noun.word))
 
-        val adjForm = if (noun.gender == NounGender.F) adj.feminine else adj.word
-        return "${defined.word.uppercase()}: ${noun.articulated} $adjForm care ${verb.word} ${object_.articulated}."
+        return "${defined.word.uppercase()}: ${noun.articulated} ${adj.forGender(noun.gender)} care ${verb.word} ${object_.articulated}."
     }
 }

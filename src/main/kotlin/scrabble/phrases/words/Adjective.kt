@@ -7,6 +7,9 @@ data class Adjective(
     val feminine: String = computeFeminine(word)
 ) : Word {
 
+    fun forGender(gender: NounGender): String =
+        if (gender == NounGender.F) feminine else word
+
     companion object {
         fun computeFeminine(word: String): String = when {
             word.endsWith("esc") -> word.substring(0, word.length - 2) + "ască"

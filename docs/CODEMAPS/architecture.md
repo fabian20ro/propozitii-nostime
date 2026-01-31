@@ -21,11 +21,11 @@ Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80
 
 ## Request Flow
 
-1. Frontend `refresh()` calls all 6 `/api/*` endpoints in parallel
-2. Each endpoint constructs: `Provider -> Decorator chain -> SentenceResponse`
-3. Provider queries `WordRepository` (random words from PostgreSQL)
+1. Frontend `refresh()` calls `/api/all` (single batch endpoint returning all 6 sentence types)
+2. Each sentence type constructs: `Provider -> Decorator chain -> SentenceResponse`
+3. Provider queries `WordRepository` (random words from PostgreSQL, with exclusion sets to prevent duplicate words)
 4. Decorators: capitalize (sentence or per-verse-line), add dexonline links, break verses
-5. Frontend sanitizes HTML, renders into DOM
+5. Frontend sanitizes HTML, renders all 6 sentences into DOM
 
 ## Deployment
 
@@ -54,7 +54,7 @@ PhraseResource
   +-- WordRepository
   +-- 6 Providers (each use WordRepository)
   +-- 4 Decorators (chain wrapping ISentenceProvider)
-  +-- SentenceResponse
+  +-- SentenceResponse, AllSentencesResponse
 
 WordRepository
   +-- Noun, Adjective, Verb, NounGender, WordUtils

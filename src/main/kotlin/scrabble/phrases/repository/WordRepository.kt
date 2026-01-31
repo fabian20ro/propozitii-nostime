@@ -19,6 +19,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     private var countsByTypeArticulatedSyllables: Map<Pair<String, Int>, Int> = emptyMap()
     private var nounRhymeGroupsMin2: List<String> = emptyList()
     private var nounRhymeGroupsMin4: List<String> = emptyList()
+    private var verbRhymeGroupsMin2: List<String> = emptyList()
     private var validPrefixes: List<String> = emptyList()
 
     @PostConstruct
@@ -75,6 +76,15 @@ class WordRepository(private val dataSource: AgroalDataSource) {
                 }
             }
 
+            // Verb rhyme groups with >= 2 verbs (for MirrorProvider)
+            conn.prepareStatement("SELECT rhyme FROM words WHERE type='V' GROUP BY rhyme HAVING COUNT(*) >= 2").use { stmt ->
+                stmt.executeQuery().use { rs ->
+                    val list = mutableListOf<String>()
+                    while (rs.next()) list.add(rs.getString("rhyme"))
+                    verbRhymeGroupsMin2 = list
+                }
+            }
+
             // Valid 2-letter prefixes that have all 3 types (for TautogramProvider)
             conn.prepareStatement("""
                 SELECT LEFT(word, 2) AS prefix
@@ -98,7 +108,17 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     private fun <T> randomElement(list: List<T>): T? =
         if (list.isEmpty()) null else list[ThreadLocalRandom.current().nextInt(list.size)]
 
-    fun getRandomNoun(): Noun {
+    private fun notInClause(count: Int): String =
+        (1..count).joinToString(", ") { "?" }
+
+    fun getRandomNoun(exclude: Set<String> = emptySet()): Noun {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryNoun(
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                *exclude.toTypedArray()
+            ) ?: throw IllegalStateException("No nouns found in database")
+        }
         val count = countsByType["N"] ?: 0
         return queryNoun(
             "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' LIMIT 1 OFFSET ?",
@@ -106,13 +126,28 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         ) ?: throw IllegalStateException("No nouns found in database")
     }
 
-    fun getRandomNounByRhyme(rhyme: String): Noun? =
-        queryNoun(
+    fun getRandomNounByRhyme(rhyme: String, exclude: Set<String> = emptySet()): Noun? {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryNoun(
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                rhyme, *exclude.toTypedArray()
+            )
+        }
+        return queryNoun(
             "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? ORDER BY RANDOM() LIMIT 1",
             rhyme
         )
+    }
 
-    fun getRandomNounByArticulatedSyllables(articulatedSyllables: Int): Noun? {
+    fun getRandomNounByArticulatedSyllables(articulatedSyllables: Int, exclude: Set<String> = emptySet()): Noun? {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryNoun(
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND articulated_syllables=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                articulatedSyllables, *exclude.toTypedArray()
+            )
+        }
         val count = countsByTypeArticulatedSyllables[Pair("N", articulatedSyllables)] ?: 0
         if (count == 0) return null
         return queryNoun(
@@ -122,7 +157,14 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         )
     }
 
-    fun getRandomAdjective(): Adjective {
+    fun getRandomAdjective(exclude: Set<String> = emptySet()): Adjective {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryAdjective(
+                "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                *exclude.toTypedArray()
+            ) ?: throw IllegalStateException("No adjectives found in database")
+        }
         val count = countsByType["A"] ?: 0
         return queryAdjective(
             "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' LIMIT 1 OFFSET ?",
@@ -140,12 +182,33 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         )
     }
 
-    fun getRandomVerb(): Verb {
+    fun getRandomVerb(exclude: Set<String> = emptySet()): Verb {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryVerb(
+                "SELECT word, syllables, rhyme FROM words WHERE type='V' AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                *exclude.toTypedArray()
+            ) ?: throw IllegalStateException("No verbs found in database")
+        }
         val count = countsByType["V"] ?: 0
         return queryVerb(
             "SELECT word, syllables, rhyme FROM words WHERE type='V' LIMIT 1 OFFSET ?",
             randomOffset(count)
         ) ?: throw IllegalStateException("No verbs found in database")
+    }
+
+    fun getRandomVerbByRhyme(rhyme: String, exclude: Set<String> = emptySet()): Verb? {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryVerb(
+                "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rhyme=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                rhyme, *exclude.toTypedArray()
+            )
+        }
+        return queryVerb(
+            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rhyme=? ORDER BY RANDOM() LIMIT 1",
+            rhyme
+        )
     }
 
     fun getRandomVerbBySyllables(syllables: Int): Verb? {
@@ -158,20 +221,11 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         )
     }
 
-    fun findRhymeGroup(type: String, minCount: Int): String? {
-        val cached = when {
-            type == "N" && minCount <= 2 -> nounRhymeGroupsMin2
-            type == "N" && minCount <= 4 -> nounRhymeGroupsMin4
-            else -> null
-        }
-        if (cached != null) return randomElement(cached)
-        return findRhymeGroupFromDb(type, minCount)
-    }
-
     fun findTwoRhymeGroups(type: String, minCount: Int): Pair<String, String>? {
         val cached = when {
             type == "N" && minCount <= 2 -> nounRhymeGroupsMin2
             type == "N" && minCount <= 4 -> nounRhymeGroupsMin4
+            type == "V" && minCount <= 2 -> verbRhymeGroupsMin2
             else -> null
         }
         if (cached != null && cached.size >= 2) {
@@ -181,45 +235,30 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         return findTwoRhymeGroupsFromDb(type, minCount)
     }
 
-    fun getNounsByRhyme(rhyme: String, limit: Int): List<Noun> {
-        val nouns = mutableListOf<Noun>()
-        dataSource.connection.use { conn ->
-            conn.prepareStatement("SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? ORDER BY RANDOM() LIMIT ?").use { stmt ->
-                stmt.setString(1, rhyme)
-                stmt.setInt(2, limit)
-                stmt.executeQuery().use { rs ->
-                    while (rs.next()) nouns.add(mapNoun(rs))
-                }
-            }
-        }
-        return nouns
-    }
-
     fun getRandomPrefixWithAllTypes(): String? {
         if (validPrefixes.isNotEmpty()) return randomElement(validPrefixes)
         return getRandomPrefixWithAllTypesFromDb()
     }
 
-    fun getRandomNounByPrefix(prefix: String): Noun? =
-        queryNoun("SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? ORDER BY RANDOM() LIMIT 1", "$prefix%")
+    fun getRandomNounByPrefix(prefix: String, exclude: Set<String> = emptySet()): Noun? {
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryNoun(
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                "$prefix%", *exclude.toTypedArray()
+            )
+        }
+        return queryNoun(
+            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? ORDER BY RANDOM() LIMIT 1",
+            "$prefix%"
+        )
+    }
 
     fun getRandomAdjectiveByPrefix(prefix: String): Adjective? =
         queryAdjective("SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND word LIKE ? ORDER BY RANDOM() LIMIT 1", "$prefix%")
 
     fun getRandomVerbByPrefix(prefix: String): Verb? =
         queryVerb("SELECT word, syllables, rhyme FROM words WHERE type='V' AND word LIKE ? ORDER BY RANDOM() LIMIT 1", "$prefix%")
-
-    private fun findRhymeGroupFromDb(type: String, minCount: Int): String? {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement("SELECT rhyme FROM words WHERE type=? GROUP BY rhyme HAVING COUNT(*)>=? ORDER BY RANDOM() LIMIT 1").use { stmt ->
-                stmt.setString(1, type)
-                stmt.setInt(2, minCount)
-                stmt.executeQuery().use { rs ->
-                    return if (rs.next()) rs.getString("rhyme") else null
-                }
-            }
-        }
-    }
 
     private fun findTwoRhymeGroupsFromDb(type: String, minCount: Int): Pair<String, String>? {
         dataSource.connection.use { conn ->

@@ -46,7 +46,7 @@ Only required in production (`%prod` profile). Dev/test mode uses Testcontainers
 ## Development Workflow
 
 1. Start dev server: `./gradlew quarkusDev`
-2. API available at `http://localhost:8080/api/{haiku,couplet,comparison,definition,tautogram,mirror}`
+2. API available at `http://localhost:8080/api/{all,haiku,couplet,comparison,definition,tautogram,mirror}`
 3. Dev Services starts a PostgreSQL container with Flyway migrations + test seed data
 4. Make changes -- Quarkus live-reloads automatically
 5. Run tests: `./gradlew test`
@@ -60,7 +60,7 @@ Only required in production (`%prod` profile). Dev/test mode uses Testcontainers
 **Integration tests** (require Docker):
 - `PhraseResourceTest`: all 6 API endpoints against a real PostgreSQL
 - Testcontainers provisions `postgres:16-alpine`
-- Flyway runs `V1__create_words_table.sql` + `V100__seed_test_data.sql` (20 test words)
+- Flyway runs `V1__create_words_table.sql` + `V2__add_articulated_syllables.sql` + `V100__seed_test_data.sql` (23 test words)
 
 ### Troubleshooting Tests
 

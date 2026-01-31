@@ -1,7 +1,6 @@
 package scrabble.phrases.providers
 
 import scrabble.phrases.repository.WordRepository
-import scrabble.phrases.words.NounGender
 
 class TautogramProvider(private val repo: WordRepository) : ISentenceProvider {
 
@@ -16,10 +15,9 @@ class TautogramProvider(private val repo: WordRepository) : ISentenceProvider {
             ?: throw IllegalStateException("No adjective found for prefix '$prefix'")
         val verb = repo.getRandomVerbByPrefix(prefix)
             ?: throw IllegalStateException("No verb found for prefix '$prefix'")
-        val noun2 = repo.getRandomNounByPrefix(prefix)
+        val noun2 = repo.getRandomNounByPrefix(prefix, exclude = setOf(noun1.word))
             ?: throw IllegalStateException("No second noun found for prefix '$prefix'")
 
-        val adjForm = if (noun1.gender == NounGender.F) adj.feminine else adj.word
-        return "${noun1.articulated} $adjForm ${verb.word} ${noun2.articulated}."
+        return "${noun1.articulated} ${adj.forGender(noun1.gender)} ${verb.word} ${noun2.articulated}."
     }
 }

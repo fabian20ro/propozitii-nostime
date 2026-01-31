@@ -21,50 +21,28 @@ class PhraseResource {
 
     @GET
     @Path("/haiku")
-    fun getHaiku(): SentenceResponse {
-        val decorated = HtmlVerseBreaker(
-            DexonlineLinkAdder(
-                VerseLineCapitalizer(HaikuProvider(wordRepository))
-            )
-        )
-        return SentenceResponse(decorated.getSentence())
-    }
+    fun getHaiku(): SentenceResponse =
+        SentenceResponse(decorateVerse(HaikuProvider(wordRepository)).getSentence())
 
     @GET
     @Path("/couplet")
-    fun getCouplet(): SentenceResponse {
-        val decorated = HtmlVerseBreaker(
-            DexonlineLinkAdder(
-                VerseLineCapitalizer(CoupletProvider(wordRepository))
-            )
-        )
-        return SentenceResponse(decorated.getSentence())
-    }
+    fun getCouplet(): SentenceResponse =
+        SentenceResponse(decorateVerse(CoupletProvider(wordRepository)).getSentence())
 
     @GET
     @Path("/comparison")
-    fun getComparison(): SentenceResponse {
-        val decorated = DexonlineLinkAdder(
-            FirstSentenceLetterCapitalizer(ComparisonProvider(wordRepository))
-        )
-        return SentenceResponse(decorated.getSentence())
-    }
+    fun getComparison(): SentenceResponse =
+        SentenceResponse(decorateSentence(ComparisonProvider(wordRepository)).getSentence())
 
     @GET
     @Path("/definition")
-    fun getDefinition(): SentenceResponse {
-        val decorated = DexonlineLinkAdder(DefinitionProvider(wordRepository))
-        return SentenceResponse(decorated.getSentence())
-    }
+    fun getDefinition(): SentenceResponse =
+        SentenceResponse(DexonlineLinkAdder(DefinitionProvider(wordRepository)).getSentence())
 
     @GET
     @Path("/tautogram")
-    fun getTautogram(): SentenceResponse {
-        val decorated = DexonlineLinkAdder(
-            FirstSentenceLetterCapitalizer(TautogramProvider(wordRepository))
-        )
-        return SentenceResponse(decorated.getSentence())
-    }
+    fun getTautogram(): SentenceResponse =
+        SentenceResponse(decorateSentence(TautogramProvider(wordRepository)).getSentence())
 
     @GET
     @Path("/all")
@@ -79,12 +57,12 @@ class PhraseResource {
 
     @GET
     @Path("/mirror")
-    fun getMirror(): SentenceResponse {
-        val decorated = HtmlVerseBreaker(
-            DexonlineLinkAdder(
-                VerseLineCapitalizer(MirrorProvider(wordRepository))
-            )
-        )
-        return SentenceResponse(decorated.getSentence())
-    }
+    fun getMirror(): SentenceResponse =
+        SentenceResponse(decorateVerse(MirrorProvider(wordRepository)).getSentence())
+
+    private fun decorateVerse(provider: ISentenceProvider): ISentenceProvider =
+        HtmlVerseBreaker(DexonlineLinkAdder(VerseLineCapitalizer(provider)))
+
+    private fun decorateSentence(provider: ISentenceProvider): ISentenceProvider =
+        DexonlineLinkAdder(FirstSentenceLetterCapitalizer(provider))
 }
