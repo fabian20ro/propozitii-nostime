@@ -117,6 +117,10 @@ Schema is managed by [Flyway](https://flywaydb.org/) migrations in `src/main/res
 
 Indexes on `(type)`, `(type, rhyme)`, `(type, syllables)`, `(type, first_letter)`, and `(type, rhyme, syllables)`.
 
+## Acknowledgements
+
+The Romanian word dictionary used in this project comes from [dexonline.ro](https://dexonline.ro), an exceptional open-source Romanian dictionary project. Many thanks to the dexonline team for maintaining such a comprehensive and freely available linguistic resource. Word definitions shown on hover link directly to dexonline.ro.
+
 ## License
 
 GPL-3.0

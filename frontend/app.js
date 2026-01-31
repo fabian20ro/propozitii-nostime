@@ -38,7 +38,8 @@ function sanitizeHtml(html) {
     div.innerHTML = html;
 
     function cleanNode(node) {
-        const allowed = ['A', 'DIV', 'IFRAME', 'BR', 'SPAN'];
+        const allowed = ['A', 'DIV', 'BR', 'SPAN'];
+        const safeAttrs = ['href', 'target', 'rel', 'class', 'data-word'];
         const children = Array.from(node.childNodes);
         for (const child of children) {
             if (child.nodeType === Node.ELEMENT_NODE) {
@@ -46,18 +47,11 @@ function sanitizeHtml(html) {
                     child.remove();
                     continue;
                 }
-                // Strip event handler attributes
                 for (const attr of Array.from(child.attributes)) {
-                    if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trimStart().startsWith('javascript:'))) {
+                    if (!safeAttrs.includes(attr.name)) {
                         child.removeAttribute(attr.name);
-                    }
-                }
-                // For iframes, only allow dexonline.ro src
-                if (child.tagName === 'IFRAME') {
-                    const src = child.getAttribute('src') || '';
-                    if (!src.startsWith('https://dexonline.ro/')) {
-                        child.remove();
-                        continue;
+                    } else if (attr.name === 'href' && attr.value.trimStart().startsWith('javascript:')) {
+                        child.removeAttribute(attr.name);
                     }
                 }
                 cleanNode(child);
@@ -247,8 +241,71 @@ async function refresh() {
     }
 }
 
+// Dexonline hover preview
+function initDexonlinePreview() {
+    let activePopup = null;
+    let hideTimeout = null;
+
+    function removePopup() {
+        if (activePopup) {
+            activePopup.remove();
+            activePopup = null;
+        }
+    }
+
+    function scheduleHide() {
+        hideTimeout = setTimeout(removePopup, 200);
+    }
+
+    function cancelHide() {
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+    }
+
+    document.addEventListener('mouseenter', function (e) {
+        const link = e.target.closest('.sentence a[data-word]');
+        if (!link) return;
+
+        cancelHide();
+        if (activePopup && activePopup.dataset.word === link.dataset.word) return;
+        removePopup();
+
+        const word = link.dataset.word;
+        const url = 'https://dexonline.ro/definitie/' + word;
+
+        const popup = document.createElement('div');
+        popup.className = 'dex-popup';
+        popup.dataset.word = word;
+
+        const clipper = document.createElement('div');
+        clipper.className = 'dex-popup-clipper';
+
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.setAttribute('loading', 'lazy');
+
+        clipper.appendChild(iframe);
+        popup.appendChild(clipper);
+
+        popup.addEventListener('mouseenter', cancelHide);
+        popup.addEventListener('mouseleave', scheduleHide);
+
+        link.after(popup);
+        activePopup = popup;
+    }, true);
+
+    document.addEventListener('mouseleave', function (e) {
+        const link = e.target.closest('.sentence a[data-word]');
+        if (!link) return;
+        scheduleHide();
+    }, true);
+}
+
 // Event listeners
 refreshBtn.addEventListener('click', refresh);
+initDexonlinePreview();
 
 // Initial load
 refresh();

@@ -35,7 +35,7 @@ class DexonlineLinkAdder(private val provider: ISentenceProvider) : ISentencePro
         val encodedWord = URLEncoder.encode(word.lowercase(), StandardCharsets.UTF_8)
         val url = "$DEXONLINE_URL$encodedWord"
         val escapedWord = escapeHtml(word)
-        return """<a href="$url">$escapedWord</a><div class="box"><iframe src="$url" width = "480px" height = "800px"></iframe></div>"""
+        return """<a href="$url" target="_blank" rel="noopener" data-word="$encodedWord">$escapedWord</a>"""
     }
 
     private fun escapeHtml(text: String): String = text
