@@ -11,30 +11,66 @@ Generator de propozitii hazoase in limba romana (Romanian funny sentence generat
 
 | Component | Technology | Hosting |
 |-----------|------------|---------|
-| Backend | Java 21 + Quarkus 3.17 | [Render](https://propozitii-nostime.onrender.com/q/health) |
+| Backend | Kotlin + Quarkus 3.17 (GraalVM Native) | [Render](https://propozitii-nostime.onrender.com/q/health) |
 | Frontend | Static HTML/CSS/JS | [GitHub Pages](https://fabian20ro.github.io/propozitii-nostime/) |
-| Dictionary | [dexonline.ro](https://dexonline.ro) Scrabble word list | Downloaded at build time |
+| Database | PostgreSQL ([Supabase](https://supabase.com)) | Supabase Free Tier |
+| Dictionary | [dexonline.ro](https://dexonline.ro) Scrabble word list | Loaded into Supabase |
+
+### Zero-cost stack
+
+All three services run on free tiers: Render (backend), Supabase (database), and GitHub Pages (frontend).
+
+The dictionary (~80K Romanian words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
+
+GraalVM native image compiles the application ahead-of-time, resulting in:
+- Sub-second startup (vs ~10s on JVM)
+- ~40-60 MB memory (vs ~150-220 MB on JVM)
+- ~50-80 MB Docker image (vs ~300 MB with JRE)
 
 ## API Endpoints
 
-- `GET /api/haiku` - Generate a haiku-style sentence (5-7-5 syllables)
-- `GET /api/five-word` - Generate a five-word sentence
-- `POST /api/reset` - Reset the rhyme providers
-- `GET /q/health` - Health check
+- `GET /api/haiku` — Haiku-style sentence (5-7-5 syllables)
+- `GET /api/couplet` — Two rhyming lines
+- `GET /api/comparison` — Comparison sentence ("X e mai adj decât Y")
+- `GET /api/definition` — Dictionary-style definition
+- `GET /api/tautogram` — All words start with same letter
+- `GET /api/mirror` — ABBA rhyme scheme (4 lines)
+- `GET /q/health` — Health check
 
 ## Local Development
 
 ### Prerequisites
 
-- Java 21 (e.g., `brew install --cask temurin@21`)
+- Java 21 / GraalVM 21 (e.g., `brew install --cask graalvm-jdk@21`)
 - Gradle 8.11 (wrapper included)
+- Docker (for running integration tests via Testcontainers)
+- Supabase project with the `words` table populated
+
+### First-time setup
+
+```bash
+# Enable credential-scanning pre-commit hook
+git config core.hooksPath .githooks
+```
+
+### Environment variables
+
+```bash
+export SUPABASE_DB_URL=jdbc:postgresql://db.<project-ref>.supabase.co:5432/postgres
+export SUPABASE_DB_USER=postgres
+export SUPABASE_DB_PASSWORD=<your-password>
+```
+
+### Loading the dictionary
+
+```bash
+# Download and load dictionary into Supabase (one-time setup)
+./gradlew loadDictionary
+```
 
 ### Running locally
 
 ```bash
-# Set Java 21
-export JAVA_HOME=$(/usr/libexec/java_home -v 21)
-
 # Start Quarkus dev server
 ./gradlew quarkusDev
 
@@ -50,25 +86,36 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 ### Building
 
 ```bash
+# JVM build
 ./gradlew build
+
+# Native build (requires GraalVM)
+./gradlew build -Dquarkus.native.enabled=true
 ```
 
 ## Project Structure
 
 ```
 propozitii-nostime/
-├── src/main/java/scrabble/phrases/
-│   ├── PhraseResource.java      # REST API endpoints
-│   ├── DictionaryProducer.java  # CDI bean for dictionary
-│   ├── words/                   # Word types (sealed interface + records)
-│   ├── dictionary/              # Word dictionary with filtering
-│   ├── providers/               # Sentence generators
-│   └── decorators/              # Sentence decorators (links, formatting)
-├── frontend/                    # Static frontend for GitHub Pages
-├── Dockerfile                   # Multi-stage build for Render
-├── render.yaml                  # Render deployment config
-└── .github/workflows/           # CI/CD pipelines
+├── src/main/kotlin/scrabble/phrases/
+│   ├── PhraseResource.kt           # REST API endpoints
+│   ├── SentenceResponse.kt         # JSON response
+│   ├── words/                       # Word types (sealed interface + data classes)
+│   ├── repository/                  # WordRepository (SQL queries to Supabase)
+│   ├── providers/                   # Sentence generators (6 types)
+│   ├── decorators/                  # Sentence decorators (links, formatting)
+│   └── tools/                       # LoadDictionary data loader
+├── frontend/                        # Static frontend for GitHub Pages
+├── Dockerfile                       # GraalVM native multi-stage build
+├── render.yaml                      # Render deployment config
+└── .github/workflows/               # CI/CD pipelines
 ```
+
+## Database Schema
+
+Schema is managed by [Flyway](https://flywaydb.org/) migrations in `src/main/resources/db/migration/`. Flyway runs automatically at startup (`quarkus.flyway.migrate-at-start=true`) and baselines existing databases.
+
+Indexes on `(type)`, `(type, rhyme)`, `(type, syllables)`, `(type, first_letter)`, and `(type, rhyme, syllables)`.
 
 ## License
 

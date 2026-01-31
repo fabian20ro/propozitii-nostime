@@ -1,0 +1,71 @@
+package scrabble.phrases
+
+import io.quarkus.test.junit.QuarkusTest
+import io.restassured.RestAssured.given
+import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.notNullValue
+import org.junit.jupiter.api.Test
+
+@QuarkusTest
+class PhraseResourceTest {
+
+    @Test
+    fun shouldReturnHaiku() {
+        given()
+            .`when`().get("/api/haiku")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
+    }
+
+    @Test
+    fun shouldReturnCouplet() {
+        given()
+            .`when`().get("/api/couplet")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
+    }
+
+    @Test
+    fun shouldReturnComparison() {
+        given()
+            .`when`().get("/api/comparison")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
+    }
+
+    @Test
+    fun shouldReturnDefinition() {
+        given()
+            .`when`().get("/api/definition")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
+    }
+
+    @Test
+    fun shouldReturnTautogram() {
+        given()
+            .`when`().get("/api/tautogram")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
+    }
+
+    @Test
+    fun shouldReturnMirror() {
+        given()
+            .`when`().get("/api/mirror")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
+    }
+}

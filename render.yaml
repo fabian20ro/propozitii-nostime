@@ -7,3 +7,9 @@ services:
     envVars:
       - key: PORT
         value: 8080
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: SUPABASE_DB_USER
+        sync: false
+      - key: SUPABASE_DB_PASSWORD
+        sync: false

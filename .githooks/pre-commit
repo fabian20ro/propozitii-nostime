@@ -1,0 +1,11 @@
+#!/bin/sh
+# Pre-commit hook: check for exposed credentials in staged files
+
+if git diff --cached --name-only | xargs git grep --cached -iE \
+  '(jdbc:postgresql://[a-z0-9-]+\.(supabase|render|neon)\.co|sbp_[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|sk-[a-zA-Z0-9]{32,})' \
+  -- ':(exclude)*.md' ':(exclude)scripts/' 2>/dev/null; then
+  echo ""
+  echo "ERROR: Hardcoded credentials detected in staged files!"
+  echo "Remove them before committing."
+  exit 1
+fi

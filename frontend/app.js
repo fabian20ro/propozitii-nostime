@@ -88,7 +88,6 @@ const ENDPOINTS = [
 
 // DOM elements
 const refreshBtn = document.getElementById('refresh');
-const resetBtn = document.getElementById('reset');
 const errorMessage = document.getElementById('error-message');
 
 /**
@@ -201,7 +200,6 @@ function hideMessage() {
  */
 function setButtonsDisabled(disabled) {
     refreshBtn.disabled = disabled;
-    resetBtn.disabled = disabled;
 }
 
 /**
@@ -249,27 +247,8 @@ async function refresh() {
     }
 }
 
-/**
- * Reset the rhyme providers and refresh
- */
-async function resetAndRefresh() {
-    hideMessage();
-    showLoading();
-    setButtonsDisabled(true);
-
-    try {
-        await fetch(`${API_BASE}/reset`, { method: 'POST' });
-        await refresh();
-    } catch (error) {
-        console.error('Error resetting:', error);
-        showError('Eroare la resetare. Încercați din nou.');
-        setButtonsDisabled(false);
-    }
-}
-
 // Event listeners
 refreshBtn.addEventListener('click', refresh);
-resetBtn.addEventListener('click', resetAndRefresh);
 
 // Initial load
 refresh();

@@ -2,15 +2,23 @@ plugins {
     id 'java'
     id 'io.quarkus' version '3.17.0'
     id 'jacoco'
+    id 'org.jetbrains.kotlin.jvm' version '2.0.21'
+    id 'org.jetbrains.kotlin.plugin.allopen' version '2.0.21'
 }
 
 group = 'scrabble.phrases'
-version = '2.0.0'
+version = '3.0.0'
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
+}
+
+allOpen {
+    annotation("jakarta.ws.rs.Path")
+    annotation("jakarta.enterprise.context.ApplicationScoped")
+    annotation("jakarta.enterprise.context.RequestScoped")
 }
 
 repositories {
@@ -23,15 +31,30 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest-jackson'
     implementation 'io.quarkus:quarkus-smallrye-health'
     implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-kotlin'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    implementation 'io.quarkus:quarkus-agroal'
+    implementation 'io.quarkus:quarkus-flyway'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib'
 
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.26.3'
+    testImplementation 'org.testcontainers:testcontainers'
+    testImplementation 'org.testcontainers:postgresql'
+    testImplementation 'org.testcontainers:junit-jupiter'
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs.add('-parameters')
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+        javaParameters = true
+    }
 }
 
 test {
@@ -54,7 +77,7 @@ jacocoTestReport {
     }
 }
 
-// Download Romanian Scrabble dictionary during resource processing
+// Dictionary download task - only needed for the data loader tool, not for runtime
 tasks.register('downloadDictionary') {
     def wordsFile = file('src/main/resources/words.txt')
     outputs.file(wordsFile)
@@ -93,3 +116,11 @@ tasks.register('downloadDictionary') {
 }
 
 processResources.dependsOn downloadDictionary
+
+// Data loader task - loads dictionary into Supabase PostgreSQL
+tasks.register('loadDictionary', JavaExec) {
+    dependsOn 'classes'
+    mainClass = 'scrabble.phrases.tools.LoadDictionaryKt'
+    classpath = sourceSets.main.runtimeClasspath
+    systemProperty 'file.encoding', 'UTF-8'
+}

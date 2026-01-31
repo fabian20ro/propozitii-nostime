@@ -38,3 +38,6 @@ hs_err_pid*
 
 # Context engineering (from CLAUDE.md)
 .context/
+
+# MCP server config (contains tokens)
+.mcp.json
