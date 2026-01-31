@@ -9,13 +9,13 @@ class DecoratorTest {
     @Test
     fun shouldDecorateWithLinksAndBreaks() {
         val expected = "<a href=\"https://dexonline.ro/definitie/ana\" target=\"_blank\" rel=\"noopener\" data-word=\"ana\">Ana</a><br/>" +
-            "<a href=\"https://dexonline.ro/definitie/are\" target=\"_blank\" rel=\"noopener\" data-word=\"are\">are</a> " +
+            "<a href=\"https://dexonline.ro/definitie/are\" target=\"_blank\" rel=\"noopener\" data-word=\"are\">Are</a> " +
             "<a href=\"https://dexonline.ro/definitie/mere\" target=\"_blank\" rel=\"noopener\" data-word=\"mere\">mere</a>."
 
         val baseProvider = ISentenceProvider { "ana / are mere." }
         val decorated = HtmlVerseBreaker(
             DexonlineLinkAdder(
-                FirstSentenceLetterCapitalizer(baseProvider)
+                VerseLineCapitalizer(baseProvider)
             )
         )
 
@@ -44,6 +44,13 @@ class DecoratorTest {
         val baseProvider = ISentenceProvider { "test sentence" }
         val capitalized = FirstSentenceLetterCapitalizer(baseProvider)
         assertEquals("Test sentence", capitalized.getSentence())
+    }
+
+    @Test
+    fun shouldCapitalizeEachVerseLine() {
+        val baseProvider = ISentenceProvider { "first line / second line / third line" }
+        val capitalized = VerseLineCapitalizer(baseProvider)
+        assertEquals("First line / Second line / Third line", capitalized.getSentence())
     }
 
     @Test

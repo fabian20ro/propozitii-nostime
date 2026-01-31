@@ -243,7 +243,13 @@ async function refresh() {
 
 // Dexonline bottom drawer
 function initDexonlineDrawer() {
+    const DRAWER_HEIGHT_KEY = 'dex-drawer-height';
+    const MIN_HEIGHT_VH = 20;
+    const MAX_HEIGHT_VH = 90;
+
     const drawer = document.getElementById('dex-drawer');
+    const panel = drawer.querySelector('.dex-drawer-panel');
+    const header = drawer.querySelector('.dex-drawer-header');
     const iframe = document.getElementById('dex-drawer-iframe');
     const titleEl = drawer.querySelector('.dex-drawer-title');
     const closeBtn = drawer.querySelector('.dex-drawer-close');
@@ -251,7 +257,49 @@ function initDexonlineDrawer() {
     let activeWord = null;
     let triggerLink = null;
 
+    function applyDrawerHeight() {
+        const saved = localStorage.getItem(DRAWER_HEIGHT_KEY);
+        if (saved) {
+            panel.style.setProperty('--drawer-height', saved + 'px');
+        }
+    }
+
+    function clampHeight(px) {
+        const minPx = window.innerHeight * (MIN_HEIGHT_VH / 100);
+        const maxPx = window.innerHeight * (MAX_HEIGHT_VH / 100);
+        return Math.max(minPx, Math.min(maxPx, px));
+    }
+
+    // Drag-to-resize
+    function initDrag() {
+        let dragging = false;
+
+        header.addEventListener('pointerdown', function (e) {
+            if (e.target.closest('.dex-drawer-close')) return;
+            dragging = true;
+            header.setPointerCapture(e.pointerId);
+            panel.style.transition = 'none';
+            iframe.style.pointerEvents = 'none';
+        });
+
+        header.addEventListener('pointermove', function (e) {
+            if (!dragging) return;
+            const newHeight = clampHeight(window.innerHeight - e.clientY);
+            panel.style.setProperty('--drawer-height', newHeight + 'px');
+        });
+
+        header.addEventListener('pointerup', function (e) {
+            if (!dragging) return;
+            dragging = false;
+            panel.style.transition = '';
+            iframe.style.pointerEvents = '';
+            const current = panel.getBoundingClientRect().height;
+            localStorage.setItem(DRAWER_HEIGHT_KEY, Math.round(current));
+        });
+    }
+
     function openDrawer(word, url, link) {
+        applyDrawerHeight();
         titleEl.textContent = decodeURIComponent(word);
         iframe.src = url;
         drawer.classList.remove('dex-drawer-hidden');
@@ -304,6 +352,8 @@ function initDexonlineDrawer() {
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && activeWord) closeDrawer();
     });
+
+    initDrag();
 }
 
 // Event listeners

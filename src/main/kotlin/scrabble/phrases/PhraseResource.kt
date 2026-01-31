@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.MediaType
 import scrabble.phrases.decorators.DexonlineLinkAdder
 import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer
 import scrabble.phrases.decorators.HtmlVerseBreaker
+import scrabble.phrases.decorators.VerseLineCapitalizer
 import scrabble.phrases.providers.*
 import scrabble.phrases.repository.WordRepository
 
@@ -23,7 +24,7 @@ class PhraseResource {
     fun getHaiku(): SentenceResponse {
         val decorated = HtmlVerseBreaker(
             DexonlineLinkAdder(
-                FirstSentenceLetterCapitalizer(HaikuProvider(wordRepository))
+                VerseLineCapitalizer(HaikuProvider(wordRepository))
             )
         )
         return SentenceResponse(decorated.getSentence())
@@ -34,7 +35,7 @@ class PhraseResource {
     fun getCouplet(): SentenceResponse {
         val decorated = HtmlVerseBreaker(
             DexonlineLinkAdder(
-                FirstSentenceLetterCapitalizer(CoupletProvider(wordRepository))
+                VerseLineCapitalizer(CoupletProvider(wordRepository))
             )
         )
         return SentenceResponse(decorated.getSentence())
@@ -70,7 +71,7 @@ class PhraseResource {
     fun getMirror(): SentenceResponse {
         val decorated = HtmlVerseBreaker(
             DexonlineLinkAdder(
-                FirstSentenceLetterCapitalizer(MirrorProvider(wordRepository))
+                VerseLineCapitalizer(MirrorProvider(wordRepository))
             )
         )
         return SentenceResponse(decorated.getSentence())
