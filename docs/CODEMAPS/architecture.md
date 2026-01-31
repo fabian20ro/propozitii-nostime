@@ -7,14 +7,14 @@
 ```
 Frontend (GitHub Pages)  --HTTPS/CORS-->  Backend (Render)  --JDBC-->  Database (Supabase PostgreSQL)
 Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80K Romanian words
-                                          GraalVM Native Image               Flyway-managed schema
+                                          JVM (eclipse-temurin:21)           Manually-managed schema
 ```
 
 ## Zero-Cost Stack
 
 | Component | Technology | Hosting |
 |-----------|------------|---------|
-| Backend | Kotlin + Quarkus 3.17, GraalVM native | Render free tier |
+| Backend | Kotlin + Quarkus 3.17, JVM (eclipse-temurin:21) | Render free tier |
 | Frontend | Static HTML/CSS/JS | GitHub Pages |
 | Database | PostgreSQL | Supabase free tier |
 | Dictionary | dexonline.ro Scrabble word list | Loaded into Supabase |
@@ -29,14 +29,14 @@ Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80
 
 ## Deployment
 
-- **Backend**: Docker native image auto-deployed via `render.yaml` on push to master
+- **Backend**: Docker JVM image auto-deployed via `render.yaml` on push to master
 - **Frontend**: Separate GitHub Actions workflow deploys `frontend/` to GitHub Pages
-- **Database**: Schema via Flyway migrations at startup; dictionary loaded once via `./gradlew loadDictionary`
+- **Database**: Flyway migrations disabled in production (`%prod.quarkus.flyway.migrate-at-start=false`); schema changes must be applied manually to Supabase. Flyway runs only in dev/test. Dictionary loaded once via `./gradlew loadDictionary`
 
 ## Key Design Decisions
 
 - Stateless backend: no in-memory state, every request queries PostgreSQL
-- GraalVM native: sub-second startup, ~50 MB memory (Render free tier compatible)
+- JVM build with uber-jar: simpler build, compatible with Render free tier
 - Decorator pattern for sentence post-processing
 - Frontend handles Render cold starts with health polling (up to 60s)
 - `%prod` profile for DB credentials; dev/test use Testcontainers via Quarkus Dev Services

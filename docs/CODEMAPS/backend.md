@@ -23,7 +23,7 @@ src/main/kotlin/scrabble/phrases/
     CoupletProvider.kt       # two rhyming lines (AABB)
     ComparisonProvider.kt    # "X e mai adj decat Y"
     DefinitionProvider.kt    # dictionary-style definition
-    TautogramProvider.kt     # all words same first letter
+    TautogramProvider.kt     # all words same two-letter prefix
     MirrorProvider.kt        # ABBA rhyme scheme (4 lines)
   decorators/
     FirstSentenceLetterCapitalizer.kt
@@ -46,10 +46,10 @@ src/main/kotlin/scrabble/phrases/
 
 ## WordRepository Query Methods (15)
 
-Nouns: `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByFirstLetter`, `getRandomNounByArticulatedSyllables`, `getRandomNounByRhymeAndArticulatedSyllables`, `getNounsByRhyme`
-Adjectives: `getRandomAdjective`, `getRandomAdjectiveBySyllables`, `getRandomAdjectiveByFirstLetter`
-Verbs: `getRandomVerb`, `getRandomVerbBySyllables`, `getRandomVerbByFirstLetter`
-Grouping: `findRhymeGroup`, `findTwoRhymeGroups`, `hasWordsForLetter`
+Nouns: `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByFirstLetter`, `getRandomNounByPrefix`, `getRandomNounByArticulatedSyllables`, `getRandomNounByRhymeAndArticulatedSyllables`, `getNounsByRhyme`
+Adjectives: `getRandomAdjective`, `getRandomAdjectiveBySyllables`, `getRandomAdjectiveByFirstLetter`, `getRandomAdjectiveByPrefix`
+Verbs: `getRandomVerb`, `getRandomVerbBySyllables`, `getRandomVerbByFirstLetter`, `getRandomVerbByPrefix`
+Grouping: `findRhymeGroup`, `findTwoRhymeGroups`, `hasWordsForLetter`, `getRandomPrefixWithAllTypes`
 
 ## Test Files (6, ~277 lines)
 
