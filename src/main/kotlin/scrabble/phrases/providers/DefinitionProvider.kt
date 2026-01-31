@@ -10,8 +10,9 @@ class DefinitionProvider(private val repo: WordRepository) : ISentenceProvider {
         val noun = repo.getRandomNoun()
         val adj = repo.getRandomAdjective()
         val verb = repo.getRandomVerb()
+        val object_ = repo.getRandomNoun()
 
         val adjForm = if (noun.gender == NounGender.F) adj.feminine else adj.word
-        return "${defined.word.uppercase()}: ${noun.articulated} $adjForm care ${verb.word}."
+        return "${defined.word.uppercase()}: ${noun.articulated} $adjForm care ${verb.word} ${object_.articulated}."
     }
 }

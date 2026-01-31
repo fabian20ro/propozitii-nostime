@@ -119,19 +119,19 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         return nouns
     }
 
-    fun hasWordsForLetter(letter: Char): Boolean {
-        val letterStr = letter.lowercaseChar().toString()
+    fun getRandomLetterWithAllTypes(): Char? {
         dataSource.connection.use { conn ->
             conn.prepareStatement("""
-                SELECT EXISTS(SELECT 1 FROM words WHERE type='N' AND first_letter=?)
-                   AND EXISTS(SELECT 1 FROM words WHERE type='A' AND first_letter=?)
-                   AND EXISTS(SELECT 1 FROM words WHERE type='V' AND first_letter=?)
+                SELECT first_letter FROM (
+                    SELECT first_letter
+                    FROM words
+                    GROUP BY first_letter
+                    HAVING COUNT(DISTINCT type) = 3
+                ) valid_letters
+                ORDER BY RANDOM() LIMIT 1
             """.trimIndent()).use { stmt ->
-                stmt.setString(1, letterStr)
-                stmt.setString(2, letterStr)
-                stmt.setString(3, letterStr)
                 stmt.executeQuery().use { rs ->
-                    return rs.next() && rs.getBoolean(1)
+                    return if (rs.next()) rs.getString("first_letter")[0] else null
                 }
             }
         }

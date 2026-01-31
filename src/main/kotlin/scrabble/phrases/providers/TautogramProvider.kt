@@ -5,14 +5,9 @@ import scrabble.phrases.words.NounGender
 
 class TautogramProvider(private val repo: WordRepository) : ISentenceProvider {
 
-    companion object {
-        private const val LETTERS = "abcdefghilmnoprstuvz"
-    }
-
     override fun getSentence(): String {
-        // Find a letter that has nouns, adjectives, and verbs
-        val shuffledLetters = LETTERS.toList().shuffled()
-        val letter = shuffledLetters.firstOrNull { repo.hasWordsForLetter(it) }
+        // Pick a random letter that has nouns, adjectives, and verbs
+        val letter = repo.getRandomLetterWithAllTypes()
             ?: throw IllegalStateException("No letter found with all word types available")
 
         val noun1 = repo.getRandomNounByFirstLetter(letter)

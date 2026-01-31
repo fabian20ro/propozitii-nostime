@@ -21,9 +21,8 @@ class HaikuProvider(private val repo: WordRepository) : ISentenceProvider {
         val verb = repo.getRandomVerbBySyllables(3)
             ?: throw IllegalStateException("No verb with 3 syllables found")
 
-        // Second noun: rhymes with first, articulated form has 5 syllables
-        val noun2 = repo.getRandomNounByRhymeAndArticulatedSyllables(noun.rhyme, 5)
-            ?: repo.getRandomNounByArticulatedSyllables(5)
+        // Second noun: articulated form has 5 syllables (independent of first noun's rhyme)
+        val noun2 = repo.getRandomNounByArticulatedSyllables(5)
             ?: repo.getRandomNoun()
 
         return "${noun.articulated} / $adjForm ${verb.word} / ${noun2.articulated}."

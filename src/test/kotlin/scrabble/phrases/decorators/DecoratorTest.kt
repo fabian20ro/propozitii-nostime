@@ -8,12 +8,9 @@ class DecoratorTest {
 
     @Test
     fun shouldDecorateWithLinksAndBreaks() {
-        val expected = "<a href=\"https://dexonline.ro/definitie/ana\">Ana</a><div class=\"box\">" +
-            "<iframe src=\"https://dexonline.ro/definitie/ana\" width = \"480px\" height = \"800px\"></iframe></div><br/>" +
-            "<a href=\"https://dexonline.ro/definitie/are\">are</a><div class=\"box\">" +
-            "<iframe src=\"https://dexonline.ro/definitie/are\" width = \"480px\" height = \"800px\"></iframe></div> " +
-            "<a href=\"https://dexonline.ro/definitie/mere\">mere</a><div class=\"box\">" +
-            "<iframe src=\"https://dexonline.ro/definitie/mere\" width = \"480px\" height = \"800px\"></iframe></div>."
+        val expected = "<a href=\"https://dexonline.ro/definitie/ana\" target=\"_blank\" rel=\"noopener\" data-word=\"ana\">Ana</a><br/>" +
+            "<a href=\"https://dexonline.ro/definitie/are\" target=\"_blank\" rel=\"noopener\" data-word=\"are\">are</a> " +
+            "<a href=\"https://dexonline.ro/definitie/mere\" target=\"_blank\" rel=\"noopener\" data-word=\"mere\">mere</a>."
 
         val baseProvider = ISentenceProvider { "ana / are mere." }
         val decorated = HtmlVerseBreaker(
@@ -33,6 +30,9 @@ class DecoratorTest {
 
         assert(result.contains("href=\"https://dexonline.ro/definitie/p%C4%83%C8%9Bit\"")) {
             "Expected URL-encoded href, got: $result"
+        }
+        assert(result.contains("data-word=\"p%C4%83%C8%9Bit\"")) {
+            "Expected data-word attribute, got: $result"
         }
         assert(result.contains(">p\u0103\u021Bit</a>")) {
             "Expected readable text content, got: $result"
