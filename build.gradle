@@ -18,7 +18,6 @@ java {
 allOpen {
     annotation("jakarta.ws.rs.Path")
     annotation("jakarta.enterprise.context.ApplicationScoped")
-    annotation("jakarta.enterprise.context.RequestScoped")
 }
 
 repositories {

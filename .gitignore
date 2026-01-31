@@ -18,6 +18,7 @@
 .project
 .classpath
 .settings/
+*.launch
 *.swp
 *.swo
 *~
