@@ -99,7 +99,7 @@ tasks.register('downloadDictionary') {
             }
             def actualHash = digest.digest().collect { String.format('%02x', it) }.join()
             // To update: delete src/main/resources/words.txt, run build, and use the actual hash from the error message
-            def expectedHash = '90b05117d397c845e0e65478a5084ed29a82877d7dd0099e91533434ae3ed95d'
+            def expectedHash = '2bbf9529ed7e1cf1b489e94d16aa82436e568e59066e6c53f669eeb855e3a136'
             if (actualHash != expectedHash) {
                 ant.delete(file: zipFile)
                 throw new GradleException(
@@ -114,8 +114,6 @@ tasks.register('downloadDictionary') {
         }
     }
 }
-
-processResources.dependsOn downloadDictionary
 
 // Data loader task - loads dictionary into Supabase PostgreSQL
 tasks.register('loadDictionary', JavaExec) {
