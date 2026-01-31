@@ -130,6 +130,11 @@ header h1 {
     text-decoration: underline;
 }
 
+/* Hide legacy .box popups from old backend responses */
+.sentence .box {
+    display: none;
+}
+
 /* Dexonline iframe popup - clips header to show definitions directly */
 .dex-popup {
     position: absolute;

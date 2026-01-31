@@ -1,5 +1,9 @@
 # Build stage - GraalVM native image
 FROM ghcr.io/graalvm/native-image-community:21 AS build
+
+# Install findutils (provides xargs, required by Gradle wrapper)
+RUN microdnf install -y findutils && microdnf clean all
+
 WORKDIR /app
 
 # Copy gradle files first for better caching
