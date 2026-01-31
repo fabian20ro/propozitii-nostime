@@ -5,8 +5,8 @@ import scrabble.phrases.repository.WordRepository
 class CoupletProvider(private val repo: WordRepository) : ISentenceProvider {
 
     override fun getSentence(): String {
-        val rhymes = repo.findTwoRhymeGroups("N", 2)
-            ?: throw IllegalStateException("Cannot find 2 rhyme groups with 2+ nouns each")
+        val rhymes = repo.findTwoRhymeGroups("N", 3)
+            ?: throw IllegalStateException("Cannot find 2 rhyme groups with 3+ nouns each")
 
         val rhymeA = rhymes.first
         val rhymeB = rhymes.second

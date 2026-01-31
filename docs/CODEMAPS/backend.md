@@ -57,7 +57,7 @@ Grouping (2): `findTwoRhymeGroups`, `getRandomPrefixWithAllTypes`
 
 **Word exclusion**: Methods that providers call multiple times accept an optional `exclude: Set<String>` parameter. When non-empty, SQL appends `AND word NOT IN (?, ...)` and falls back to `ORDER BY RANDOM()` instead of OFFSET-based random selection (since the cached counts don't account for exclusions).
 
-**Startup caches** (`@PostConstruct`): count-by-type, count-by-(type,syllables), count-by-(type,articulated_syllables), noun rhyme groups (min 2 and min 4), verb rhyme groups (min 2), valid 2-letter prefixes with all 3 word types.
+**Startup caches** (`@PostConstruct`): count-by-type, count-by-(type,syllables), count-by-(type,articulated_syllables), noun rhyme groups (min 2 and min 3), verb rhyme groups (min 2), valid 2-letter prefixes with all 3 word types.
 
 ## Test Files (6, ~284 lines)
 

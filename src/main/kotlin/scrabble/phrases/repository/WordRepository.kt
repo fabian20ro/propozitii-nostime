@@ -18,7 +18,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     private var countsByTypeSyllables: Map<Pair<String, Int>, Int> = emptyMap()
     private var countsByTypeArticulatedSyllables: Map<Pair<String, Int>, Int> = emptyMap()
     private var nounRhymeGroupsMin2: List<String> = emptyList()
-    private var nounRhymeGroupsMin4: List<String> = emptyList()
+    private var nounRhymeGroupsMin3: List<String> = emptyList()
     private var verbRhymeGroupsMin2: List<String> = emptyList()
     private var validPrefixes: List<String> = emptyList()
 
@@ -67,12 +67,12 @@ class WordRepository(private val dataSource: AgroalDataSource) {
                 }
             }
 
-            // Noun rhyme groups with >= 4 nouns (for CoupletProvider)
-            conn.prepareStatement("SELECT rhyme FROM words WHERE type='N' GROUP BY rhyme HAVING COUNT(*) >= 4").use { stmt ->
+            // Noun rhyme groups with >= 3 nouns (for CoupletProvider ABBA)
+            conn.prepareStatement("SELECT rhyme FROM words WHERE type='N' GROUP BY rhyme HAVING COUNT(*) >= 3").use { stmt ->
                 stmt.executeQuery().use { rs ->
                     val list = mutableListOf<String>()
                     while (rs.next()) list.add(rs.getString("rhyme"))
-                    nounRhymeGroupsMin4 = list
+                    nounRhymeGroupsMin3 = list
                 }
             }
 
@@ -224,7 +224,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     fun findTwoRhymeGroups(type: String, minCount: Int): Pair<String, String>? {
         val cached = when {
             type == "N" && minCount <= 2 -> nounRhymeGroupsMin2
-            type == "N" && minCount <= 4 -> nounRhymeGroupsMin4
+            type == "N" && minCount <= 3 -> nounRhymeGroupsMin3
             type == "V" && minCount <= 2 -> verbRhymeGroupsMin2
             else -> null
         }
