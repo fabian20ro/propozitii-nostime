@@ -38,27 +38,6 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         return null
     }
 
-    fun getRandomNounByRhymeAndArticulatedSyllables(rhyme: String, articulatedSyllables: Int): Noun? {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement("""
-                SELECT word, gender, syllables, rhyme, articulated FROM words
-                WHERE type='N' AND rhyme=? AND articulated IS NOT NULL
-                ORDER BY RANDOM() LIMIT 100
-            """.trimIndent()).use { stmt ->
-                stmt.setString(1, rhyme)
-                stmt.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        val noun = mapNoun(rs)
-                        if (WordUtils.computeSyllableNumber(noun.articulated) == articulatedSyllables) {
-                            return noun
-                        }
-                    }
-                }
-            }
-        }
-        return null
-    }
-
     fun getRandomAdjective(): Adjective =
         queryAdjective("SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' ORDER BY RANDOM() LIMIT 1")
             ?: throw IllegalStateException("No adjectives found in database")

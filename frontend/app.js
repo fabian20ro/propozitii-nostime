@@ -29,7 +29,7 @@ themeToggle.addEventListener('click', toggleTheme);
 
 /**
  * Sanitize HTML to only allow safe tags used by the backend.
- * Strips everything except <a>, <div>, <iframe>, <br>, and <span> with safe attributes.
+ * Strips everything except <a>, <div>, <br>, and <span> with safe attributes.
  * @param {string} html
  * @returns {string}
  */
@@ -264,7 +264,7 @@ function initDexonlinePreview() {
         }
     }
 
-    document.addEventListener('mouseenter', function (e) {
+    document.addEventListener('mouseover', function (e) {
         const link = e.target.closest('.sentence a[data-word]');
         if (!link) return;
 
@@ -289,18 +289,18 @@ function initDexonlinePreview() {
         clipper.appendChild(iframe);
         popup.appendChild(clipper);
 
-        popup.addEventListener('mouseenter', cancelHide);
-        popup.addEventListener('mouseleave', scheduleHide);
+        popup.addEventListener('mouseover', cancelHide);
+        popup.addEventListener('mouseout', scheduleHide);
 
         link.after(popup);
         activePopup = popup;
-    }, true);
+    });
 
-    document.addEventListener('mouseleave', function (e) {
+    document.addEventListener('mouseout', function (e) {
         const link = e.target.closest('.sentence a[data-word]');
         if (!link) return;
         scheduleHide();
-    }, true);
+    });
 }
 
 // Event listeners
