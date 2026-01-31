@@ -19,7 +19,7 @@ RUN chmod +x gradlew
 COPY src src
 
 # Build native executable
-RUN ./gradlew build -Dquarkus.native.enabled=true -Dquarkus.package.jar.type=uber-jar -x test
+RUN ./gradlew build -Dquarkus.native.enabled=true -x test
 
 # Runtime stage - minimal image
 FROM quay.io/quarkus/quarkus-micro-image:2.0
