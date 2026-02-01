@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-> Freshness: 2026-01-31 | 3 files, ~845 lines
+> Freshness: 2026-02-01 | 3 files, ~845 lines
 
 ## Files
 
@@ -14,7 +14,7 @@
 <body>
   <button>   Dark mode toggle (fixed top-right)
   <main>     6x <section class="card"> (haiku, couplet, comparison, definition, tautogram, mirror)
-  <footer>   GitHub badge + credits
+  <footer>   GitHub badge + tech stack credits
   <div#dex-drawer>  Draggable bottom sheet drawer (panel with drag handle + header + iframe)
 ```
 
@@ -28,7 +28,7 @@ Iframe: `sandbox="allow-scripts allow-same-origin"`
 | `initTheme()` / `toggleTheme()` | Dark mode via `data-theme` + localStorage |
 | `sanitizeHtml(html)` | Allowlist sanitizer: `<a>`, `<div>`, `<br>`, `<span>`; href validated via URL parsing (only `https://dexonline.ro` allowed) |
 | `checkHealth()` | Pings `/q/health` with 5s timeout |
-| `waitForBackend()` | Polls health 12x (60s total) for Render cold starts |
+| `waitForBackend()` | Polls health 12x (60s total) for Render.com cold starts |
 | `fetchSentence(endpoint)` | GET + validate + sanitize |
 | `fetchAllSentences()` | Single `GET /api/all` request returning all 6 sentences |
 | `applySentences(data)` | Sanitize + render all sentences into DOM |

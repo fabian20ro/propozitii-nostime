@@ -133,7 +133,7 @@ async function waitForBackend() {
             if (idx === 0) {
                 el.textContent = message;
             } else {
-                el.textContent = 'Render Free Tier – pornire la rece';
+                el.textContent = 'Render.com Free Tier – pornire la rece';
             }
         });
 
@@ -232,7 +232,7 @@ async function refresh() {
         applySentences(data);
     } catch {
         // Fetch failed — backend likely cold-starting
-        showInfo('Backend-ul pornește... Render Free Tier poate dura până la 60s la prima accesare.');
+        showInfo('Backend-ul pornește... Render.com Free Tier poate dura până la 60s la prima accesare.');
         const ready = await waitForBackend();
         hideMessage();
 

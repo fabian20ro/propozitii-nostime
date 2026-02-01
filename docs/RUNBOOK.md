@@ -5,19 +5,19 @@
 ## Architecture
 
 ```
-GitHub Pages (frontend) --> Render (backend, GraalVM native) --> Supabase (PostgreSQL)
+GitHub Pages (frontend) --> Render.com (backend, GraalVM native) --> Supabase (PostgreSQL)
 ```
 
 All three services run on free tiers.
 
 ## Deployment
 
-### Backend (Render)
+### Backend (Render.com)
 
 - **Trigger**: Push to `master` auto-deploys via `render.yaml`
 - **Build**: Docker multi-stage -- GraalVM native compilation (~5 min), then minimal runtime image (~50 MB)
-- **Health check**: `GET /q/health` (Render polls this)
-- **Environment**: `PORT`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD` set in Render dashboard (`sync: false`)
+- **Health check**: `GET /q/health` (Render.com polls this)
+- **Environment**: `PORT`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD` set in Render.com dashboard (`sync: false`)
 
 ### Frontend (GitHub Pages)
 
@@ -42,15 +42,15 @@ Returns HTTP 200 with `{"status": "UP"}` when healthy.
 
 ### Logs
 
-- **Render dashboard**: View real-time logs at render.com
+- **Render.com dashboard**: View real-time logs at render.com
 - **Log level**: `INFO` (default), `DEBUG` for `scrabble.phrases` package
 
 ## Common Issues
 
-### Render Cold Starts
+### Render.com Cold Starts
 
 **Symptom**: First request after inactivity takes 30-60 seconds.
-**Cause**: Render free tier spins down after ~15 min of inactivity.
+**Cause**: Render.com free tier spins down after ~15 min of inactivity.
 **Mitigation**: GraalVM native image starts in <1 second. Frontend polls `/q/health` for up to 60 seconds.
 **Note**: This is inherent to the free tier and cannot be eliminated.
 
@@ -59,7 +59,7 @@ Returns HTTP 200 with `{"status": "UP"}` when healthy.
 **Symptom**: HTTP 500 with `PSQLException: Connection refused`.
 **Cause**: Supabase credentials missing/wrong, or Supabase project paused (free tier pauses after 7 days of inactivity).
 **Fix**:
-1. Check env vars in Render dashboard
+1. Check env vars in Render.com dashboard
 2. Verify Supabase project is active at supabase.com
 3. If paused, resume the project in Supabase dashboard
 
@@ -87,7 +87,7 @@ Returns HTTP 200 with `{"status": "UP"}` when healthy.
 
 ### Backend Rollback
 
-1. **Via Render**: Go to Render dashboard > Deploys > click "Rollback" on a previous successful deploy
+1. **Via Render.com**: Go to Render.com dashboard > Deploys > click "Rollback" on a previous successful deploy
 2. **Via git**: Revert the commit and push to `master`
    ```bash
    git revert HEAD
@@ -128,3 +128,4 @@ After loading the dictionary, the backend's `@PostConstruct` caches (rhyme group
 | CORS allowed origin | `fabian20ro.github.io` | `application.properties` |
 | Docker health check interval | 30s | `Dockerfile` |
 | Docker health check retries | 3 | `Dockerfile` |
+| Rate limit | 30 req/min per IP | `RateLimitFilter.kt` |

@@ -92,4 +92,4 @@ export SUPABASE_DB_PASSWORD=<password>
 ./gradlew loadDictionary
 ```
 
-This downloads ~80K Romanian words from dexonline.ro and inserts them into the `words` table.
+This downloads the Romanian Scrabble dictionary (~80K words from dexonline.ro) and inserts them into the `words` table.

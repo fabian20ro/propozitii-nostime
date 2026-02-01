@@ -11,18 +11,18 @@ Generator de propozitii hazoase in limba romana (Romanian funny sentence generat
 
 | Component | Technology | Hosting |
 |-----------|------------|---------|
-| Backend | Kotlin + Quarkus 3.17 (JVM) | [Render](https://propozitii-nostime.onrender.com/q/health) |
+| Backend | Kotlin + Quarkus 3.17 (JVM) | [Render.com](https://propozitii-nostime.onrender.com/q/health) |
 | Frontend | Static HTML/CSS/JS | [GitHub Pages](https://fabian20ro.github.io/propozitii-nostime/) |
 | Database | PostgreSQL ([Supabase](https://supabase.com)) | Supabase Free Tier |
 | Dictionary | [dexonline.ro](https://dexonline.ro) Scrabble word list | Loaded into Supabase |
 
 ### Zero-cost stack
 
-All three services run on free tiers: Render (backend), Supabase (database), and GitHub Pages (frontend).
+All three services run on free tiers: Render.com (backend), Supabase (database), and GitHub Pages (frontend).
 
-The dictionary (~80K Romanian words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
+The Romanian Scrabble dictionary (~80K words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
 
-The backend runs as a JVM uber-jar on Render free tier. Cold starts may take up to 60 seconds; the frontend health-polls and shows a loading message until the backend is ready.
+The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 60 seconds; the frontend health-polls and shows a loading message until the backend is ready.
 
 ## API Endpoints
 

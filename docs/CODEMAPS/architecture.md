@@ -1,11 +1,11 @@
 # Architecture Codemap
 
-> Freshness: 2026-01-31 | Version: 3.0.0
+> Freshness: 2026-02-01 | Version: 3.0.0
 
 ## System Overview
 
 ```
-Frontend (GitHub Pages)  --HTTPS/CORS-->  Backend (Render)  --JDBC-->  Database (Supabase PostgreSQL)
+Frontend (GitHub Pages)  --HTTPS/CORS-->  Backend (Render.com)  --JDBC-->  Database (Supabase PostgreSQL)
 Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80K Romanian words
                                           JVM (eclipse-temurin:21)           Manually-managed schema
 ```
@@ -14,10 +14,10 @@ Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80
 
 | Component | Technology | Hosting |
 |-----------|------------|---------|
-| Backend | Kotlin + Quarkus 3.17, JVM (eclipse-temurin:21) | Render free tier |
+| Backend | Kotlin + Quarkus 3.17, JVM (eclipse-temurin:21) | Render.com free tier |
 | Frontend | Static HTML/CSS/JS | GitHub Pages |
 | Database | PostgreSQL | Supabase free tier |
-| Dictionary | dexonline.ro Scrabble word list | Loaded into Supabase |
+| Dictionary | Romanian Scrabble dictionary (~80K words) | Loaded into Supabase |
 
 ## Request Flow
 
@@ -36,9 +36,9 @@ Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80
 ## Key Design Decisions
 
 - Stateless backend: no in-memory state, every request queries PostgreSQL
-- JVM build with uber-jar: simpler build, compatible with Render free tier
+- JVM build with uber-jar: simpler build, compatible with Render.com free tier
 - Decorator pattern for sentence post-processing
-- Frontend handles Render cold starts with health polling (up to 60s)
+- Frontend handles Render.com cold starts with health polling (up to 60s)
 - `%prod` profile for DB credentials; dev/test use Testcontainers via Quarkus Dev Services
 
 ## Security Hardening

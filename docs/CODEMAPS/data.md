@@ -1,6 +1,6 @@
 # Data Codemap
 
-> Freshness: 2026-01-31
+> Freshness: 2026-02-01
 
 ## Database Schema (Flyway V1 + V2)
 
@@ -60,4 +60,4 @@ enum NounGender { M, F, N }
 
 ## Dictionary Source
 
-~80K words from dexonline.ro Scrabble word list (`loc-baza-5.0.zip`), SHA-256 verified at download. Parsed and bulk-inserted by `LoadDictionary.kt`.
+~80K words from the Romanian Scrabble dictionary (`loc-baza-5.0.zip` from dexonline.ro), SHA-256 verified at download. Parsed and bulk-inserted by `LoadDictionary.kt`.
