@@ -1,12 +1,15 @@
 # Contributing Guide
 
-> Source of truth: `build.gradle`, `application.properties`, `render.yaml`
+Source of truth: `build.gradle`, `src/main/resources/application.properties`
 
 ## Prerequisites
 
-- Java 21 / GraalVM 21 (`brew install --cask graalvm-jdk@21`)
-- Docker (for integration tests via Testcontainers)
-- Gradle 8.11 (wrapper included)
+- Java 21
+- Docker (for Testcontainers and Quarkus Dev Services PostgreSQL)
+- Gradle wrapper (`./gradlew`, bundled)
+
+Optional:
+- GraalVM 21 only if you explicitly need native-image builds
 
 ## First-Time Setup
 
@@ -18,78 +21,67 @@ cd propozitii-nostime
 git config core.hooksPath .githooks
 ```
 
-No environment variables needed for local development. Quarkus Dev Services auto-provisions a PostgreSQL container.
+## High-Value Docs
 
-## Available Gradle Tasks
+- Agent guide: `AGENTS.md`
+- Onboarding: `docs/ONBOARDING.md`
+- Codemap index: `docs/CODEMAPS/README.md`
 
-| Task | Purpose |
-|------|---------|
-| `./gradlew quarkusDev` | Start dev server with live reload (auto-provisions PostgreSQL) |
-| `./gradlew test` | Run all tests (unit + integration, requires Docker) |
-| `./gradlew build` | Compile + package JVM build |
-| `./gradlew build -Dquarkus.native.enabled=true` | Build GraalVM native image |
-| `./gradlew jacocoTestReport` | Generate HTML coverage report at `build/reports/jacoco/` |
-| `./gradlew downloadDictionary` | Download dexonline.ro word list (SHA-256 verified) |
-| `./gradlew loadDictionary` | Parse word list and bulk-insert into PostgreSQL |
+## Core Commands
+
+| Command | Purpose |
+|---|---|
+| `./gradlew quarkusDev` | Start dev backend with live reload |
+| `./gradlew test` | Run unit + integration tests |
+| `./gradlew build` | Build JVM artifact |
+| `./gradlew jacocoTestReport` | Generate coverage report |
+| `./gradlew downloadDictionary` | Download + checksum-verify dictionary |
+| `./gradlew loadDictionary` | Load dictionary into target PostgreSQL |
 
 ## Environment Variables
 
-Only required in production (`%prod` profile). Dev/test mode uses Testcontainers automatically.
+### Local dev/test
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `PORT` | HTTP listen port | `8080` |
-| `SUPABASE_DB_URL` | JDBC PostgreSQL URL | Required |
-| `SUPABASE_DB_USER` | Database username | `postgres` |
-| `SUPABASE_DB_PASSWORD` | Database password | Required |
+- Usually none required.
+- Quarkus Dev Services provisions PostgreSQL containers automatically.
 
-## Development Workflow
+### Production-like runs
 
-1. Start dev server: `./gradlew quarkusDev`
-2. API available at `http://localhost:8080/api/{all,haiku,couplet,comparison,definition,tautogram,mirror}`
-3. Dev Services starts a PostgreSQL container with Flyway migrations + test seed data
-4. Make changes -- Quarkus live-reloads automatically
-5. Run tests: `./gradlew test`
+- `SUPABASE_DB_URL`
+- `SUPABASE_DB_USER` (default `postgres`)
+- `SUPABASE_DB_PASSWORD`
+- `PORT` (default `8080`)
 
 ## Testing
 
-**Unit tests** (no Docker needed at test level):
-- `words/` package: syllable counting, rhyme, articulation, feminine forms
-- `decorators/`: capitalize, link generation, verse breaking
+### Unit tests
 
-**Integration tests** (require Docker):
-- `PhraseResourceTest`: all 6 API endpoints against a real PostgreSQL
-- Testcontainers provisions `postgres:16-alpine`
-- Flyway runs `V1__create_words_table.sql` + `V2__add_articulated_syllables.sql` + `V100__seed_test_data.sql` (23 test words)
+- morphology and word utilities (`words/` tests)
+- decorators
 
-### Troubleshooting Tests
+### Integration tests (`@QuarkusTest`)
 
-**Colima (macOS)**: If Docker socket isn't at `/var/run/docker.sock`, set in `~/.testcontainers.properties`:
-```properties
-docker.host=unix:///Users/<you>/.colima/default/docker.sock
-```
-And run with: `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock ./gradlew test`
+- endpoint-level API behavior with real PostgreSQL container and Flyway migrations
+- uses migrations + test seed data from `src/test/resources/db/testmigration/`
 
-**Wrong Java version**: Ensure Java 21 is active. Check with `java -version`. On macOS with multiple versions:
-```bash
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
-```
+## Change Workflow
+
+1. Run `./gradlew test` before changes.
+2. Implement change.
+3. Run `./gradlew test` again.
+4. Update docs when behavior/contracts change.
+
+## Data/Schema Changes
+
+When altering dictionary semantics or repository query dimensions:
+1. Add a new migration under `src/main/resources/db/migration/`.
+2. Update loader (`LoadDictionary.kt`) if computed fields changed.
+3. Update repository query/caches.
+4. Update integration seed data (`V100__seed_test_data.sql`).
+5. Re-run tests.
 
 ## Credential Safety
 
-- Pre-commit hook (`.githooks/pre-commit`) runs `gitleaks protect --staged` to scan for secrets
-- CI runs `gitleaks/gitleaks-action@v2` before build
-- Never commit real credentials -- use environment variables
-
-## Loading the Dictionary (one-time)
-
-Only needed when setting up a new Supabase instance:
-
-```bash
-export SUPABASE_DB_URL=jdbc:postgresql://db.<ref>.supabase.co:5432/postgres
-export SUPABASE_DB_USER=postgres
-export SUPABASE_DB_PASSWORD=<password>
-./gradlew loadDictionary
-```
-
-This downloads the Romanian Scrabble dictionary (~80K words from dexonline.ro) and inserts them into the `words` table.
+- Pre-commit hook runs `gitleaks` on staged changes.
+- CI runs `gitleaks` as well.
+- Never commit real credentials.
