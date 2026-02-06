@@ -1,63 +1,90 @@
 # Data Codemap
 
-> Freshness: 2026-02-01
+Freshness: 2026-02-06
 
-## Database Schema (Flyway V1 + V2)
+## Database Schema
 
-```sql
-words (
-  id                    SERIAL PRIMARY KEY,
-  word                  VARCHAR(50) NOT NULL,      -- base word form
-  type                  CHAR(1) NOT NULL,          -- N=noun, A=adjective, V=verb
-  gender                CHAR(1),                   -- M/F/N (nouns only)
-  syllables             SMALLINT NOT NULL,         -- pre-computed
-  rhyme                 VARCHAR(10) NOT NULL,      -- last 3 chars of word
-  first_letter          CHAR(1) NOT NULL,          -- lowercase
-  articulated           VARCHAR(60),               -- definite article form (nouns only)
-  feminine              VARCHAR(60),               -- feminine form (adjectives only)
-  articulated_syllables SMALLINT                   -- syllable count of articulated form (V2)
-)
-```
+Primary table: `words`
 
-Indexes: `(type, syllables)`, `(type, first_letter)`, `(type, rhyme, syllables)`, `(type, articulated_syllables)` (V2)
+Defined by:
+- `src/main/resources/db/migration/V1__create_words_table.sql`
+- `src/main/resources/db/migration/V2__add_articulated_syllables.sql`
 
-## Word Type Hierarchy (Kotlin)
+Columns:
+- `id` (PK)
+- `word` (base form)
+- `type` (`N`, `A`, `V`)
+- `gender` (`M`, `F`, `N`, nouns only)
+- `syllables`
+- `rhyme` (last up to 3 chars)
+- `first_letter`
+- `articulated` (nouns)
+- `feminine` (adjectives)
+- `articulated_syllables` (nouns)
 
-```
-sealed interface Word { word, syllables, rhyme }
-  +-- Noun     { gender: NounGender, articulated: String }
-  +-- Adjective { feminine: String }
-  +-- Verb      (no extra fields)
+Indexes (important for random/filter lookups):
+- `(type, syllables)`
+- `(type, first_letter)`
+- `(type, rhyme, syllables)`
+- `(type, articulated_syllables)`
+- `(type)`
 
-enum NounGender { M, F, N }
-```
+## Data Producers
 
-## Computed Fields
+### Dictionary loader
 
-| Field | Logic |
-|-------|-------|
-| syllables | Count vowels after collapsing Romanian diphthongs/triphthongs |
-| rhyme | `word.substring(max(0, word.length - 3))` |
-| articulated (M/N) | Ends with `u` -> `+l`, else `+ul` |
-| articulated (F) | Ends with `ă`/`ie` -> replace last char with `a`; ends with `a` -> `+ua`; else `+a` |
-| feminine (adj) | 9 suffix rules: `-esc`->`-ască`, `-eț`->`-ață`, `-or`->`-are`, `-os`->`-asă`, `-iu/-ci`->`-e`, `-ru`->`-ă`, `-e/-o/-i`->unchanged, else `+ă` |
+File: `src/main/kotlin/scrabble/phrases/tools/LoadDictionary.kt`
 
-## API Response
+Pipeline:
+1. Read `src/main/resources/words.txt`.
+2. Parse word + source type.
+3. Derive computed fields using domain rules (`WordUtils`, `Noun`, `Adjective`, `Verb`).
+4. Bulk insert rows into `words`.
 
-```json
-{ "sentence": "<html with <a href='https://dexonline.ro/definitie/...'>word</a> links>" }
-```
+The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 
-## Test Seed Data (V100)
+## Data Consumers
 
-23 words: 11 nouns, 5 adjectives, 7 verbs. Covers:
-- 4 feminine nouns sharing rhyme `asă` (CoupletProvider ABBA)
-- 3 masculine nouns sharing rhyme `ine` (CoupletProvider ABBA)
-- 2 verb rhyme groups: `ază` (2 verbs) and `ndă` (2 verbs) for MirrorProvider ABBA
-- Noun with 5-syllable articulated form (HaikuProvider)
-- Nouns/adj/verbs starting with `m` (TautogramProvider)
-- All providers use word exclusion to prevent duplicate words within a sentence
+`WordRepository` drives all runtime queries:
+- by type
+- by rhyme
+- by syllable count
+- by articulated syllable count
+- by 2-letter prefix
 
-## Dictionary Source
+With exclusion sets, repository switches to `NOT IN (...) ORDER BY RANDOM()` to preserve uniqueness.
 
-~80K words from the Romanian Scrabble dictionary (`loc-baza-5.0.zip` from dexonline.ro), SHA-256 verified at download. Parsed and bulk-inserted by `LoadDictionary.kt`.
+## Provider Data Requirements
+
+| Provider | Required data shape |
+|---|---|
+| `HaikuProvider` | nouns with articulated syllables 5 preferred; adjectives with 3 or 4 syllables; verbs with 3 syllables |
+| `CoupletProvider` | at least 2 noun rhyme groups with at least 2 words/group; enough nouns/adjectives/verbs for uniqueness |
+| `ComparisonProvider` | at least 2 nouns + 1 adjective |
+| `DefinitionProvider` | at least 3 nouns + 1 adjective + 1 verb |
+| `TautogramProvider` | at least one 2-letter prefix with N + A + V words |
+| `MirrorProvider` | at least 2 verb rhyme groups with at least 2 words/group; enough nouns/adjectives |
+
+## Test Seed Dataset
+
+Seed file:
+- `src/test/resources/db/testmigration/V100__seed_test_data.sql`
+
+Current seed volume: 24 rows
+- nouns: 11
+- adjectives: 5
+- verbs: 8
+
+Purpose of seeded constraints:
+- deterministic availability for rhyme-based providers
+- presence of tautogram-capable prefix (`ma`)
+- presence of haiku-capable articulated syllable nouns
+
+## Data Change Checklist
+
+When changing lexical rules/schema:
+1. Add migration (`V*.sql`), do not edit historical applied migrations.
+2. Update loader logic (if computed fields changed).
+3. Update repository query/caches if new dimensions are queried frequently.
+4. Update seed data to satisfy provider constraints.
+5. Run `./gradlew test`.

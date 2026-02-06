@@ -1,78 +1,107 @@
 # Backend Codemap
 
-> Freshness: 2026-02-01 | 23 production files, ~850 lines
+Freshness: 2026-02-06
 
-## Package Structure
+## Entry Points
 
-```
-src/main/kotlin/scrabble/phrases/
-  PhraseResource.kt          # REST controller, 7 endpoints (6 individual + /api/all batch)
-  SentenceResponse.kt        # JSON DTO (single sentence)
-  AllSentencesResponse.kt    # JSON DTO (all 6 sentences)
-  GlobalExceptionMapper.kt   # @Provider, returns generic 500 (no internal details leaked)
-  RateLimitFilter.kt         # @Provider, per-IP sliding window rate limiter (30 req/min)
-  words/
-    Word.kt                  # sealed interface
-    NounGender.kt            # enum M/F/N
-    Noun.kt                  # articulation logic (masc/fem)
-    Adjective.kt             # feminine derivation (9 rules)
-    Verb.kt                  # minimal (word + syllables + rhyme)
-    WordUtils.kt             # syllable counting, rhyme, diphthongs
-  repository/
-    WordRepository.kt        # @ApplicationScoped, all SQL queries
-  providers/
-    ISentenceProvider.kt     # fun interface
-    HaikuProvider.kt         # 5-7-5 syllable structure
-    CoupletProvider.kt       # ABBA embraced rhyme (4 lines, 2 rhyme groups)
-    ComparisonProvider.kt    # "X e mai adj decat Y"
-    DefinitionProvider.kt    # dictionary-style definition
-    TautogramProvider.kt     # all words same two-letter prefix
-    MirrorProvider.kt        # ABBA rhyme scheme (4 lines, verbs rhyme at line endings)
-  decorators/
-    FirstSentenceLetterCapitalizer.kt
-    VerseLineCapitalizer.kt  # capitalizes first letter of each verse line
-    DexonlineLinkAdder.kt    # wraps words in <a> to dexonline.ro
-    HtmlVerseBreaker.kt      # " / " -> <br/>
-  tools/
-    LoadDictionary.kt        # CLI: parse word list -> PostgreSQL
-```
+- Resource: `src/main/kotlin/scrabble/phrases/PhraseResource.kt`
+- Filters/mappers:
+- `src/main/kotlin/scrabble/phrases/RateLimitFilter.kt`
+- `src/main/kotlin/scrabble/phrases/GlobalExceptionMapper.kt`
 
-## Decorator Chains per Endpoint
+## Endpoint Matrix
 
-| Endpoint | Chain |
-|----------|-------|
-| /api/haiku | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
-| /api/couplet | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
-| /api/comparison | Provider -> Capitalize -> Links |
-| /api/definition | Provider -> Links |
-| /api/tautogram | Provider -> Capitalize -> Links |
-| /api/mirror | Provider -> VerseLineCapitalize -> Links -> VerseBreak |
+| Endpoint | Provider | Decorator chain | Notes |
+|---|---|---|---|
+| `/api/haiku` | `HaikuProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 5-7-5 style via syllable constraints |
+| `/api/couplet` | `CoupletProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 4 lines, ABBA rhyme by noun endings |
+| `/api/comparison` | `ComparisonProvider` | `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder` | `X e mai adj decât Y` |
+| `/api/definition` | `DefinitionProvider` | `DexonlineLinkAdder` | starts with uppercased defined noun |
+| `/api/tautogram` | `TautogramProvider` | `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder` | shared 2-letter prefix across N/A/V |
+| `/api/mirror` | `MirrorProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 4 lines, ABBA rhyme by verb endings |
+| `/api/all` | Aggregates above | N/A | frontend's main fetch path |
 
-## WordRepository Query Methods (13)
+## Provider Responsibilities
 
-Nouns (4): `getRandomNoun`, `getRandomNounByRhyme`, `getRandomNounByPrefix`, `getRandomNounByArticulatedSyllables`
-Adjectives (3): `getRandomAdjective`, `getRandomAdjectiveBySyllables`, `getRandomAdjectiveByPrefix`
-Verbs (4): `getRandomVerb`, `getRandomVerbByRhyme`, `getRandomVerbBySyllables`, `getRandomVerbByPrefix`
-Grouping (2): `findTwoRhymeGroups`, `getRandomPrefixWithAllTypes`
+- `HaikuProvider`
+- noun articulated syllables target 5 (`getRandomNounByArticulatedSyllables(5)` fallback to any noun)
+- adjective syllables depend on noun gender (F:3, M/N:4)
+- verb syllables fixed at 3
 
-**Word exclusion**: Methods that providers call multiple times accept an optional `exclude: Set<String>` parameter. When non-empty, SQL appends `AND word NOT IN (?, ...)` and falls back to `ORDER BY RANDOM()` instead of OFFSET-based random selection (since the cached counts don't account for exclusions).
+- `CoupletProvider`
+- picks two noun rhyme groups with at least 2 words each
+- reserves line-ending nouns first, then fills line starts
+- uses exclusion sets to enforce uniqueness inside one sentence
 
-**Startup caches** (`@PostConstruct`): count-by-type, count-by-(type,syllables), count-by-(type,articulated_syllables), noun rhyme groups (min 2 and min 3), verb rhyme groups (min 2), valid 2-letter prefixes with all 3 word types.
+- `ComparisonProvider`
+- simple comparative sentence, unique second noun
 
-## Test Files (6, ~284 lines)
+- `DefinitionProvider`
+- dictionary-style sentence using one defined noun and three additional words
 
-```
-src/test/kotlin/scrabble/phrases/
-  PhraseResourceTest.kt      # @QuarkusTest, 6 endpoints, Testcontainers
-  decorators/DecoratorTest.kt # 5 unit tests (includes VerseLineCapitalizer)
-  words/
-    AdjectiveTest.kt          # 11 feminine form pairs
-    NounTest.kt               # masc/fem/neutral articulation
-    VerbTest.kt               # syllables + rhyme
-    WordUtilsTest.kt          # 28 Romanian syllable counts
-```
+- `TautogramProvider`
+- uses cached prefix list with all three word types
+- enforces second noun different from first
 
-## Configuration
+- `MirrorProvider`
+- picks two verb rhyme groups with at least 2 words each
+- builds ABBA endings using verbs
 
-- `application.properties`: `%prod` DB credentials, Flyway migrate-at-start, pool max=4
-- `test/application.properties`: postgres:16-alpine, Flyway with testmigration location
+## Repository Map
+
+File: `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
+
+### Cache Initialization (`@PostConstruct`)
+
+- counts by type: for offset random selection
+- counts by `(type, syllables)`
+- counts by `(type, articulated_syllables)`
+- noun rhyme groups (>=2 and >=3 cached separately)
+- verb rhyme groups (>=2)
+- valid 2-char prefixes with all 3 types
+
+### Query Strategy
+
+- No exclusions: uses cached counts + `LIMIT 1 OFFSET random` for several methods.
+- With exclusions: uses `NOT IN (...) ORDER BY RANDOM() LIMIT 1`.
+- Mapping methods build `Noun`, `Adjective`, `Verb` domain objects directly.
+
+## Domain Word Model
+
+Folder: `src/main/kotlin/scrabble/phrases/words/`
+
+- `Word` sealed interface: `word`, `syllables`, `rhyme`
+- `Noun`: gender + articulated form generation
+- `Adjective`: feminine transformation rules + `forGender`
+- `Verb`: basic word metrics
+- `WordUtils`: syllables, rhyme, capitalization, text fixes
+
+## Common Backend Change Recipes
+
+### Add endpoint
+
+1. Add provider class implementing `ISentenceProvider`.
+2. Add `@GET` method in `PhraseResource`.
+3. Apply correct decorator chain.
+4. If needed, add field to `AllSentencesResponse` and `/api/all` builder.
+5. Add/extend integration tests.
+
+### Add new repository query dimension
+
+1. Add migration column/index.
+2. Extend cache initialization in `initCounts()` if it needs fast offset selection.
+3. Add query method + mapper usage.
+4. Update test seed data and provider logic.
+
+## Backend Test Coverage
+
+- Integration: `src/test/kotlin/scrabble/phrases/PhraseResourceTest.kt`
+- Decorator unit tests: `src/test/kotlin/scrabble/phrases/decorators/DecoratorTest.kt`
+- Morphology/utils tests: `src/test/kotlin/scrabble/phrases/words/`
+
+## High-Risk Areas
+
+- Breaking `" / "` delimiter usage in verse providers.
+- Relaxing or removing exclusion sets and introducing duplicate words.
+- Changing anchor output without frontend sanitizer updates.
+- Schema changes without synchronized loader/repository/test-seed updates.

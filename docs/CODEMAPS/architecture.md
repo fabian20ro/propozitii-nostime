@@ -1,64 +1,83 @@
 # Architecture Codemap
 
-> Freshness: 2026-02-01 | Version: 3.0.0
+Freshness: 2026-02-06
 
-## System Overview
+## System Topology
 
+```text
+GitHub Pages (frontend static SPA)
+  -> HTTPS GET /api/all, /q/health
+Render.com (Quarkus JVM backend)
+  -> JDBC
+Supabase PostgreSQL (words dictionary table)
 ```
-Frontend (GitHub Pages)  --HTTPS/CORS-->  Backend (Render.com)  --JDBC-->  Database (Supabase PostgreSQL)
-Static HTML/CSS/JS                        Kotlin + Quarkus 3.17              ~80K Romanian words
-                                          JVM (eclipse-temurin:21)           Manually-managed schema
-```
 
-## Zero-Cost Stack
+## Runtime Components
 
-| Component | Technology | Hosting |
-|-----------|------------|---------|
-| Backend | Kotlin + Quarkus 3.17, JVM (eclipse-temurin:21) | Render.com free tier |
-| Frontend | Static HTML/CSS/JS | GitHub Pages |
-| Database | PostgreSQL | Supabase free tier |
-| Dictionary | Romanian Scrabble dictionary (~80K words) | Loaded into Supabase |
+- Frontend: `frontend/`
+- Backend API: `src/main/kotlin/scrabble/phrases/`
+- Migrations: `src/main/resources/db/migration/`
+- Deployment config:
+- `render.yaml`
+- `Dockerfile`
 
-## Request Flow
+## Request Flow (Primary Path)
 
-1. Frontend `refresh()` calls `/api/all` (single batch endpoint returning all 6 sentence types)
-2. Each sentence type constructs: `Provider -> Decorator chain -> SentenceResponse`
-3. Provider queries `WordRepository` (random words from PostgreSQL, with exclusion sets to prevent duplicate words)
-4. Decorators: capitalize (sentence or per-verse-line), add dexonline links, break verses
-5. Frontend sanitizes HTML, renders all 6 sentences into DOM
+1. User clicks `Generează altele` in frontend.
+2. `frontend/app.js` calls `GET https://propozitii-nostime.onrender.com/api/all`.
+3. `PhraseResource.getAll()` internally calls all six endpoint methods.
+4. Each endpoint:
+- creates provider
+- wraps provider in decorators
+- returns `SentenceResponse` or field in `AllSentencesResponse`
+5. Providers query `WordRepository` for random words under constraints.
+6. `DexonlineLinkAdder` injects `<a href="https://dexonline.ro/definitie/...">` around words.
+7. Frontend sanitizes returned HTML and renders into cards.
 
-## Deployment
+## Cross-Cutting Backend Behaviors
 
-- **Backend**: Docker JVM image auto-deployed via `render.yaml` on push to master
-- **Frontend**: Separate GitHub Actions workflow deploys `frontend/` to GitHub Pages
-- **Database**: Flyway migrations disabled in production (`%prod.quarkus.flyway.migrate-at-start=false`); schema changes must be applied manually to Supabase. Flyway runs only in dev/test. Dictionary loaded once via `./gradlew loadDictionary`
+- Rate limit: `RateLimitFilter` applies to `api/*`, max 30 requests/minute/IP (`X-Forwarded-For` first hop, fallback `unknown`).
+- Exception shielding: `GlobalExceptionMapper` returns generic 500 JSON body.
+- CORS: configured for GitHub Pages origin + dev origins in `%dev`.
 
-## Key Design Decisions
+## Startup and Data Access Model
 
-- Stateless backend: no in-memory state, every request queries PostgreSQL
-- JVM build with uber-jar: simpler build, compatible with Render.com free tier
-- Decorator pattern for sentence post-processing
-- Frontend handles Render.com cold starts with health polling (up to 60s)
-- `%prod` profile for DB credentials; dev/test use Testcontainers via Quarkus Dev Services
+`WordRepository` is `@Startup` + `@ApplicationScoped` and preloads:
+- counts by type
+- counts by `(type, syllables)`
+- counts by `(type, articulated_syllables)`
+- noun/verb rhyme groups
+- valid two-letter prefixes with all three parts of speech
 
-## Security Hardening
+These caches support fast random-offset queries and avoid repeated group scans.
 
-- **CSP**: `object-src 'none'`, `base-uri 'self'`, `form-action 'none'` block plugin injection, base-tag hijacking, and form exfiltration
-- **Sanitizer**: href attributes validated via `URL` parsing; only `https://dexonline.ro` origins are allowed
-- **Iframe**: `sandbox="allow-scripts allow-same-origin"` restricts the dexonline.ro embed to script execution and same-origin access only
+## Deployment Reality
 
-## Dependency Graph
+- Backend image is JVM-based (Temurin 21), not native.
+- Render deploys using `render.yaml` (Docker runtime).
+- Frontend deploys separately via GitHub Actions Pages workflow.
+- Flyway is on by default in dev/test and explicitly off in `%prod`.
 
-```
-PhraseResource
-  +-- WordRepository
-  +-- 6 Providers (each use WordRepository)
-  +-- 4 Decorators (chain wrapping ISentenceProvider)
-  +-- SentenceResponse, AllSentencesResponse
+## Critical Contracts Between Layers
 
-WordRepository
-  +-- Noun, Adjective, Verb, NounGender, WordUtils
+1. Verse delimiter contract:
+- Providers use literal `" / "` between lines.
+- Decorator converts to `<br/>` for display.
 
-LoadDictionary (standalone CLI tool)
-  +-- Noun, Adjective, Verb, NounGender, WordUtils
-```
+2. HTML contract:
+- Backend intentionally returns anchor tags.
+- Frontend must sanitize before `innerHTML`.
+
+3. API contract:
+- Frontend relies primarily on `/api/all` keys: `haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`.
+
+## Where To Extend
+
+- New sentence type:
+- new provider
+- new endpoint in `PhraseResource`
+- optionally new `/api/all` field + frontend card and `FIELD_MAP` entry
+
+- New lexical/data feature:
+- migration in `db/migration`
+- update loader + repository + tests + docs together
