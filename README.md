@@ -80,15 +80,25 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Step 1: export words into the work table + CSV snapshot
 ./gradlew rarityStep1Export
 
-# Step 2: score a run with a local LMStudio model (repeatable/resumable)
-./gradlew rarityStep2Score --args="--run model_a_q4 --model qwen2.5-7b-instruct --batch-size 40"
+# Step 2a: score run #1 (repeatable/resumable)
+./gradlew rarityStep2Score --args="--run gpt_oss_20b_v1 --model openai/gpt-oss-20b --batch-size 20 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+
+# Step 2b: score run #2 later (same machine, sequential run)
+./gradlew rarityStep2Score --args="--run glm47_air_30b_v1 --model <EXACT_GLM_NAME> --batch-size 20 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # Step 3: compare runs and detect outliers
-./gradlew rarityStep3Compare --args="--runs model_a_q4,model_b_q4 --outlier-threshold 2"
+./gradlew rarityStep3Compare --args="--runs gpt_oss_20b_v1,glm47_air_30b_v1 --outlier-threshold 2"
 
 # Step 4: upload final median rarity levels to words.rarity_level
-./gradlew rarityStep4Upload --args="--runs model_a_q4,model_b_q4,tie_break"
+./gradlew rarityStep4Upload --args="--runs gpt_oss_20b_v1,glm47_air_30b_v1"
 ```
+
+Artifacts:
+- `build/rarity/runs/<run>.jsonl` raw LMStudio request/response log
+- `build/rarity/runs/<run>.scores.csv` normalized per-word run output
+- `build/rarity/failed_batches/<run>.failed.jsonl` failures after retries/split
+- `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
+- `build/rarity/step4_upload_report.csv`
 
 If a word has no computed level yet, runtime behavior treats it as level `4`.
 

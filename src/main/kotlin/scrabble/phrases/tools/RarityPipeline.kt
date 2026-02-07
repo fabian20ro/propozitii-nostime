@@ -23,6 +23,7 @@ private const val DEFAULT_TIMEOUT_SECONDS = 90L
 private const val DEFAULT_OUTLIER_THRESHOLD = 2
 private const val DEFAULT_CONFIDENCE_THRESHOLD = 0.55
 private const val FALLBACK_RARITY_LEVEL = 4
+private const val USER_INPUT_PLACEHOLDER = "{{INPUT_JSON}}"
 
 private val mapper = ObjectMapper()
 
@@ -150,6 +151,8 @@ private fun step2Score(options: Map<String, String>) {
     val timeoutSeconds = options["timeout-seconds"]?.toLongOrNull()?.coerceAtLeast(5) ?: DEFAULT_TIMEOUT_SECONDS
     val endpoint = options["endpoint"] ?: System.getenv("LMSTUDIO_API_URL") ?: DEFAULT_LMSTUDIO_ENDPOINT
     val inputPath = options["input"]?.let { Paths.get(it) }
+    val systemPrompt = loadPrompt(options["system-prompt-file"], SYSTEM_PROMPT)
+    val userTemplate = loadPrompt(options["user-template-file"], USER_PROMPT_TEMPLATE)
 
     val outputDir = ensureRarityOutputDir()
     val runsDir = outputDir.resolve("runs")
@@ -158,6 +161,7 @@ private fun step2Score(options: Map<String, String>) {
     Files.createDirectories(failedDir)
 
     val runLogPath = runsDir.resolve("$runSlug.jsonl")
+    val runScoresPath = runsDir.resolve("$runSlug.scores.csv")
     val failedLogPath = failedDir.resolve("$runSlug.failed.jsonl")
     val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build()
     val apiKey = System.getenv("LMSTUDIO_API_KEY")
@@ -188,11 +192,14 @@ private fun step2Score(options: Map<String, String>) {
                 runLogPath = runLogPath,
                 failedLogPath = failedLogPath,
                 httpClient = httpClient,
-                apiKey = apiKey
+                apiKey = apiKey,
+                systemPrompt = systemPrompt,
+                userTemplate = userTemplate
             )
 
             if (scored.isNotEmpty()) {
                 persistScores(conn, runSlug, scored)
+                appendRunScoresCsv(runScoresPath, scored)
                 scoredCount += scored.size
             }
 
@@ -201,6 +208,7 @@ private fun step2Score(options: Map<String, String>) {
 
         println("Step 2 complete for run '$runSlug': scored=$scoredCount failed=$failedCount pending=${pendingWords.size}")
         println("Run log: ${runLogPath.toAbsolutePath()}")
+        println("Run scores: ${runScoresPath.toAbsolutePath()}")
         println("Failed log: ${failedLogPath.toAbsolutePath()}")
     }
 }
@@ -422,7 +430,9 @@ private fun scoreBatchResilient(
     runLogPath: Path,
     failedLogPath: Path,
     httpClient: HttpClient,
-    apiKey: String?
+    apiKey: String?,
+    systemPrompt: String,
+    userTemplate: String
 ): List<ScoreResult> {
     val direct = tryScoreBatch(
         batch,
@@ -433,7 +443,9 @@ private fun scoreBatchResilient(
         timeoutSeconds,
         runLogPath,
         httpClient,
-        apiKey
+        apiKey,
+        systemPrompt,
+        userTemplate
     )
     if (direct != null) return direct
 
@@ -463,7 +475,9 @@ private fun scoreBatchResilient(
         runLogPath,
         failedLogPath,
         httpClient,
-        apiKey
+        apiKey,
+        systemPrompt,
+        userTemplate
     )
     val right = scoreBatchResilient(
         batch.subList(splitIndex, batch.size),
@@ -475,7 +489,9 @@ private fun scoreBatchResilient(
         runLogPath,
         failedLogPath,
         httpClient,
-        apiKey
+        apiKey,
+        systemPrompt,
+        userTemplate
     )
     return left + right
 }
@@ -489,12 +505,14 @@ private fun tryScoreBatch(
     timeoutSeconds: Long,
     runLogPath: Path,
     httpClient: HttpClient,
-    apiKey: String?
+    apiKey: String?,
+    systemPrompt: String,
+    userTemplate: String
 ): List<ScoreResult>? {
     var lastError: String? = null
 
     repeat(maxRetries) { attempt ->
-        val requestPayload = buildLmRequest(model, batch)
+        val requestPayload = buildLmRequest(model, batch, systemPrompt, userTemplate)
         try {
             val requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(endpoint))
@@ -547,39 +565,19 @@ private fun tryScoreBatch(
     return null
 }
 
-private fun buildLmRequest(model: String, batch: List<WordRow>): String {
+private fun buildLmRequest(model: String, batch: List<WordRow>, systemPrompt: String, userTemplate: String): String {
     val entriesJson = mapper.writeValueAsString(batch.map { mapOf("word" to it.word, "type" to it.type) })
-    val userPrompt =
-        """
-        Returnează DOAR JSON cu schema:
-        {
-          "results": [
-            {
-              "word": "string",
-              "type": "N|A|V",
-              "rarity_level": 1,
-              "tag": "common|less_common|rare|technical|regional|archaic|uncertain",
-              "confidence": 0.0
-            }
-          ]
-        }
-
-        Cerințe:
-        - Un element rezultat pentru fiecare intrare.
-        - Păstrează ordinea intrărilor.
-        - rarity_level trebuie să fie întreg 1..5.
-        - confidence între 0.0 și 1.0.
-        - Fără text înainte/după JSON.
-
-        Intrări:
-        $entriesJson
-        """.trimIndent()
+    val userPrompt = if (userTemplate.contains(USER_INPUT_PLACEHOLDER)) {
+        userTemplate.replace(USER_INPUT_PLACEHOLDER, entriesJson)
+    } else {
+        "$userTemplate\n\nIntrări:\n$entriesJson"
+    }
 
     val payload = mapOf(
         "model" to model,
         "temperature" to 0,
         "messages" to listOf(
-            mapOf("role" to "system", "content" to SYSTEM_PROMPT),
+            mapOf("role" to "system", "content" to systemPrompt),
             mapOf("role" to "user", "content" to userPrompt)
         ),
         "response_format" to mapOf("type" to "json_object")
@@ -733,6 +731,44 @@ private fun appendJsonLine(path: Path, payload: Any) {
     Files.writeString(path, line, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)
 }
 
+private fun appendRunScoresCsv(path: Path, scores: List<ScoreResult>) {
+    if (scores.isEmpty()) return
+
+    Files.createDirectories(path.parent)
+    val needsHeader = !Files.exists(path)
+    val scoredAt = OffsetDateTime.now().toString()
+
+    Files.newBufferedWriter(
+        path,
+        java.nio.file.StandardOpenOption.CREATE,
+        java.nio.file.StandardOpenOption.APPEND
+    ).use { writer ->
+        if (needsHeader) {
+            writer.writeCsvRow(listOf("word_id", "word", "type", "rarity_level", "tag", "confidence", "scored_at"))
+        }
+        scores.forEach { score ->
+            writer.writeCsvRow(
+                listOf(
+                    score.wordId.toString(),
+                    score.word,
+                    score.type,
+                    score.rarityLevel.toString(),
+                    score.tag,
+                    score.confidence.toString(),
+                    scoredAt
+                )
+            )
+        }
+    }
+}
+
+private fun loadPrompt(filePath: String?, fallback: String): String {
+    if (filePath.isNullOrBlank()) return fallback
+    val path = Paths.get(filePath)
+    require(Files.exists(path)) { "Prompt file does not exist: ${path.toAbsolutePath()}" }
+    return Files.readString(path).trim().ifBlank { fallback }
+}
+
 private fun writeCsv(path: Path, headers: List<String>, block: (java.io.BufferedWriter) -> Unit) {
     Files.createDirectories(path.parent)
     Files.newBufferedWriter(path).use { writer ->
@@ -817,4 +853,30 @@ private val SYSTEM_PROMPT =
     - Evaluează forma lexicală ca atare, fără context de propoziție.
     - Nu inventa câmpuri.
     - Răspunde strict JSON valid, fără explicații în afara JSON.
+    """.trimIndent()
+
+private val USER_PROMPT_TEMPLATE =
+    """
+    Returnează DOAR JSON cu schema:
+    {
+      "results": [
+        {
+          "word": "string",
+          "type": "N|A|V",
+          "rarity_level": 1,
+          "tag": "common|less_common|rare|technical|regional|archaic|uncertain",
+          "confidence": 0.0
+        }
+      ]
+    }
+
+    Cerințe:
+    - Un element rezultat pentru fiecare intrare.
+    - Păstrează ordinea intrărilor.
+    - rarity_level trebuie să fie întreg 1..5.
+    - confidence între 0.0 și 1.0.
+    - Fără text înainte/după JSON.
+
+    Intrări:
+    {{INPUT_JSON}}
     """.trimIndent()
