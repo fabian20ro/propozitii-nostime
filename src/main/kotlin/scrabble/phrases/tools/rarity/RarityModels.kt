@@ -13,6 +13,7 @@ const val DEFAULT_MAX_RETRIES: Int = 3
 const val DEFAULT_TIMEOUT_SECONDS: Long = 300L
 const val DEFAULT_PREFLIGHT_TIMEOUT_SECONDS: Long = 5L
 const val DEFAULT_MAX_TOKENS: Int = 1400
+const val MODEL_CRASH_BACKOFF_MS: Long = 10_000L
 const val DEFAULT_OUTLIER_THRESHOLD: Int = 2
 const val DEFAULT_CONFIDENCE_THRESHOLD: Double = 0.55
 const val FALLBACK_RARITY_LEVEL: Int = 4
@@ -179,26 +180,8 @@ val SYSTEM_PROMPT: String =
 
 val USER_PROMPT_TEMPLATE: String =
     """
-    Returnează DOAR JSON cu schema:
-    {
-      "results": [
-        {
-          "word": "string",
-          "type": "N|A|V",
-          "rarity_level": 1,
-          "tag": "common|less_common|rare|technical|regional|archaic|uncertain",
-          "confidence": 0.0
-        }
-      ]
-    }
-
-    Cerințe:
-    - Un element rezultat pentru fiecare intrare.
-    - Păstrează ordinea intrărilor.
-    - rarity_level trebuie să fie întreg 1..5.
-    - confidence între 0.0 și 1.0.
-    - Nu refuza intrări; dacă ești nesigur, folosește tag="uncertain" cu confidence mai mic.
-    - Fără text înainte/după JSON.
+    Returnează STRICT JSON: {"results":[{"word":"...","type":"N|A|V","rarity_level":1..5,"tag":"common|less_common|rare|technical|regional|archaic|uncertain","confidence":0.0..1.0},...]}
+    Un rezultat per intrare, în ordine. Fără text extra.
 
     Intrări:
     {{INPUT_JSON}}

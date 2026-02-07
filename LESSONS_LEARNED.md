@@ -18,3 +18,6 @@
 - 2026-02-07: Keeping rarity logic modular (`RarityStep1..4`, `RunCsvRepository`, `UploadMarkerWriter`, `LmStudioClient`) makes overwrite/resume failures easier to reason about than a monolithic pipeline file.
 - 2026-02-07: Docs must track operational defaults (`step4` partial mode, Step2 lock + guarded rewrite) or operators can misinterpret partial outputs as data loss.
 - 2026-02-07: Run-scoped `response_format` fallback removes repeated HTTP 400 overhead, but gpt-oss can still emit truncated/malformed JSON that forces split retries and shrinks effective batch size.
+- 2026-02-07: `JsonRepair` must run close-structures BEFORE remove-trailing-commas; otherwise a trailing comma at truncation point (`2,`) becomes `2,}` which still has the comma.
+- 2026-02-07: LM diacritical misspellings (e.g. `abreviațiune` -> `abrevițiune`) are not just diacritics swaps but character deletions; pure normalization is insufficient, Levenshtein distance <= 2 on normalized forms is needed.
+- 2026-02-07: When recording metrics in both a parser and its caller, double-counting inflates batch counts; record only at one level (prefer the caller).

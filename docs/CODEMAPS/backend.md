@@ -85,6 +85,12 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/UploadMarkerWriter.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RunLockManager.kt`
 
+Step 2 resilience utilities:
+- `src/main/kotlin/scrabble/phrases/tools/rarity/JsonRepair.kt` -- best-effort repair of truncated/malformed LM JSON (trailing decimals, unclosed structures, trailing commas, line comments)
+- `src/main/kotlin/scrabble/phrases/tools/rarity/BatchSizeAdapter.kt` -- adaptive batch sizing via sliding window; shrinks on failures, grows on sustained success
+- `src/main/kotlin/scrabble/phrases/tools/rarity/FuzzyWordMatcher.kt` -- Romanian diacritics normalization + Levenshtein distance for matching LM-misspelled words
+- `src/main/kotlin/scrabble/phrases/tools/rarity/Step2Metrics.kt` -- observability: error categorization, WPM, ETA, progress formatting, end-of-run summary
+
 Step behavior:
 - Step 1/4 touch DB.
 - Step 2/3 are local CSV-only.
@@ -94,6 +100,14 @@ Step 2 safety:
 - exclusive file lock on output CSV
 - guarded atomic rewrite (merge latest disk + memory, then shrink checks)
 - strict CSV parse (malformed rows fail; no silent skip)
+
+Step 2 LM response handling:
+- `JsonRepair` applied before JSON parsing to fix truncated output from token exhaustion
+- lenient result extraction: partial results accepted (unscored words stay pending for resume)
+- fuzzy word matching accepts diacritical misspellings (uses expected word in output)
+- confidence parsed as string or number, clamped to [0.0, 1.0]
+- model crash backoff: linear delay on "model has crashed" errors
+- dynamic `max_tokens`: scales with batch size to reduce truncation at source
 
 ## Domain Word Model
 

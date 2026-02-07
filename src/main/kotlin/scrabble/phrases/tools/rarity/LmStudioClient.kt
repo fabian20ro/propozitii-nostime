@@ -28,7 +28,8 @@ interface LmClient {
 
 class LmStudioClient(
     private val mapper: ObjectMapper = ObjectMapper(),
-    private val apiKey: String? = System.getenv("LMSTUDIO_API_KEY")
+    private val apiKey: String? = System.getenv("LMSTUDIO_API_KEY"),
+    private val metrics: Step2Metrics? = null
 ) : LmClient {
     private enum class ResponseFormatSupport {
         UNKNOWN,
@@ -230,9 +231,11 @@ class LmStudioClient(
                 lastError = e.message ?: e::class.simpleName.orEmpty()
                 val connectivityFailure = isConnectivityFailure(e)
                 val unsupportedResponseFormat = includeResponseFormat && isUnsupportedResponseFormat(e)
+                val modelCrash = isModelCrash(e)
                 if (!connectivityFailure) {
                     sawOnlyConnectivityFailures = false
                 }
+                metrics?.recordError(Step2Metrics.categorizeError(lastError))
                 appendJsonLine(
                     runLogPath,
                     mapOf(
@@ -244,12 +247,16 @@ class LmStudioClient(
                         "connectivity_failure" to connectivityFailure,
                         "unsupported_response_format" to unsupportedResponseFormat,
                         "response_format_enabled" to includeResponseFormat,
+                        "model_crash" to modelCrash,
                         "request" to requestPayload
                     )
                 )
                 if (unsupportedResponseFormat) {
                     markResponseFormatUnsupported()
                     includeResponseFormat = false
+                }
+                if (modelCrash) {
+                    Thread.sleep(MODEL_CRASH_BACKOFF_MS * (attempt + 1))
                 }
             }
         }
@@ -273,10 +280,13 @@ class LmStudioClient(
             "$userTemplate\n\nIntrări:\n$entriesJson"
         }
 
+        val estimatedTokens = (batch.size * 120) + 50
+        val effectiveMaxTokens = maxOf(estimatedTokens, maxTokens)
+
         val payload = linkedMapOf<String, Any>(
             "model" to model,
             "temperature" to 0,
-            "max_tokens" to maxTokens,
+            "max_tokens" to effectiveMaxTokens,
             "messages" to listOf(
                 mapOf("role" to "system", "content" to systemPrompt),
                 mapOf("role" to "user", "content" to userPrompt)
@@ -294,45 +304,88 @@ class LmStudioClient(
         val content = extractModelContent(root)
             ?: throw IllegalStateException("LMStudio response missing assistant content")
 
-        val contentJson = mapper.readTree(content)
+        val repairedContent = JsonRepair.repair(content)
+        if (repairedContent != content) {
+            metrics?.recordJsonRepair()
+        }
+
+        val contentJson = mapper.readTree(repairedContent)
         val results = contentJson.path("results")
         if (!results.isArray) {
             throw IllegalStateException("LMStudio content is missing 'results' array")
         }
-        if (results.size() != batch.size) {
-            throw IllegalStateException("Result size mismatch: expected ${batch.size}, got ${results.size()}")
-        }
 
-        return results.mapIndexed { index, node -> parseScoreNode(batch[index], node) }
+        return parseResultsLenient(batch, results)
     }
 
-    private fun parseScoreNode(expected: BaseWordRow, node: JsonNode): ScoreResult {
-        val word = node.path("word").asText("")
-        val type = node.path("type").asText("")
-        val rarity = node.path("rarity_level").asInt(-1)
-        val tag = node.path("tag").asText("uncertain")
-        val confidence = node.path("confidence").asDouble(Double.NaN)
+    private fun parseResultsLenient(
+        batch: List<BaseWordRow>,
+        results: JsonNode
+    ): List<ScoreResult> {
+        val scored = mutableListOf<ScoreResult>()
+        val resultCount = results.size().coerceAtMost(batch.size)
 
-        if (word != expected.word || type != expected.type) {
+        for (i in 0 until resultCount) {
+            val parsed = parseScoreNodeLenient(batch[i], results[i])
+            if (parsed != null) {
+                scored += parsed
+            }
+        }
+
+        if (scored.isEmpty() && batch.isNotEmpty()) {
             throw IllegalStateException(
-                "Result order/content mismatch for word_id=${expected.wordId}: expected ${expected.word}/${expected.type}, got $word/$type"
+                "No valid results parsed from ${results.size()} result nodes for batch of ${batch.size}"
             )
         }
-        if (rarity !in 1..5) {
-            throw IllegalStateException("Invalid rarity_level '$rarity' for word '${expected.word}'")
-        }
-        if (confidence.isNaN() || confidence < 0.0 || confidence > 1.0) {
-            throw IllegalStateException("Invalid confidence '$confidence' for word '${expected.word}'")
-        }
 
-        return ScoreResult(
-            wordId = expected.wordId,
-            word = expected.word,
-            type = expected.type,
-            rarityLevel = rarity,
-            tag = tag.take(16),
-            confidence = confidence
-        )
+        return scored
+    }
+
+    private fun parseScoreNodeLenient(expected: BaseWordRow, node: JsonNode): ScoreResult? {
+        return try {
+            val word = node.path("word").asText("")
+            val type = node.path("type").asText("")
+            val rarity = node.path("rarity_level").asInt(-1)
+            val tag = node.path("tag").asText("uncertain")
+            val rawConfidence = parseConfidence(node.path("confidence"))
+
+            val wordMatches = word == expected.word ||
+                FuzzyWordMatcher.matches(expected.word, word)
+            val typeMatches = type == expected.type ||
+                type.isBlank() // accept missing type if word matches
+
+            if (!wordMatches || (!typeMatches && type.isNotBlank())) {
+                return null
+            }
+
+            if (word != expected.word) {
+                metrics?.recordFuzzyMatch()
+            }
+
+            if (rarity !in 1..5) return null
+
+            val confidence = rawConfidence.coerceIn(0.0, 1.0)
+            if (confidence.isNaN()) return null
+
+            ScoreResult(
+                wordId = expected.wordId,
+                word = expected.word,
+                type = expected.type,
+                rarityLevel = rarity,
+                tag = tag.take(16),
+                confidence = confidence
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseConfidence(node: JsonNode): Double {
+        if (node.isNumber) return node.asDouble(Double.NaN)
+        if (node.isTextual) {
+            return node.asText("").toDoubleOrNull() ?: Double.NaN
+        }
+        return Double.NaN
     }
 
     private fun detectFromBase(baseUrl: String, source: String): ResolvedEndpoint {
@@ -466,6 +519,12 @@ class LmStudioClient(
                     message.contains("couldn't connect")
             }
         }
+    }
+
+    private fun isModelCrash(e: Exception): Boolean {
+        val message = e.message?.lowercase().orEmpty()
+        return (message.contains("model") && message.contains("crash")) ||
+            message.contains("exit code")
     }
 
     private fun appendJsonLine(path: Path, payload: Any) {

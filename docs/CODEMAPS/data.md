@@ -66,6 +66,14 @@ Step 2 artifacts and guards:
 - `<run>.csv.lock` exclusive writer lock
 - final guarded atomic rewrite with anti-shrink checks
 
+Step 2 resilience:
+- `JsonRepair` fixes truncated/malformed LM JSON before parsing
+- `BatchSizeAdapter` shrinks batch size after repeated failures, grows back on success
+- `FuzzyWordMatcher` accepts diacritical misspellings from LM (Levenshtein distance <= 2)
+- `Step2Metrics` tracks WPM, ETA, error breakdown by category (TRUNCATED_JSON, MODEL_CRASH, etc.)
+- lenient result extraction: partial batch results accepted, unscored words stay pending for resume
+- dynamic `max_tokens` scales with batch size to reduce truncation
+
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 
 ## Data Consumers

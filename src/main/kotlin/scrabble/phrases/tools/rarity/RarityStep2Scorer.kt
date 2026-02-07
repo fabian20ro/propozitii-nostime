@@ -48,7 +48,8 @@ class RarityStep2Scorer(
     private val lmClient: LmClient,
     private val lockManager: RunLockManager,
     private val mapper: ObjectMapper = ObjectMapper(),
-    private val outputDir: Path = ensureRarityOutputDir()
+    private val outputDir: Path = ensureRarityOutputDir(),
+    private val metrics: Step2Metrics? = null
 ) {
 
     fun execute(options: Step2Options) {
@@ -203,8 +204,18 @@ class RarityStep2Scorer(
         val counters = Step2Counters()
         val totalPending = context.pending.size
         var processed = 0
+        val adapter = BatchSizeAdapter(
+            initialSize = options.batchSize,
+            minSize = 3.coerceAtMost(options.batchSize)
+        )
 
-        context.pending.chunked(options.batchSize).forEach { batch ->
+        val remaining = context.pending.toMutableList()
+
+        while (remaining.isNotEmpty()) {
+            val batchSize = adapter.recommendedSize().coerceAtMost(remaining.size)
+            val batch = remaining.subList(0, batchSize).toList()
+            remaining.subList(0, batchSize).clear()
+
             val scored = lmClient.scoreBatchResilient(
                 batch = batch,
                 runSlug = options.runSlug,
@@ -220,6 +231,10 @@ class RarityStep2Scorer(
                 maxTokens = options.maxTokens
             )
 
+            val batchSuccess = scored.size == batch.size
+            adapter.recordOutcome(batchSuccess)
+            metrics?.recordBatchResult(batch.size, scored.size)
+
             if (scored.isNotEmpty()) {
                 val rowsToAppend = toRunRows(scored, options.model, options.runSlug)
                 rowsToAppend.forEach { context.existingRows[it.wordId] = it }
@@ -234,7 +249,8 @@ class RarityStep2Scorer(
                 processed = processed,
                 totalPending = totalPending,
                 scored = counters.scoredCount,
-                failed = counters.failedCount
+                failed = counters.failedCount,
+                effectiveBatchSize = adapter.recommendedSize()
             )
         }
 
@@ -263,20 +279,31 @@ class RarityStep2Scorer(
         processed: Int,
         totalPending: Int,
         scored: Int,
-        failed: Int
+        failed: Int,
+        effectiveBatchSize: Int = 0
     ) {
         val remaining = (totalPending - processed).coerceAtLeast(0)
-        println(
-            "Step 2 progress run='$runSlug' processed=$processed/$totalPending " +
-                "scored=$scored failed=$failed remaining=$remaining"
-        )
+        val metricsLine = metrics?.formatProgress(remaining, effectiveBatchSize)
+        if (metricsLine != null) {
+            println("Step 2 progress run='$runSlug' $metricsLine")
+        } else {
+            println(
+                "Step 2 progress run='$runSlug' processed=$processed/$totalPending " +
+                    "scored=$scored failed=$failed remaining=$remaining"
+            )
+        }
     }
 
     private fun printSummary(options: Step2Options, files: Step2Files, counters: Step2Counters, pendingCount: Int) {
-        println(
-            "Step 2 complete for run '${options.runSlug}': " +
-                "scored=${counters.scoredCount} failed=${counters.failedCount} pending=$pendingCount"
-        )
+        val metricsSummary = metrics?.formatSummary()
+        if (metricsSummary != null) {
+            println(metricsSummary)
+        } else {
+            println(
+                "Step 2 complete for run '${options.runSlug}': " +
+                    "scored=${counters.scoredCount} failed=${counters.failedCount} pending=$pendingCount"
+            )
+        }
         println("Run CSV: ${options.outputCsvPath.toAbsolutePath()}")
         println("Run log: ${files.runLogPath.toAbsolutePath()}")
         println("Failed log: ${files.failedLogPath.toAbsolutePath()}")
