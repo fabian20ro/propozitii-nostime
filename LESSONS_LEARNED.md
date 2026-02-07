@@ -17,3 +17,4 @@
 - 2026-02-07: API/frontend naming drift caused confusion; standardize on `rarity`/`raritate` (query param, slider IDs/localStorage key, docs, tests) and avoid legacy term mixing.
 - 2026-02-07: Keeping rarity logic modular (`RarityStep1..4`, `RunCsvRepository`, `UploadMarkerWriter`, `LmStudioClient`) makes overwrite/resume failures easier to reason about than a monolithic pipeline file.
 - 2026-02-07: Docs must track operational defaults (`step4` partial mode, Step2 lock + guarded rewrite) or operators can misinterpret partial outputs as data loss.
+- 2026-02-07: Run-scoped `response_format` fallback removes repeated HTTP 400 overhead, but gpt-oss can still emit truncated/malformed JSON that forces split retries and shrinks effective batch size.

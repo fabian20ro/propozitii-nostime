@@ -39,7 +39,7 @@ jq -r '.word_id // empty' "$FAILED_JSONL" \
 
 awk -F',' '
   NR==FNR { ids[$1]=1; next }
-  NR==1 { print; next }
+  FNR==1 { print; next }
   {
     id=$1
     gsub(/"/, "", id)
