@@ -39,8 +39,8 @@ private data class Step2Context(
 )
 
 private data class Step2Counters(
-    var scoredCount: Int = 0,
-    var failedCount: Int = 0
+    val scoredCount: Int,
+    val failedCount: Int
 )
 
 class RarityStep2Scorer(
@@ -201,8 +201,9 @@ class RarityStep2Scorer(
         files: Step2Files,
         resolvedEndpoint: ResolvedEndpoint
     ): Step2Counters {
-        val counters = Step2Counters()
         val totalPending = context.pending.size
+        var scoredCount = 0
+        var failedCount = 0
         var processed = 0
         val adapter = BatchSizeAdapter(
             initialSize = options.batchSize,
@@ -231,30 +232,29 @@ class RarityStep2Scorer(
                 maxTokens = options.maxTokens
             )
 
-            val batchSuccess = scored.size == batch.size
-            adapter.recordOutcome(batchSuccess)
+            adapter.recordOutcome(scored.size == batch.size)
             metrics?.recordBatchResult(batch.size, scored.size)
 
             if (scored.isNotEmpty()) {
                 val rowsToAppend = toRunRows(scored, options.model, options.runSlug)
                 rowsToAppend.forEach { context.existingRows[it.wordId] = it }
                 runCsvRepository.appendRunRows(options.outputCsvPath, rowsToAppend)
-                counters.scoredCount += rowsToAppend.size
+                scoredCount += rowsToAppend.size
             }
 
-            counters.failedCount += (batch.size - scored.size)
+            failedCount += (batch.size - scored.size)
             processed += batch.size
             printBatchProgress(
                 runSlug = options.runSlug,
                 processed = processed,
                 totalPending = totalPending,
-                scored = counters.scoredCount,
-                failed = counters.failedCount,
+                scored = scoredCount,
+                failed = failedCount,
                 effectiveBatchSize = adapter.recommendedSize()
             )
         }
 
-        return counters
+        return Step2Counters(scoredCount = scoredCount, failedCount = failedCount)
     }
 
     private fun toRunRows(scored: List<ScoreResult>, model: String, runSlug: String): List<RunCsvRow> {
@@ -280,7 +280,7 @@ class RarityStep2Scorer(
         totalPending: Int,
         scored: Int,
         failed: Int,
-        effectiveBatchSize: Int = 0
+        effectiveBatchSize: Int
     ) {
         val remaining = (totalPending - processed).coerceAtLeast(0)
         val metricsLine = metrics?.formatProgress(remaining, effectiveBatchSize)

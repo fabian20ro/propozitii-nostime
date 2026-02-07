@@ -2,9 +2,15 @@ package scrabble.phrases.tools.rarity
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import java.net.ConnectException
+import java.net.HttpURLConnection
 import java.net.Proxy
+import java.net.SocketTimeoutException
 import java.net.URI
+import java.net.http.HttpTimeoutException
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.OffsetDateTime
 
 interface LmClient {
@@ -351,12 +357,9 @@ class LmStudioClient(
 
             val wordMatches = word == expected.word ||
                 FuzzyWordMatcher.matches(expected.word, word)
-            val typeMatches = type == expected.type ||
-                type.isBlank() // accept missing type if word matches
+            val typeMatches = type == expected.type || type.isBlank()
 
-            if (!wordMatches || (!typeMatches && type.isNotBlank())) {
-                return null
-            }
+            if (!wordMatches || !typeMatches) return null
 
             if (word != expected.word) {
                 metrics?.recordFuzzyMatch()
@@ -381,11 +384,11 @@ class LmStudioClient(
     }
 
     private fun parseConfidence(node: JsonNode): Double {
-        if (node.isNumber) return node.asDouble(Double.NaN)
-        if (node.isTextual) {
-            return node.asText("").toDoubleOrNull() ?: Double.NaN
+        return when {
+            node.isNumber -> node.asDouble(Double.NaN)
+            node.isTextual -> node.asText("").toDoubleOrNull() ?: Double.NaN
+            else -> Double.NaN
         }
-        return Double.NaN
     }
 
     private fun detectFromBase(baseUrl: String, source: String): ResolvedEndpoint {
@@ -427,35 +430,28 @@ class LmStudioClient(
     }
 
     private fun extractModelContent(root: JsonNode): String? {
-        val primary = nodeToContentText(root.path("choices").path(0).path("message").path("content"))
-        if (!primary.isNullOrBlank()) return primary
-
-        val fallbackMessage = nodeToContentText(root.path("message").path("content"))
-        if (!fallbackMessage.isNullOrBlank()) return fallbackMessage
-
-        val fallbackOutputText = nodeToContentText(root.path("output_text"))
-        if (!fallbackOutputText.isNullOrBlank()) return fallbackOutputText
-
-        return null
+        return nodeToContentText(root.path("choices").path(0).path("message").path("content"))
+            ?: nodeToContentText(root.path("message").path("content"))
+            ?: nodeToContentText(root.path("output_text"))
     }
 
     private fun nodeToContentText(node: JsonNode?): String? {
         if (node == null || node.isMissingNode || node.isNull) return null
 
-        return when {
-            node.isTextual -> stripCodeFences(node.asText())
-            node.isArray -> {
-                val joined = node.mapNotNull { part ->
-                    if (part.isTextual) part.asText()
-                    else if (part.isObject) part.path("text").asText(null)
-                    else null
-                }.joinToString("")
-                stripCodeFences(joined).ifBlank { null }
-            }
-
-            node.isObject -> stripCodeFences(mapper.writeValueAsString(node))
-            else -> stripCodeFences(node.toString())
+        val raw = when {
+            node.isTextual -> node.asText()
+            node.isArray -> node.mapNotNull { part ->
+                when {
+                    part.isTextual -> part.asText()
+                    part.isObject -> part.path("text").asText(null)
+                    else -> null
+                }
+            }.joinToString("")
+            node.isObject -> mapper.writeValueAsString(node)
+            else -> node.toString()
         }
+
+        return stripCodeFences(raw).ifBlank { null }
     }
 
     private fun stripCodeFences(content: String): String {
@@ -470,11 +466,7 @@ class LmStudioClient(
     }
 
     private fun isUnsupportedResponseFormat(e: Exception): Boolean {
-        val text = buildString {
-            append(e.message?.lowercase().orEmpty())
-            append(" ")
-            append(e.cause?.message?.lowercase().orEmpty())
-        }
+        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
         if (!text.contains("response_format")) return false
         return text.contains("unsupported") ||
             text.contains("unknown") ||
@@ -509,9 +501,9 @@ class LmStudioClient(
 
     private fun isConnectivityFailure(e: Exception): Boolean {
         return when (e) {
-            is java.net.ConnectException -> true
-            is java.net.SocketTimeoutException -> true
-            is java.net.http.HttpTimeoutException -> true
+            is ConnectException -> true
+            is SocketTimeoutException -> true
+            is HttpTimeoutException -> true
             else -> {
                 val message = e.message?.lowercase().orEmpty()
                 message.contains("timed out") ||
@@ -528,13 +520,13 @@ class LmStudioClient(
     }
 
     private fun appendJsonLine(path: Path, payload: Any) {
-        path.parent?.let { java.nio.file.Files.createDirectories(it) }
+        path.parent?.let { Files.createDirectories(it) }
         val line = mapper.writeValueAsString(payload) + "\n"
-        java.nio.file.Files.writeString(
+        Files.writeString(
             path,
             line,
-            java.nio.file.StandardOpenOption.CREATE,
-            java.nio.file.StandardOpenOption.APPEND
+            StandardOpenOption.CREATE,
+            StandardOpenOption.APPEND
         )
     }
 
@@ -549,7 +541,7 @@ class LmStudioClient(
         timeoutSeconds: Long
     ): HttpResponsePayload {
         val timeoutMillis = toTimeoutMillis(timeoutSeconds)
-        val connection = (URI.create(url).toURL().openConnection(Proxy.NO_PROXY) as java.net.HttpURLConnection).apply {
+        val connection = (URI.create(url).toURL().openConnection(Proxy.NO_PROXY) as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
             connectTimeout = timeoutMillis
@@ -575,7 +567,7 @@ class LmStudioClient(
         timeoutSeconds: Long
     ): HttpResponsePayload {
         val timeoutMillis = toTimeoutMillis(timeoutSeconds)
-        val connection = (URI.create(url).toURL().openConnection(Proxy.NO_PROXY) as java.net.HttpURLConnection).apply {
+        val connection = (URI.create(url).toURL().openConnection(Proxy.NO_PROXY) as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = timeoutMillis
             readTimeout = timeoutMillis
@@ -591,7 +583,7 @@ class LmStudioClient(
         }
     }
 
-    private fun readConnectionBody(connection: java.net.HttpURLConnection): String {
+    private fun readConnectionBody(connection: HttpURLConnection): String {
         val stream = if (connection.responseCode in 200..399) connection.inputStream else connection.errorStream
         return stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
     }
@@ -600,7 +592,7 @@ class LmStudioClient(
         return (timeoutSeconds * 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
-    private fun java.net.HttpURLConnection.applyJsonHeaders(contentType: Boolean) {
+    private fun HttpURLConnection.applyJsonHeaders(contentType: Boolean) {
         if (contentType) {
             setRequestProperty("Content-Type", "application/json")
         }

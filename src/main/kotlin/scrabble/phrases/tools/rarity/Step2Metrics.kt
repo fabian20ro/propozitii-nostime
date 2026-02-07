@@ -3,7 +3,6 @@ package scrabble.phrases.tools.rarity
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Tracks scoring metrics for Step 2 observability.
@@ -96,22 +95,23 @@ class Step2Metrics {
         val failed = totalFailed.get()
         val batches = totalBatches.get()
 
-        val lines = mutableListOf<String>()
-        lines += "--- Step 2 Run Summary ---"
-        lines += "Duration: ${formatDuration(elapsed)}"
-        lines += "Words scored: $scored, failed: $failed"
-        lines += "Batches: $batches (success_rate=${"%.0f".format(successRate() * 100)}%)"
-        lines += "Throughput: ${"%.1f".format(wordsPerMinute())} words/min"
-        lines += "JSON repairs: ${repairedJsonCount.get()}"
-        lines += "Fuzzy matches: ${fuzzyMatchCount.get()}"
-        lines += "Partial extractions: ${partialExtractionCount.get()}"
+        val lines = buildList {
+            add("--- Step 2 Run Summary ---")
+            add("Duration: ${formatDuration(elapsed)}")
+            add("Words scored: $scored, failed: $failed")
+            add("Batches: $batches (success_rate=${"%.0f".format(successRate() * 100)}%)")
+            add("Throughput: ${"%.1f".format(wordsPerMinute())} words/min")
+            add("JSON repairs: ${repairedJsonCount.get()}")
+            add("Fuzzy matches: ${fuzzyMatchCount.get()}")
+            add("Partial extractions: ${partialExtractionCount.get()}")
 
-        val errorLines = errorCounts.entries
-            .filter { it.value.get() > 0 }
-            .sortedByDescending { it.value.get() }
-            .joinToString(", ") { "${it.key.name}=${it.value.get()}" }
-        if (errorLines.isNotEmpty()) {
-            lines += "Errors: $errorLines"
+            val errorLines = errorCounts.entries
+                .filter { it.value.get() > 0 }
+                .sortedByDescending { it.value.get() }
+                .joinToString(", ") { "${it.key.name}=${it.value.get()}" }
+            if (errorLines.isNotEmpty()) {
+                add("Errors: $errorLines")
+            }
         }
 
         return lines.joinToString("\n")
@@ -133,7 +133,7 @@ class Step2Metrics {
                 lower.contains("mismatch") && lower.contains("word") -> ErrorCategory.WORD_MISMATCH
                 lower.contains("model") && (lower.contains("crash") || lower.contains("exit code")) -> ErrorCategory.MODEL_CRASH
                 lower.contains("timed out") || lower.contains("connection refused") ||
-                    lower.contains("connect") && lower.contains("fail") -> ErrorCategory.CONNECTIVITY
+                    (lower.contains("connect") && lower.contains("fail")) -> ErrorCategory.CONNECTIVITY
                 else -> ErrorCategory.OTHER
             }
         }
