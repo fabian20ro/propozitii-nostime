@@ -76,6 +76,10 @@ const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
 const HEALTH_TIMEOUT = 5000;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
+const STRANGENESS_KEY = 'strangeness-level';
+const DEFAULT_STRANGENESS = 2;
+const MIN_STRANGENESS = 1;
+const MAX_STRANGENESS = 5;
 
 // Maps /api/all response keys to DOM element IDs
 const FIELD_MAP = {
@@ -91,6 +95,42 @@ const FIELD_IDS = Object.values(FIELD_MAP);
 // DOM elements
 const refreshBtn = document.getElementById('refresh');
 const errorMessage = document.getElementById('error-message');
+const strangenessSlider = document.getElementById('strangeness-slider');
+const strangenessValue = document.getElementById('strangeness-value');
+
+function normalizeStrangeness(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed)) return DEFAULT_STRANGENESS;
+    return Math.max(MIN_STRANGENESS, Math.min(MAX_STRANGENESS, parsed));
+}
+
+function strangenessLabel(level) {
+    switch (level) {
+        case 1: return 'Foarte comun';
+        case 2: return 'Uzual extins';
+        case 3: return 'Mai puțin uzual';
+        case 4: return 'Rar / specializat';
+        case 5: return 'Foarte rar';
+        default: return 'Uzual extins';
+    }
+}
+
+function setStrangeness(level) {
+    const normalized = normalizeStrangeness(level);
+    strangenessSlider.value = String(normalized);
+    strangenessValue.textContent = `${normalized} - ${strangenessLabel(normalized)}`;
+    localStorage.setItem(STRANGENESS_KEY, String(normalized));
+    return normalized;
+}
+
+function getCurrentStrangeness() {
+    return normalizeStrangeness(strangenessSlider.value);
+}
+
+function initStrangeness() {
+    const stored = localStorage.getItem(STRANGENESS_KEY);
+    setStrangeness(stored ?? DEFAULT_STRANGENESS);
+}
 
 /**
  * Check if backend is healthy
@@ -146,8 +186,9 @@ async function waitForBackend() {
  * Fetch all sentences in a single request
  * @returns {Promise<Object>} Parsed JSON with all sentence fields
  */
-async function fetchAllSentences() {
-    const response = await fetch(`${API_BASE}/all`);
+async function fetchAllSentences(strangeness) {
+    const query = new URLSearchParams({ strangeness: String(normalizeStrangeness(strangeness)) });
+    const response = await fetch(`${API_BASE}/all?${query.toString()}`);
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -203,6 +244,7 @@ function hideMessage() {
  */
 function setButtonsDisabled(disabled) {
     refreshBtn.disabled = disabled;
+    strangenessSlider.disabled = disabled;
 }
 
 /**
@@ -225,10 +267,11 @@ async function refresh() {
     hideMessage();
     showLoading();
     setButtonsDisabled(true);
+    const strangeness = getCurrentStrangeness();
 
     try {
         // Try fetching directly — no health check on warm backend
-        const data = await fetchAllSentences();
+        const data = await fetchAllSentences(strangeness);
         applySentences(data);
     } catch {
         // Fetch failed — backend likely cold-starting
@@ -247,7 +290,7 @@ async function refresh() {
 
         // Backend is up — retry once
         try {
-            const data = await fetchAllSentences();
+            const data = await fetchAllSentences(strangeness);
             applySentences(data);
         } catch {
             showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
@@ -377,7 +420,10 @@ function initDexonlineDrawer() {
 
 // Event listeners
 refreshBtn.addEventListener('click', refresh);
+strangenessSlider.addEventListener('input', (e) => setStrangeness(e.target.value));
+strangenessSlider.addEventListener('change', refresh);
 initDexonlineDrawer();
+initStrangeness();
 
 // Initial load
 refresh();

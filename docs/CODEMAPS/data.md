@@ -21,6 +21,7 @@ Columns:
 - `articulated` (nouns)
 - `feminine` (adjectives)
 - `articulated_syllables` (nouns)
+- `rarity_level` (1..5, default 4)
 
 Indexes (important for random/filter lookups):
 - `(type, syllables)`
@@ -28,6 +29,10 @@ Indexes (important for random/filter lookups):
 - `(type, rhyme, syllables)`
 - `(type, articulated_syllables)`
 - `(type)`
+- `(type, rarity_level, syllables)`
+- `(type, rarity_level, rhyme)`
+- `(type, rarity_level, articulated_syllables)`
+- `(type, rarity_level, first_letter)`
 
 ## Data Producers
 
@@ -40,6 +45,15 @@ Pipeline:
 2. Parse word + source type.
 3. Derive computed fields using domain rules (`WordUtils`, `Noun`, `Adjective`, `Verb`).
 4. Bulk insert rows into `words`.
+
+### Rarity scoring pipeline
+
+File: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
+
+- Step 1: export words into `word_rarity_work` + CSV snapshot
+- Step 2: score with LMStudio runs, resumable per run column set
+- Step 3: compare runs, compute median, detect outliers
+- Step 4: upload final rarity levels into `words.rarity_level`
 
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 

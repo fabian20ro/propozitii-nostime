@@ -35,6 +35,10 @@ The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take
 - `GET /api/mirror` — ABBA rhyme scheme (4 lines)
 - `GET /q/health` — Health check
 
+All sentence endpoints accept optional query parameter `strangeness=1..5` (default `2`):
+- `1` = very common words
+- `5` = very rare/archaic/regional words
+
 ## Local Development
 
 ### Prerequisites
@@ -69,6 +73,24 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Load dictionary into a target PostgreSQL (one-time setup per DB)
 ./gradlew loadDictionary
 ```
+
+### Rarity scoring pipeline (LMStudio, resumable)
+
+```bash
+# Step 1: export words into the work table + CSV snapshot
+./gradlew rarityStep1Export
+
+# Step 2: score a run with a local LMStudio model (repeatable/resumable)
+./gradlew rarityStep2Score --args="--run model_a_q4 --model qwen2.5-7b-instruct --batch-size 40"
+
+# Step 3: compare runs and detect outliers
+./gradlew rarityStep3Compare --args="--runs model_a_q4,model_b_q4 --outlier-threshold 2"
+
+# Step 4: upload final median rarity levels to words.rarity_level
+./gradlew rarityStep4Upload --args="--runs model_a_q4,model_b_q4,tie_break"
+```
+
+If a word has no computed level yet, runtime behavior treats it as level `4`.
 
 ### Running locally
 
@@ -108,7 +130,7 @@ propozitii-nostime/
 │   ├── repository/                  # WordRepository (SQL queries to Supabase)
 │   ├── providers/                   # Sentence generators (6 types)
 │   ├── decorators/                  # Sentence decorators (links, formatting)
-│   └── tools/                       # LoadDictionary data loader
+│   └── tools/                       # LoadDictionary + RarityPipeline utilities
 ├── frontend/                        # Static frontend for GitHub Pages
 ├── Dockerfile                       # JVM uber-jar multi-stage build
 ├── render.yaml                      # Render deployment config
@@ -119,7 +141,7 @@ propozitii-nostime/
 
 Schema is defined by [Flyway](https://flywaydb.org/) migrations in `src/main/resources/db/migration/`. Flyway runs automatically in dev/test but is **disabled in production** (`%prod.quarkus.flyway.migrate-at-start=false`). Schema changes must be applied manually to Supabase.
 
-Indexes on `(type)`, `(type, syllables)`, `(type, first_letter)`, `(type, rhyme, syllables)`, and `(type, articulated_syllables)`.
+Indexes on `(type)`, `(type, syllables)`, `(type, first_letter)`, `(type, rhyme, syllables)`, `(type, articulated_syllables)`, `(type, rarity_level, syllables)`, `(type, rarity_level, rhyme)`, `(type, rarity_level, articulated_syllables)`, and `(type, rarity_level, first_letter)`.
 
 ## Acknowledgements
 

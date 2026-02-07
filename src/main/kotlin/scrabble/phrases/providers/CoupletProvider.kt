@@ -2,10 +2,13 @@ package scrabble.phrases.providers
 
 import scrabble.phrases.repository.WordRepository
 
-class CoupletProvider(private val repo: WordRepository) : ISentenceProvider {
+class CoupletProvider(
+    private val repo: WordRepository,
+    private val maxRarity: Int
+) : ISentenceProvider {
 
     override fun getSentence(): String {
-        val rhymes = repo.findTwoRhymeGroups("N", 2)
+        val rhymes = repo.findTwoRhymeGroups("N", 2, maxRarity = maxRarity)
             ?: throw IllegalStateException("Cannot find 2 rhyme groups with 2+ nouns each")
 
         val rhymeA = rhymes.first
@@ -15,50 +18,50 @@ class CoupletProvider(private val repo: WordRepository) : ISentenceProvider {
         // before unconstrained line-start nouns can deplete rhyme groups.
         val usedNouns = mutableSetOf<String>()
 
-        val nounEnd1 = repo.getRandomNounByRhyme(rhymeA, exclude = usedNouns)
+        val nounEnd1 = repo.getRandomNounByRhyme(rhymeA, maxRarity = maxRarity, exclude = usedNouns)
             ?: throw IllegalStateException("No noun found for rhyme '$rhymeA'")
         usedNouns.add(nounEnd1.word)
 
-        val nounEnd2 = repo.getRandomNounByRhyme(rhymeB, exclude = usedNouns)
+        val nounEnd2 = repo.getRandomNounByRhyme(rhymeB, maxRarity = maxRarity, exclude = usedNouns)
             ?: throw IllegalStateException("No noun found for rhyme '$rhymeB'")
         usedNouns.add(nounEnd2.word)
 
-        val nounEnd3 = repo.getRandomNounByRhyme(rhymeB, exclude = usedNouns)
+        val nounEnd3 = repo.getRandomNounByRhyme(rhymeB, maxRarity = maxRarity, exclude = usedNouns)
             ?: throw IllegalStateException("No second noun found for rhyme '$rhymeB'")
         usedNouns.add(nounEnd3.word)
 
-        val nounEnd4 = repo.getRandomNounByRhyme(rhymeA, exclude = usedNouns)
+        val nounEnd4 = repo.getRandomNounByRhyme(rhymeA, maxRarity = maxRarity, exclude = usedNouns)
             ?: throw IllegalStateException("No second noun found for rhyme '$rhymeA'")
         usedNouns.add(nounEnd4.word)
 
         // Now pick unconstrained line-start nouns
-        val noun1 = repo.getRandomNoun(exclude = usedNouns)
+        val noun1 = repo.getRandomNoun(maxRarity = maxRarity, exclude = usedNouns)
         usedNouns.add(noun1.word)
-        val noun2 = repo.getRandomNoun(exclude = usedNouns)
+        val noun2 = repo.getRandomNoun(maxRarity = maxRarity, exclude = usedNouns)
         usedNouns.add(noun2.word)
-        val noun3 = repo.getRandomNoun(exclude = usedNouns)
+        val noun3 = repo.getRandomNoun(maxRarity = maxRarity, exclude = usedNouns)
         usedNouns.add(noun3.word)
-        val noun4 = repo.getRandomNoun(exclude = usedNouns)
+        val noun4 = repo.getRandomNoun(maxRarity = maxRarity, exclude = usedNouns)
 
         // Pick adjectives and verbs (all distinct)
         val usedAdjs = mutableSetOf<String>()
         val usedVerbs = mutableSetOf<String>()
 
-        val adj1 = repo.getRandomAdjective()
+        val adj1 = repo.getRandomAdjective(maxRarity = maxRarity)
         usedAdjs.add(adj1.word)
-        val adj2 = repo.getRandomAdjective(exclude = usedAdjs)
+        val adj2 = repo.getRandomAdjective(maxRarity = maxRarity, exclude = usedAdjs)
         usedAdjs.add(adj2.word)
-        val adj3 = repo.getRandomAdjective(exclude = usedAdjs)
+        val adj3 = repo.getRandomAdjective(maxRarity = maxRarity, exclude = usedAdjs)
         usedAdjs.add(adj3.word)
-        val adj4 = repo.getRandomAdjective(exclude = usedAdjs)
+        val adj4 = repo.getRandomAdjective(maxRarity = maxRarity, exclude = usedAdjs)
 
-        val verb1 = repo.getRandomVerb()
+        val verb1 = repo.getRandomVerb(maxRarity = maxRarity)
         usedVerbs.add(verb1.word)
-        val verb2 = repo.getRandomVerb(exclude = usedVerbs)
+        val verb2 = repo.getRandomVerb(maxRarity = maxRarity, exclude = usedVerbs)
         usedVerbs.add(verb2.word)
-        val verb3 = repo.getRandomVerb(exclude = usedVerbs)
+        val verb3 = repo.getRandomVerb(maxRarity = maxRarity, exclude = usedVerbs)
         usedVerbs.add(verb3.word)
-        val verb4 = repo.getRandomVerb(exclude = usedVerbs)
+        val verb4 = repo.getRandomVerb(maxRarity = maxRarity, exclude = usedVerbs)
 
         // Assemble ABBA: lines 1&4 end with rhyme A, lines 2&3 end with rhyme B
         val line1 = "${noun1.articulated} ${adj1.forGender(noun1.gender)} ${verb1.word} ${nounEnd1.articulated}."

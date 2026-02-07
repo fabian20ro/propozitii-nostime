@@ -43,8 +43,8 @@ private fun loadWords(conn: Connection, wordsFile: File) {
     println("Loading words from ${wordsFile.name}...")
 
     val insertSql = """
-        INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine, articulated_syllables)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine, articulated_syllables, rarity_level)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.trimIndent()
 
     conn.prepareStatement(insertSql).use { stmt ->
@@ -102,6 +102,7 @@ private fun insertNoun(stmt: java.sql.PreparedStatement, word: String, gender: N
     stmt.setString(7, noun.articulated)
     stmt.setNull(8, java.sql.Types.VARCHAR)
     stmt.setInt(9, WordUtils.computeSyllableNumber(noun.articulated))
+    stmt.setInt(10, 4)
     stmt.addBatch()
 }
 
@@ -116,6 +117,7 @@ private fun insertAdjective(stmt: java.sql.PreparedStatement, word: String) {
     stmt.setNull(7, java.sql.Types.VARCHAR)
     stmt.setString(8, adj.feminine)
     stmt.setNull(9, java.sql.Types.SMALLINT)
+    stmt.setInt(10, 4)
     stmt.addBatch()
 }
 
@@ -130,5 +132,6 @@ private fun insertVerb(stmt: java.sql.PreparedStatement, word: String) {
     stmt.setNull(7, java.sql.Types.VARCHAR)
     stmt.setNull(8, java.sql.Types.VARCHAR)
     stmt.setNull(9, java.sql.Types.SMALLINT)
+    stmt.setInt(10, 4)
     stmt.addBatch()
 }

@@ -12,6 +12,7 @@ Freshness: 2026-02-06
 
 `index.html` renders:
 - theme toggle button
+- strangeness slider (`1..5`, persisted in localStorage)
 - 6 sentence cards (`haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`)
 - refresh button
 - status/error message area
@@ -21,6 +22,7 @@ Freshness: 2026-02-06
 
 1. `refresh()` is called on initial page load and refresh-button clicks.
 2. Main request: `fetchAllSentences()` -> `GET /api/all`.
+   - includes `?strangeness=<1..5>`
 3. On fetch failure: show info state, poll `/q/health` for up to 60s (`waitForBackend()`), retry once.
 4. Success path: `applySentences(data)` sanitizes each field and writes to DOM.
 

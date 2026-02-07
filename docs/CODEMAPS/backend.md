@@ -21,6 +21,9 @@ Freshness: 2026-02-06
 | `/api/mirror` | `MirrorProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 4 lines, ABBA rhyme by verb endings |
 | `/api/all` | Aggregates above | N/A | frontend's main fetch path |
 
+All sentence endpoints accept optional `strangeness=1..5` (default `2`).
+If constraints are impossible at low strangeness, endpoints return a placeholder sentence with HTTP 200.
+
 ## Provider Responsibilities
 
 - `HaikuProvider`
