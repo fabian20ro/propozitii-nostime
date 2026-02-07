@@ -201,6 +201,8 @@ class RarityStep2Scorer(
         resolvedEndpoint: ResolvedEndpoint
     ): Step2Counters {
         val counters = Step2Counters()
+        val totalPending = context.pending.size
+        var processed = 0
 
         context.pending.chunked(options.batchSize).forEach { batch ->
             val scored = lmClient.scoreBatchResilient(
@@ -226,6 +228,14 @@ class RarityStep2Scorer(
             }
 
             counters.failedCount += (batch.size - scored.size)
+            processed += batch.size
+            printBatchProgress(
+                runSlug = options.runSlug,
+                processed = processed,
+                totalPending = totalPending,
+                scored = counters.scoredCount,
+                failed = counters.failedCount
+            )
         }
 
         return counters
@@ -246,6 +256,20 @@ class RarityStep2Scorer(
                 runSlug = runSlug
             )
         }
+    }
+
+    private fun printBatchProgress(
+        runSlug: String,
+        processed: Int,
+        totalPending: Int,
+        scored: Int,
+        failed: Int
+    ) {
+        val remaining = (totalPending - processed).coerceAtLeast(0)
+        println(
+            "Step 2 progress run='$runSlug' processed=$processed/$totalPending " +
+                "scored=$scored failed=$failed remaining=$remaining"
+        )
     }
 
     private fun printSummary(options: Step2Options, files: Step2Files, counters: Step2Counters, pendingCount: Int) {

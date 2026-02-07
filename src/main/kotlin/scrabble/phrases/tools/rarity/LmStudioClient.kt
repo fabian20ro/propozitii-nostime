@@ -30,6 +30,14 @@ class LmStudioClient(
     private val mapper: ObjectMapper = ObjectMapper(),
     private val apiKey: String? = System.getenv("LMSTUDIO_API_KEY")
 ) : LmClient {
+    private enum class ResponseFormatSupport {
+        UNKNOWN,
+        SUPPORTED,
+        UNSUPPORTED
+    }
+
+    @Volatile
+    private var responseFormatSupport: ResponseFormatSupport = ResponseFormatSupport.UNKNOWN
 
     override fun resolveEndpoint(endpointOption: String?, baseUrlOption: String?): ResolvedEndpoint {
         if (!endpointOption.isNullOrBlank()) {
@@ -184,7 +192,7 @@ class LmStudioClient(
     ): BatchAttempt {
         var lastError: String? = null
         var sawOnlyConnectivityFailures = true
-        var includeResponseFormat = flavor == LmApiFlavor.OPENAI_COMPAT
+        var includeResponseFormat = shouldIncludeResponseFormat(flavor)
 
         repeat(maxRetries) { attempt ->
             val requestPayload = buildLmRequest(
@@ -209,10 +217,14 @@ class LmStudioClient(
                         "run" to runSlug,
                         "attempt" to (attempt + 1),
                         "batch_size" to batch.size,
+                        "response_format_enabled" to includeResponseFormat,
                         "request" to mapper.readTree(requestPayload),
                         "response" to mapper.readTree(response.body)
                     )
                 )
+                if (includeResponseFormat) {
+                    markResponseFormatSupported()
+                }
                 return BatchAttempt(scores = parsed, lastError = null, connectivityFailure = false)
             } catch (e: Exception) {
                 lastError = e.message ?: e::class.simpleName.orEmpty()
@@ -231,10 +243,12 @@ class LmStudioClient(
                         "error" to lastError,
                         "connectivity_failure" to connectivityFailure,
                         "unsupported_response_format" to unsupportedResponseFormat,
+                        "response_format_enabled" to includeResponseFormat,
                         "request" to requestPayload
                     )
                 )
                 if (unsupportedResponseFormat) {
+                    markResponseFormatUnsupported()
                     includeResponseFormat = false
                 }
             }
@@ -414,6 +428,30 @@ class LmStudioClient(
             text.contains("must be") ||
             text.contains("json_schema") ||
             text.contains("json object")
+    }
+
+    private fun shouldIncludeResponseFormat(flavor: LmApiFlavor): Boolean {
+        if (flavor != LmApiFlavor.OPENAI_COMPAT) return false
+        return responseFormatSupport != ResponseFormatSupport.UNSUPPORTED
+    }
+
+    private fun markResponseFormatSupported() {
+        if (responseFormatSupport != ResponseFormatSupport.UNKNOWN) return
+        synchronized(this) {
+            if (responseFormatSupport == ResponseFormatSupport.UNKNOWN) {
+                responseFormatSupport = ResponseFormatSupport.SUPPORTED
+            }
+        }
+    }
+
+    private fun markResponseFormatUnsupported() {
+        if (responseFormatSupport == ResponseFormatSupport.UNSUPPORTED) return
+        synchronized(this) {
+            if (responseFormatSupport != ResponseFormatSupport.UNSUPPORTED) {
+                responseFormatSupport = ResponseFormatSupport.UNSUPPORTED
+                println("LMStudio capability: disabling response_format=json_object for this run.")
+            }
+        }
     }
 
     private fun isConnectivityFailure(e: Exception): Boolean {
