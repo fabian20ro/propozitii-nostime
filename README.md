@@ -77,30 +77,33 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 ### Rarity scoring pipeline (LMStudio, resumable)
 
 ```bash
-# Step 1: export words into the work table + CSV snapshot
+# Step 1: export source words from Supabase
 ./gradlew rarityStep1Export
 
-# Step 2a: score run #1 (repeatable/resumable)
-./gradlew rarityStep2Score --args="--run gpt_oss_20b_v1 --model openai/gpt-oss-20b --batch-size 20 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+# Step 2a: score run #1 into local CSV (repeatable/resumable)
+./gradlew rarityStep2Score --args="--run gpt_oss_20b_v1 --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/gpt_oss_20b_v1.csv --batch-size 20 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # Step 2b: score run #2 later (same machine, sequential run)
-./gradlew rarityStep2Score --args="--run glm47_air_30b_v1 --model <EXACT_GLM_NAME> --batch-size 20 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run glm47_flash_v1 --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/glm47_flash_v1.csv --batch-size 20 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
-# Step 3: compare runs and detect outliers
-./gradlew rarityStep3Compare --args="--runs gpt_oss_20b_v1,glm47_air_30b_v1 --outlier-threshold 2"
+# Step 3: local comparison + outliers CSV
+./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/gpt_oss_20b_v1.csv --run-b-csv build/rarity/runs/glm47_flash_v1.csv --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
 
-# Step 4: upload final median rarity levels to words.rarity_level
-./gradlew rarityStep4Upload --args="--runs gpt_oss_20b_v1,glm47_air_30b_v1"
+# Step 4: upload final CSV to Supabase (fallback=4 for missing rows)
+./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
 ```
 
 Artifacts:
 - `build/rarity/runs/<run>.jsonl` raw LMStudio request/response log
-- `build/rarity/runs/<run>.scores.csv` normalized per-word run output
+- `build/rarity/runs/<run>.csv` normalized per-word run output
 - `build/rarity/failed_batches/<run>.failed.jsonl` failures after retries/split
 - `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
 - `build/rarity/step4_upload_report.csv`
 
-If a word has no computed level yet, runtime behavior treats it as level `4`.
+Resume tip:
+- Rerun the same `rarityStep2Score` command with the same `--output-csv`; already scored `word_id`s are skipped.
+
+Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 
 ### Running locally
 

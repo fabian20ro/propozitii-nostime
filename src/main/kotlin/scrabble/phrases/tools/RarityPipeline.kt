@@ -9,15 +9,13 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.sql.Connection
 import java.sql.DriverManager
-import java.sql.ResultSet
 import java.time.Duration
 import java.time.OffsetDateTime
 import kotlin.math.roundToInt
 
 private const val DEFAULT_LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234/v1/chat/completions"
-private const val DEFAULT_BATCH_SIZE = 40
+private const val DEFAULT_BATCH_SIZE = 20
 private const val DEFAULT_MAX_RETRIES = 3
 private const val DEFAULT_TIMEOUT_SECONDS = 90L
 private const val DEFAULT_OUTLIER_THRESHOLD = 2
@@ -25,12 +23,61 @@ private const val DEFAULT_CONFIDENCE_THRESHOLD = 0.55
 private const val FALLBACK_RARITY_LEVEL = 4
 private const val USER_INPUT_PLACEHOLDER = "{{INPUT_JSON}}"
 
+private val BASE_CSV_HEADERS = listOf("word_id", "word", "type")
+private val RUN_CSV_HEADERS = listOf(
+    "word_id",
+    "word",
+    "type",
+    "rarity_level",
+    "tag",
+    "confidence",
+    "scored_at",
+    "model",
+    "run_slug"
+)
+private val COMPARISON_CSV_HEADERS = listOf(
+    "word_id",
+    "word",
+    "type",
+    "run_a_level",
+    "run_a_confidence",
+    "run_b_level",
+    "run_b_confidence",
+    "median_level",
+    "spread",
+    "is_outlier",
+    "reason",
+    "final_level"
+)
+private val OUTLIERS_CSV_HEADERS = listOf(
+    "word_id",
+    "word",
+    "type",
+    "run_a_level",
+    "run_b_level",
+    "spread",
+    "reason"
+)
+private val UPLOAD_REPORT_HEADERS = listOf("word_id", "previous_level", "new_level", "source")
+
 private val mapper = ObjectMapper()
 
-private data class WordRow(
+private data class BaseWordRow(
     val wordId: Int,
     val word: String,
     val type: String
+)
+
+private data class RunCsvRow(
+    val wordId: Int,
+    val word: String,
+    val type: String,
+    val rarityLevel: Int,
+    val tag: String,
+    val confidence: Double,
+    val scoredAt: String,
+    val model: String,
+    val runSlug: String
 )
 
 private data class ScoreResult(
@@ -51,12 +98,7 @@ fun main(args: Array<String>) {
         "step2" -> step2Score(options)
         "step3" -> step3Compare(options)
         "step4" -> step4Upload(options)
-        else -> {
-            error(
-                "Unknown step '$step'. Use one of: step1, step2, step3, step4. " +
-                    "You can also use Gradle tasks rarityStep1Export..rarityStep4Upload."
-            )
-        }
+        else -> error("Unknown step '$step'. Use one of: step1, step2, step3, step4.")
     }
 }
 
@@ -101,36 +143,15 @@ private fun step1Export() {
     val csvPath = outputDir.resolve("step1_words.csv")
 
     withConnection { conn ->
-        ensureWorkTable(conn)
-
         conn.createStatement().use { stmt ->
-            stmt.execute(
-                """
-                INSERT INTO word_rarity_work (word_id, word, type, exported_at)
-                SELECT id, word, type, NOW()
-                FROM words
-                ON CONFLICT (word_id)
-                DO UPDATE SET
-                    word = EXCLUDED.word,
-                    type = EXCLUDED.type,
-                    exported_at = EXCLUDED.exported_at
-                """.trimIndent()
-            )
-        }
-
-        conn.createStatement().use { stmt ->
-            stmt.executeQuery("SELECT word_id, word, type, exported_at FROM word_rarity_work ORDER BY word_id").use { rs ->
-                writeCsv(
-                    csvPath,
-                    listOf("word_id", "word", "type", "exported_at")
-                ) { writer ->
+            stmt.executeQuery("SELECT id, word, type FROM words ORDER BY id").use { rs ->
+                writeCsv(csvPath, BASE_CSV_HEADERS) { writer ->
                     while (rs.next()) {
                         writer.writeCsvRow(
                             listOf(
-                                rs.getInt("word_id").toString(),
+                                rs.getInt("id").toString(),
                                 rs.getString("word"),
-                                rs.getString("type"),
-                                rs.getString("exported_at")
+                                rs.getString("type")
                             )
                         )
                     }
@@ -145,12 +166,16 @@ private fun step1Export() {
 private fun step2Score(options: Map<String, String>) {
     val runSlug = sanitizeRunSlug(requiredOption(options, "run"))
     val model = requiredOption(options, "model")
+    val baseCsvPath = Paths.get(requiredOption(options, "base-csv"))
+    val outputCsvPath = Paths.get(requiredOption(options, "output-csv"))
+
     val batchSize = options["batch-size"]?.toIntOrNull()?.coerceAtLeast(1) ?: DEFAULT_BATCH_SIZE
     val limit = options["limit"]?.toIntOrNull()?.takeIf { it > 0 }
     val maxRetries = options["max-retries"]?.toIntOrNull()?.coerceAtLeast(1) ?: DEFAULT_MAX_RETRIES
     val timeoutSeconds = options["timeout-seconds"]?.toLongOrNull()?.coerceAtLeast(5) ?: DEFAULT_TIMEOUT_SECONDS
     val endpoint = options["endpoint"] ?: System.getenv("LMSTUDIO_API_URL") ?: DEFAULT_LMSTUDIO_ENDPOINT
-    val inputPath = options["input"]?.let { Paths.get(it) }
+    val force = options["force"]?.toBooleanStrictOrNull() ?: false
+
     val systemPrompt = loadPrompt(options["system-prompt-file"], SYSTEM_PROMPT)
     val userTemplate = loadPrompt(options["user-template-file"], USER_PROMPT_TEMPLATE)
 
@@ -161,212 +186,186 @@ private fun step2Score(options: Map<String, String>) {
     Files.createDirectories(failedDir)
 
     val runLogPath = runsDir.resolve("$runSlug.jsonl")
-    val runScoresPath = runsDir.resolve("$runSlug.scores.csv")
     val failedLogPath = failedDir.resolve("$runSlug.failed.jsonl")
+
+    val baseRows = loadBaseCsv(baseCsvPath)
+    val existingRows = loadRunCsv(outputCsvPath).associateBy { it.wordId }.toMutableMap()
+
+    val pending = baseRows
+        .asSequence()
+        .filter { force || existingRows[it.wordId] == null }
+        .let { seq -> if (limit != null) seq.take(limit) else seq }
+        .toList()
+
+    if (pending.isEmpty()) {
+        println("Step 2 complete. No pending words for run '$runSlug'.")
+        println("Run CSV: ${outputCsvPath.toAbsolutePath()}")
+        return
+    }
+
     val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build()
     val apiKey = System.getenv("LMSTUDIO_API_KEY")
 
-    withConnection { conn ->
-        ensureWorkTable(conn)
-        ensureRunColumns(conn, runSlug)
+    var scoredCount = 0
+    var failedCount = 0
 
-        val levelCol = runLevelColumn(runSlug)
-        val pendingWords = fetchPendingWords(conn, levelCol, inputPath, limit)
+    for (batch in pending.chunked(batchSize)) {
+        val scored = scoreBatchResilient(
+            batch = batch,
+            runSlug = runSlug,
+            model = model,
+            endpoint = endpoint,
+            maxRetries = maxRetries,
+            timeoutSeconds = timeoutSeconds,
+            runLogPath = runLogPath,
+            failedLogPath = failedLogPath,
+            httpClient = httpClient,
+            apiKey = apiKey,
+            systemPrompt = systemPrompt,
+            userTemplate = userTemplate
+        )
 
-        if (pendingWords.isEmpty()) {
-            println("Step 2 complete. No pending words for run '$runSlug'.")
-            return@withConnection
-        }
-
-        var scoredCount = 0
-        var failedCount = 0
-
-        for (batch in pendingWords.chunked(batchSize)) {
-            val scored = scoreBatchResilient(
-                batch = batch,
-                runSlug = runSlug,
-                model = model,
-                endpoint = endpoint,
-                maxRetries = maxRetries,
-                timeoutSeconds = timeoutSeconds,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                httpClient = httpClient,
-                apiKey = apiKey,
-                systemPrompt = systemPrompt,
-                userTemplate = userTemplate
-            )
-
-            if (scored.isNotEmpty()) {
-                persistScores(conn, runSlug, scored)
-                appendRunScoresCsv(runScoresPath, scored)
-                scoredCount += scored.size
+        if (scored.isNotEmpty()) {
+            val scoredAt = OffsetDateTime.now().toString()
+            val rowsToAppend = scored.map {
+                RunCsvRow(
+                    wordId = it.wordId,
+                    word = it.word,
+                    type = it.type,
+                    rarityLevel = it.rarityLevel,
+                    tag = it.tag,
+                    confidence = it.confidence,
+                    scoredAt = scoredAt,
+                    model = model,
+                    runSlug = runSlug
+                )
             }
 
-            failedCount += (batch.size - scored.size)
+            rowsToAppend.forEach { existingRows[it.wordId] = it }
+            appendRunCsvRows(outputCsvPath, rowsToAppend)
+            scoredCount += rowsToAppend.size
         }
 
-        println("Step 2 complete for run '$runSlug': scored=$scoredCount failed=$failedCount pending=${pendingWords.size}")
-        println("Run log: ${runLogPath.toAbsolutePath()}")
-        println("Run scores: ${runScoresPath.toAbsolutePath()}")
-        println("Failed log: ${failedLogPath.toAbsolutePath()}")
+        failedCount += (batch.size - scored.size)
     }
+
+    // Canonicalize output so the file stays deduplicated and ordered.
+    rewriteRunCsv(outputCsvPath, existingRows.values.toList())
+
+    println("Step 2 complete for run '$runSlug': scored=$scoredCount failed=$failedCount pending=${pending.size}")
+    println("Run CSV: ${outputCsvPath.toAbsolutePath()}")
+    println("Run log: ${runLogPath.toAbsolutePath()}")
+    println("Failed log: ${failedLogPath.toAbsolutePath()}")
 }
 
 private fun step3Compare(options: Map<String, String>) {
-    val runs = requiredOption(options, "runs").split(',').map { sanitizeRunSlug(it.trim()) }.filter { it.isNotBlank() }
-    require(runs.isNotEmpty()) { "--runs must contain at least one run slug" }
+    val runACsvPath = Paths.get(requiredOption(options, "run-a-csv"))
+    val runBCsvPath = Paths.get(requiredOption(options, "run-b-csv"))
+    val outputCsvPath = Paths.get(requiredOption(options, "output-csv"))
+    val outliersCsvPath = options["outliers-csv"]?.let { Paths.get(it) }
+        ?: ensureRarityOutputDir().resolve("step3_outliers.csv")
+    val baseCsvPath = options["base-csv"]?.let { Paths.get(it) }
+        ?: ensureRarityOutputDir().resolve("step1_words.csv")
 
     val outlierThreshold = options["outlier-threshold"]?.toIntOrNull()?.coerceAtLeast(1) ?: DEFAULT_OUTLIER_THRESHOLD
     val confidenceThreshold = options["confidence-threshold"]?.toDoubleOrNull()?.coerceIn(0.0, 1.0) ?: DEFAULT_CONFIDENCE_THRESHOLD
 
-    val outputDir = ensureRarityOutputDir()
-    val comparisonPath = outputDir.resolve("step3_comparison.csv")
-    val outliersPath = outputDir.resolve("step3_outliers.csv")
+    val baseRows = loadBaseCsv(baseCsvPath)
+    val runA = loadRunCsv(runACsvPath).associateBy { it.wordId }
+    val runB = loadRunCsv(runBCsvPath).associateBy { it.wordId }
 
-    withConnection { conn ->
-        ensureWorkTable(conn)
-        runs.forEach { run ->
-            require(columnExists(conn, runLevelColumn(run))) { "Missing run column ${runLevelColumn(run)}. Execute step2 for run '$run'." }
-            require(columnExists(conn, runConfidenceColumn(run))) { "Missing run column ${runConfidenceColumn(run)}. Execute step2 for run '$run'." }
-        }
+    var outlierCount = 0
 
-        val selectDynamic = runs.joinToString(", ") { run ->
-            "${quotedIdent(runLevelColumn(run))} AS ${quotedIdent(runLevelColumn(run))}, " +
-                "${quotedIdent(runConfidenceColumn(run))} AS ${quotedIdent(runConfidenceColumn(run))}"
-        }
+    writeCsv(outputCsvPath, COMPARISON_CSV_HEADERS) { comparisonWriter ->
+        writeCsv(outliersCsvPath, OUTLIERS_CSV_HEADERS) { outlierWriter ->
+            for (base in baseRows) {
+                val a = runA[base.wordId]
+                val b = runB[base.wordId]
 
-        val sql = "SELECT word_id, word, type, $selectDynamic FROM word_rarity_work ORDER BY word_id"
+                val levels = listOfNotNull(a?.rarityLevel, b?.rarityLevel)
+                val medianLevel = if (levels.isEmpty()) FALLBACK_RARITY_LEVEL else median(levels)
+                val spread = if (levels.size < 2) 0 else levels.max() - levels.min()
+                val lowConfidence = listOfNotNull(a?.confidence, b?.confidence).any { it < confidenceThreshold }
+                val isOutlier = levels.size >= 2 && (spread >= outlierThreshold || lowConfidence)
 
-        val comparisonHeaders = buildList {
-            addAll(listOf("word_id", "word", "type"))
-            runs.forEach { run ->
-                add(runLevelColumn(run))
-                add(runConfidenceColumn(run))
-            }
-            addAll(listOf("median_level", "spread", "is_outlier", "reason"))
-        }
+                val reasons = mutableListOf<String>()
+                if (spread >= outlierThreshold) reasons.add("spread>=$outlierThreshold")
+                if (lowConfidence) reasons.add("low_confidence<$confidenceThreshold")
+                val reason = reasons.joinToString(";")
 
-        var outlierCount = 0
+                comparisonWriter.writeCsvRow(
+                    listOf(
+                        base.wordId.toString(),
+                        base.word,
+                        base.type,
+                        a?.rarityLevel?.toString().orEmpty(),
+                        a?.confidence?.toString().orEmpty(),
+                        b?.rarityLevel?.toString().orEmpty(),
+                        b?.confidence?.toString().orEmpty(),
+                        medianLevel.toString(),
+                        spread.toString(),
+                        isOutlier.toString(),
+                        reason,
+                        medianLevel.toString()
+                    )
+                )
 
-        conn.createStatement().use { stmt ->
-            stmt.executeQuery(sql).use { rs ->
-                writeCsv(comparisonPath, comparisonHeaders) { comparisonWriter ->
-                    writeCsv(
-                        outliersPath,
-                        listOf("word_id", "word", "type", "median_level", "spread", "reason")
-                    ) { outlierWriter ->
-                        while (rs.next()) {
-                            val levels = mutableMapOf<String, Int?>()
-                            val confidences = mutableMapOf<String, Double?>()
-
-                            runs.forEach { run ->
-                                levels[run] = rs.getNullableInt(runLevelColumn(run))
-                                confidences[run] = rs.getNullableDouble(runConfidenceColumn(run))
-                            }
-
-                            val availableLevels = levels.values.filterNotNull()
-                            val medianLevel = if (availableLevels.isEmpty()) FALLBACK_RARITY_LEVEL else median(availableLevels)
-                            val spread = if (availableLevels.size < 2) 0 else availableLevels.max() - availableLevels.min()
-                            val lowConfidence = confidences.values.filterNotNull().any { it < confidenceThreshold }
-                            val isOutlier = availableLevels.size >= 2 && (spread >= outlierThreshold || lowConfidence)
-
-                            val reasons = mutableListOf<String>()
-                            if (spread >= outlierThreshold) reasons.add("spread>=$outlierThreshold")
-                            if (lowConfidence) reasons.add("low_confidence<$confidenceThreshold")
-                            val reason = reasons.joinToString(";")
-
-                            val row = buildList {
-                                add(rs.getInt("word_id").toString())
-                                add(rs.getString("word"))
-                                add(rs.getString("type"))
-                                runs.forEach { run ->
-                                    add(levels[run]?.toString() ?: "")
-                                    add(confidences[run]?.toString() ?: "")
-                                }
-                                add(medianLevel.toString())
-                                add(spread.toString())
-                                add(isOutlier.toString())
-                                add(reason)
-                            }
-
-                            comparisonWriter.writeCsvRow(row)
-
-                            if (isOutlier) {
-                                outlierCount++
-                                outlierWriter.writeCsvRow(
-                                    listOf(
-                                        rs.getInt("word_id").toString(),
-                                        rs.getString("word"),
-                                        rs.getString("type"),
-                                        medianLevel.toString(),
-                                        spread.toString(),
-                                        reason
-                                    )
-                                )
-                            }
-                        }
-                    }
+                if (isOutlier) {
+                    outlierCount++
+                    outlierWriter.writeCsvRow(
+                        listOf(
+                            base.wordId.toString(),
+                            base.word,
+                            base.type,
+                            a?.rarityLevel?.toString().orEmpty(),
+                            b?.rarityLevel?.toString().orEmpty(),
+                            spread.toString(),
+                            reason
+                        )
+                    )
                 }
             }
         }
-
-        println("Step 3 complete. Outliers=$outlierCount")
-        println("Comparison: ${comparisonPath.toAbsolutePath()}")
-        println("Outliers: ${outliersPath.toAbsolutePath()}")
     }
+
+    println("Step 3 complete. Outliers=$outlierCount")
+    println("Comparison: ${outputCsvPath.toAbsolutePath()}")
+    println("Outliers: ${outliersCsvPath.toAbsolutePath()}")
 }
 
 private fun step4Upload(options: Map<String, String>) {
-    val runs = requiredOption(options, "runs").split(',').map { sanitizeRunSlug(it.trim()) }.filter { it.isNotBlank() }
-    require(runs.isNotEmpty()) { "--runs must contain at least one run slug" }
+    val finalCsvPath = Paths.get(requiredOption(options, "final-csv"))
+    val finalLevels = loadFinalLevels(finalCsvPath)
 
     val outputDir = ensureRarityOutputDir()
     val reportPath = outputDir.resolve("step4_upload_report.csv")
 
     withConnection { conn ->
-        ensureWorkTable(conn)
-        runs.forEach { run ->
-            require(columnExists(conn, runLevelColumn(run))) { "Missing run column ${runLevelColumn(run)}. Execute step2 for run '$run'." }
-        }
-
-        val selectDynamic = runs.joinToString(", ") { run ->
-            "wrw.${quotedIdent(runLevelColumn(run))} AS ${quotedIdent(runLevelColumn(run))}"
-        }
-
-        val sql =
-            "SELECT w.id AS word_id, w.word, w.type, w.rarity_level AS current_level, $selectDynamic " +
-                "FROM words w LEFT JOIN word_rarity_work wrw ON wrw.word_id = w.id ORDER BY w.id"
-
         conn.autoCommit = false
         try {
             val updateStmt = conn.prepareStatement("UPDATE words SET rarity_level=? WHERE id=?")
-
             var updated = 0
-            writeCsv(
-                reportPath,
-                listOf("word_id", "word", "type", "current_level", "new_level", "runs_used")
-            ) { writer ->
+
+            writeCsv(reportPath, UPLOAD_REPORT_HEADERS) { writer ->
                 conn.createStatement().use { stmt ->
-                    stmt.executeQuery(sql).use { rs ->
+                    stmt.executeQuery("SELECT id, rarity_level FROM words ORDER BY id").use { rs ->
                         while (rs.next()) {
-                            val levels = runs.mapNotNull { run -> rs.getNullableInt(runLevelColumn(run)) }
-                            val newLevel = if (levels.isEmpty()) FALLBACK_RARITY_LEVEL else median(levels)
-                            val currentLevel = rs.getInt("current_level")
+                            val wordId = rs.getInt("id")
+                            val previousLevel = rs.getInt("rarity_level")
+                            val newLevel = finalLevels[wordId] ?: FALLBACK_RARITY_LEVEL
+                            val source = if (finalLevels.containsKey(wordId)) "final_csv" else "fallback_4"
 
                             updateStmt.setInt(1, newLevel)
-                            updateStmt.setInt(2, rs.getInt("word_id"))
+                            updateStmt.setInt(2, wordId)
                             updateStmt.addBatch()
                             updated++
 
                             writer.writeCsvRow(
                                 listOf(
-                                    rs.getInt("word_id").toString(),
-                                    rs.getString("word"),
-                                    rs.getString("type"),
-                                    currentLevel.toString(),
+                                    wordId.toString(),
+                                    previousLevel.toString(),
                                     newLevel.toString(),
-                                    levels.size.toString()
+                                    source
                                 )
                             )
                         }
@@ -387,41 +386,8 @@ private fun step4Upload(options: Map<String, String>) {
     }
 }
 
-private fun fetchPendingWords(
-    conn: Connection,
-    levelColumn: String,
-    inputPath: Path?,
-    limit: Int?
-): List<WordRow> {
-    val idsFilter = inputPath?.let { loadWordIdsFromCsv(it) } ?: emptySet()
-    val sql = buildString {
-        append("SELECT word_id, word, type FROM word_rarity_work WHERE ")
-        append(quotedIdent(levelColumn))
-        append(" IS NULL ORDER BY word_id")
-    }
-
-    val rows = mutableListOf<WordRow>()
-    conn.createStatement().use { stmt ->
-        stmt.executeQuery(sql).use { rs ->
-            while (rs.next()) {
-                val row = WordRow(
-                    wordId = rs.getInt("word_id"),
-                    word = rs.getString("word"),
-                    type = rs.getString("type")
-                )
-                if (idsFilter.isEmpty() || idsFilter.contains(row.wordId)) {
-                    rows.add(row)
-                    if (limit != null && rows.size >= limit) break
-                }
-            }
-        }
-    }
-
-    return rows
-}
-
 private fun scoreBatchResilient(
-    batch: List<WordRow>,
+    batch: List<BaseWordRow>,
     runSlug: String,
     model: String,
     endpoint: String,
@@ -497,7 +463,7 @@ private fun scoreBatchResilient(
 }
 
 private fun tryScoreBatch(
-    batch: List<WordRow>,
+    batch: List<BaseWordRow>,
     runSlug: String,
     model: String,
     endpoint: String,
@@ -565,7 +531,7 @@ private fun tryScoreBatch(
     return null
 }
 
-private fun buildLmRequest(model: String, batch: List<WordRow>, systemPrompt: String, userTemplate: String): String {
+private fun buildLmRequest(model: String, batch: List<BaseWordRow>, systemPrompt: String, userTemplate: String): String {
     val entriesJson = mapper.writeValueAsString(batch.map { mapOf("word" to it.word, "type" to it.type) })
     val userPrompt = if (userTemplate.contains(USER_INPUT_PLACEHOLDER)) {
         userTemplate.replace(USER_INPUT_PLACEHOLDER, entriesJson)
@@ -586,7 +552,7 @@ private fun buildLmRequest(model: String, batch: List<WordRow>, systemPrompt: St
     return mapper.writeValueAsString(payload)
 }
 
-private fun parseLmResponse(batch: List<WordRow>, responseBody: String): List<ScoreResult> {
+private fun parseLmResponse(batch: List<BaseWordRow>, responseBody: String): List<ScoreResult> {
     val root = mapper.readTree(responseBody)
     val content = root.path("choices").path(0).path("message").path("content").asText(null)
         ?: throw IllegalStateException("LMStudio response missing choices[0].message.content")
@@ -600,14 +566,10 @@ private fun parseLmResponse(batch: List<WordRow>, responseBody: String): List<Sc
         throw IllegalStateException("Result size mismatch: expected ${batch.size}, got ${results.size()}")
     }
 
-    val parsed = mutableListOf<ScoreResult>()
-    results.forEachIndexed { index, node ->
-        parsed.add(parseScoreNode(batch[index], node))
-    }
-    return parsed
+    return results.mapIndexed { index, node -> parseScoreNode(batch[index], node) }
 }
 
-private fun parseScoreNode(expected: WordRow, node: JsonNode): ScoreResult {
+private fun parseScoreNode(expected: BaseWordRow, node: JsonNode): ScoreResult {
     val word = node.path("word").asText("")
     val type = node.path("type").asText("")
     val rarity = node.path("rarity_level").asInt(-1)
@@ -615,7 +577,9 @@ private fun parseScoreNode(expected: WordRow, node: JsonNode): ScoreResult {
     val confidence = node.path("confidence").asDouble(Double.NaN)
 
     if (word != expected.word || type != expected.type) {
-        throw IllegalStateException("Result order/content mismatch for word_id=${expected.wordId}: expected ${expected.word}/${expected.type}, got $word/$type")
+        throw IllegalStateException(
+            "Result order/content mismatch for word_id=${expected.wordId}: expected ${expected.word}/${expected.type}, got $word/$type"
+        )
     }
     if (rarity !in 1..5) {
         throw IllegalStateException("Invalid rarity_level '$rarity' for word '${expected.word}'")
@@ -634,26 +598,189 @@ private fun parseScoreNode(expected: WordRow, node: JsonNode): ScoreResult {
     )
 }
 
-private fun persistScores(conn: Connection, runSlug: String, scores: List<ScoreResult>) {
-    if (scores.isEmpty()) return
+private fun loadBaseCsv(path: Path): List<BaseWordRow> {
+    val (headers, rows) = readCsv(path)
+    requireColumns(path, headers, BASE_CSV_HEADERS)
 
-    val levelCol = quotedIdent(runLevelColumn(runSlug))
-    val tagCol = quotedIdent(runTagColumn(runSlug))
-    val confidenceCol = quotedIdent(runConfidenceColumn(runSlug))
-    val scoredAtCol = quotedIdent(runScoredAtColumn(runSlug))
+    return rows.mapNotNull { row ->
+        val wordId = row["word_id"]?.toIntOrNull() ?: return@mapNotNull null
+        val word = row["word"].orEmpty()
+        val type = row["type"].orEmpty()
+        if (word.isBlank() || type.isBlank()) return@mapNotNull null
+        BaseWordRow(wordId, word, type)
+    }.sortedBy { it.wordId }
+}
 
-    val sql =
-        "UPDATE word_rarity_work SET $levelCol=?, $tagCol=?, $confidenceCol=?, $scoredAtCol=NOW() WHERE word_id=?"
+private fun loadRunCsv(path: Path): List<RunCsvRow> {
+    if (!Files.exists(path)) return emptyList()
 
-    conn.prepareStatement(sql).use { stmt ->
-        scores.forEach { score ->
-            stmt.setInt(1, score.rarityLevel)
-            stmt.setString(2, score.tag)
-            stmt.setDouble(3, score.confidence)
-            stmt.setInt(4, score.wordId)
-            stmt.addBatch()
+    val (headers, rows) = readCsv(path)
+    requireColumns(path, headers, RUN_CSV_HEADERS)
+
+    // Last occurrence for the same word_id wins.
+    val map = linkedMapOf<Int, RunCsvRow>()
+    rows.forEach { row ->
+        val wordId = row["word_id"]?.toIntOrNull() ?: return@forEach
+        val rarityLevel = row["rarity_level"]?.toIntOrNull() ?: return@forEach
+        val confidence = row["confidence"]?.toDoubleOrNull() ?: return@forEach
+        val word = row["word"].orEmpty()
+        val type = row["type"].orEmpty()
+        val tag = row["tag"].orEmpty()
+        val scoredAt = row["scored_at"].orEmpty()
+        val model = row["model"].orEmpty()
+        val runSlug = row["run_slug"].orEmpty()
+
+        if (word.isBlank() || type.isBlank()) return@forEach
+        if (rarityLevel !in 1..5) return@forEach
+        if (confidence < 0.0 || confidence > 1.0) return@forEach
+
+        map[wordId] = RunCsvRow(
+            wordId = wordId,
+            word = word,
+            type = type,
+            rarityLevel = rarityLevel,
+            tag = tag,
+            confidence = confidence,
+            scoredAt = scoredAt,
+            model = model,
+            runSlug = runSlug
+        )
+    }
+
+    return map.values.toList().sortedBy { it.wordId }
+}
+
+private fun appendRunCsvRows(path: Path, rows: List<RunCsvRow>) {
+    if (rows.isEmpty()) return
+
+    ensureParentDir(path)
+    val fileExists = Files.exists(path)
+    Files.newBufferedWriter(
+        path,
+        java.nio.file.StandardOpenOption.CREATE,
+        java.nio.file.StandardOpenOption.APPEND
+    ).use { writer ->
+        if (!fileExists) {
+            writer.writeCsvRow(RUN_CSV_HEADERS)
         }
-        stmt.executeBatch()
+        rows.forEach { row ->
+            writer.writeCsvRow(
+                listOf(
+                    row.wordId.toString(),
+                    row.word,
+                    row.type,
+                    row.rarityLevel.toString(),
+                    row.tag,
+                    row.confidence.toString(),
+                    row.scoredAt,
+                    row.model,
+                    row.runSlug
+                )
+            )
+        }
+    }
+}
+
+private fun rewriteRunCsv(path: Path, rows: List<RunCsvRow>) {
+    writeCsv(path, RUN_CSV_HEADERS) { writer ->
+        rows.sortedBy { it.wordId }.forEach { row ->
+            writer.writeCsvRow(
+                listOf(
+                    row.wordId.toString(),
+                    row.word,
+                    row.type,
+                    row.rarityLevel.toString(),
+                    row.tag,
+                    row.confidence.toString(),
+                    row.scoredAt,
+                    row.model,
+                    row.runSlug
+                )
+            )
+        }
+    }
+}
+
+private fun loadFinalLevels(path: Path): Map<Int, Int> {
+    val (headers, rows) = readCsv(path)
+    require(headers.contains("word_id")) { "CSV ${path.toAbsolutePath()} is missing required column 'word_id'" }
+
+    val levelColumn = when {
+        headers.contains("final_level") -> "final_level"
+        headers.contains("rarity_level") -> "rarity_level"
+        headers.contains("median_level") -> "median_level"
+        else -> error("CSV ${path.toAbsolutePath()} must contain one of: final_level, rarity_level, median_level")
+    }
+
+    val map = mutableMapOf<Int, Int>()
+    rows.forEach { row ->
+        val wordId = row["word_id"]?.toIntOrNull() ?: return@forEach
+        val level = row[levelColumn]?.toIntOrNull() ?: return@forEach
+        if (level in 1..5) {
+            map[wordId] = level
+        }
+    }
+    return map
+}
+
+private fun readCsv(path: Path): Pair<List<String>, List<Map<String, String>>> {
+    require(Files.exists(path)) { "CSV file not found: ${path.toAbsolutePath()}" }
+    val lines = Files.readAllLines(path)
+    require(lines.isNotEmpty()) { "CSV file is empty: ${path.toAbsolutePath()}" }
+
+    val headers = parseCsvLine(lines.first())
+    val rows = lines.drop(1)
+        .filter { it.isNotBlank() }
+        .map { line ->
+            val values = parseCsvLine(line)
+            headers.mapIndexed { index, header ->
+                header to (values.getOrElse(index) { "" })
+            }.toMap()
+        }
+
+    return headers to rows
+}
+
+private fun parseCsvLine(line: String): List<String> {
+    val out = mutableListOf<String>()
+    val cell = StringBuilder()
+    var inQuotes = false
+    var i = 0
+
+    while (i < line.length) {
+        val c = line[i]
+        when {
+            c == '"' && inQuotes && i + 1 < line.length && line[i + 1] == '"' -> {
+                cell.append('"')
+                i += 2
+            }
+
+            c == '"' -> {
+                inQuotes = !inQuotes
+                i++
+            }
+
+            c == ',' && !inQuotes -> {
+                out.add(cell.toString())
+                cell.setLength(0)
+                i++
+            }
+
+            else -> {
+                cell.append(c)
+                i++
+            }
+        }
+    }
+
+    out.add(cell.toString())
+    return out
+}
+
+private fun requireColumns(path: Path, headers: List<String>, required: List<String>) {
+    val missing = required.filterNot { headers.contains(it) }
+    require(missing.isEmpty()) {
+        "CSV ${path.toAbsolutePath()} is missing required columns: ${missing.joinToString(", ")}"
     }
 }
 
@@ -679,89 +806,6 @@ private fun median(values: List<Int>): Int {
     }
 }
 
-private fun runLevelColumn(runSlug: String) = "run_${runSlug}_level"
-private fun runTagColumn(runSlug: String) = "run_${runSlug}_tag"
-private fun runConfidenceColumn(runSlug: String) = "run_${runSlug}_confidence"
-private fun runScoredAtColumn(runSlug: String) = "run_${runSlug}_scored_at"
-
-private fun ensureWorkTable(conn: Connection) {
-    conn.createStatement().use { stmt ->
-        stmt.execute(
-            """
-            CREATE TABLE IF NOT EXISTS word_rarity_work (
-                word_id INTEGER PRIMARY KEY,
-                word VARCHAR(50) NOT NULL,
-                type CHAR(1) NOT NULL,
-                exported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-            """.trimIndent()
-        )
-    }
-}
-
-private fun ensureRunColumns(conn: Connection, runSlug: String) {
-    val levelCol = quotedIdent(runLevelColumn(runSlug))
-    val tagCol = quotedIdent(runTagColumn(runSlug))
-    val confidenceCol = quotedIdent(runConfidenceColumn(runSlug))
-    val scoredAtCol = quotedIdent(runScoredAtColumn(runSlug))
-
-    conn.createStatement().use { stmt ->
-        stmt.execute("ALTER TABLE word_rarity_work ADD COLUMN IF NOT EXISTS $levelCol SMALLINT CHECK ($levelCol BETWEEN 1 AND 5)")
-        stmt.execute("ALTER TABLE word_rarity_work ADD COLUMN IF NOT EXISTS $tagCol VARCHAR(16)")
-        stmt.execute("ALTER TABLE word_rarity_work ADD COLUMN IF NOT EXISTS $confidenceCol REAL")
-        stmt.execute("ALTER TABLE word_rarity_work ADD COLUMN IF NOT EXISTS $scoredAtCol TIMESTAMPTZ")
-    }
-}
-
-private fun quotedIdent(identifier: String): String = "\"${identifier.replace("\"", "\"\"")}\""
-
-private fun columnExists(conn: Connection, columnName: String): Boolean {
-    conn.prepareStatement(
-        "SELECT 1 FROM information_schema.columns WHERE table_name='word_rarity_work' AND column_name=? LIMIT 1"
-    ).use { stmt ->
-        stmt.setString(1, columnName)
-        stmt.executeQuery().use { rs ->
-            return rs.next()
-        }
-    }
-}
-
-private fun appendJsonLine(path: Path, payload: Any) {
-    val line = mapper.writeValueAsString(payload) + "\n"
-    Files.writeString(path, line, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)
-}
-
-private fun appendRunScoresCsv(path: Path, scores: List<ScoreResult>) {
-    if (scores.isEmpty()) return
-
-    Files.createDirectories(path.parent)
-    val needsHeader = !Files.exists(path)
-    val scoredAt = OffsetDateTime.now().toString()
-
-    Files.newBufferedWriter(
-        path,
-        java.nio.file.StandardOpenOption.CREATE,
-        java.nio.file.StandardOpenOption.APPEND
-    ).use { writer ->
-        if (needsHeader) {
-            writer.writeCsvRow(listOf("word_id", "word", "type", "rarity_level", "tag", "confidence", "scored_at"))
-        }
-        scores.forEach { score ->
-            writer.writeCsvRow(
-                listOf(
-                    score.wordId.toString(),
-                    score.word,
-                    score.type,
-                    score.rarityLevel.toString(),
-                    score.tag,
-                    score.confidence.toString(),
-                    scoredAt
-                )
-            )
-        }
-    }
-}
-
 private fun loadPrompt(filePath: String?, fallback: String): String {
     if (filePath.isNullOrBlank()) return fallback
     val path = Paths.get(filePath)
@@ -769,8 +813,14 @@ private fun loadPrompt(filePath: String?, fallback: String): String {
     return Files.readString(path).trim().ifBlank { fallback }
 }
 
+private fun appendJsonLine(path: Path, payload: Any) {
+    ensureParentDir(path)
+    val line = mapper.writeValueAsString(payload) + "\n"
+    Files.writeString(path, line, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)
+}
+
 private fun writeCsv(path: Path, headers: List<String>, block: (java.io.BufferedWriter) -> Unit) {
-    Files.createDirectories(path.parent)
+    ensureParentDir(path)
     Files.newBufferedWriter(path).use { writer ->
         writer.writeCsvRow(headers)
         block(writer)
@@ -787,33 +837,8 @@ private fun csvEscape(value: String): String {
     return "\"$escaped\""
 }
 
-private fun loadWordIdsFromCsv(path: Path): Set<Int> {
-    if (!Files.exists(path)) return emptySet()
-
-    val lines = Files.readAllLines(path)
-    if (lines.isEmpty()) return emptySet()
-
-    val header = lines.first().split(',').map { it.trim().trim('"') }
-    val idIndex = header.indexOf("word_id")
-    if (idIndex == -1) return emptySet()
-
-    return lines.drop(1)
-        .mapNotNull { line ->
-            val cols = line.split(',')
-            if (cols.size <= idIndex) return@mapNotNull null
-            cols[idIndex].trim().trim('"').toIntOrNull()
-        }
-        .toSet()
-}
-
-private fun ResultSet.getNullableInt(column: String): Int? {
-    val value = getInt(column)
-    return if (wasNull()) null else value
-}
-
-private fun ResultSet.getNullableDouble(column: String): Double? {
-    val value = getDouble(column)
-    return if (wasNull()) null else value
+private fun ensureParentDir(path: Path) {
+    path.parent?.let { Files.createDirectories(it) }
 }
 
 private fun ensureRarityOutputDir(): Path {
@@ -822,7 +847,7 @@ private fun ensureRarityOutputDir(): Path {
     return outputDir
 }
 
-private inline fun withConnection(block: (Connection) -> Unit) {
+private inline fun withConnection(block: (java.sql.Connection) -> Unit) {
     val dbUrl = System.getenv("SUPABASE_DB_URL") ?: "jdbc:postgresql://localhost:5432/postgres"
     val dbUser = System.getenv("SUPABASE_DB_USER") ?: "postgres"
     val dbPassword = System.getenv("SUPABASE_DB_PASSWORD") ?: ""

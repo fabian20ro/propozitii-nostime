@@ -50,10 +50,10 @@ Pipeline:
 
 File: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
 
-- Step 1: export words into `word_rarity_work` + CSV snapshot
-- Step 2: score with LMStudio runs, resumable per run column set
-- Step 3: compare runs, compute median, detect outliers
-- Step 4: upload final rarity levels into `words.rarity_level`
+- Step 1: export words from `words` table to local `step1_words.csv`
+- Step 2: score with LMStudio into local run CSVs (resumable by `word_id`)
+- Step 3: compare run CSVs locally, compute median/outliers/final level
+- Step 4: upload final CSV levels into `words.rarity_level` (fallback 4)
 
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 
