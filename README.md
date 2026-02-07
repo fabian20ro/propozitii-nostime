@@ -42,7 +42,6 @@ The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take
 - Java 21 (e.g., `brew install --cask temurin@21`)
 - Gradle 8.11 (wrapper included)
 - Docker (for running integration tests via Testcontainers)
-- Supabase project with the `words` table populated
 
 ### First-time setup
 
@@ -51,7 +50,7 @@ The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take
 git config core.hooksPath .githooks
 ```
 
-### Environment variables
+### Environment variables (production-like runs only)
 
 ```bash
 export SUPABASE_DB_URL=jdbc:postgresql://db.<project-ref>.supabase.co:5432/postgres
@@ -59,10 +58,15 @@ export SUPABASE_DB_USER=postgres
 export SUPABASE_DB_PASSWORD=<your-password>
 ```
 
+In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, so these variables are usually not required.
+
 ### Loading the dictionary
 
 ```bash
-# Download and load dictionary into Supabase (one-time setup)
+# Download dictionary file (once)
+./gradlew downloadDictionary
+
+# Load dictionary into a target PostgreSQL (one-time setup per DB)
 ./gradlew loadDictionary
 ```
 
@@ -80,6 +84,12 @@ export SUPABASE_DB_PASSWORD=<your-password>
 ```bash
 ./gradlew test
 ```
+
+## Developer Onboarding Docs
+
+- Agent operating guide: `AGENTS.md`
+- New contributor ramp-up: `docs/ONBOARDING.md`
+- Codemap index: `docs/CODEMAPS/README.md`
 
 ### Building
 
@@ -100,7 +110,7 @@ propozitii-nostime/
 │   ├── decorators/                  # Sentence decorators (links, formatting)
 │   └── tools/                       # LoadDictionary data loader
 ├── frontend/                        # Static frontend for GitHub Pages
-├── Dockerfile                       # GraalVM native multi-stage build
+├── Dockerfile                       # JVM uber-jar multi-stage build
 ├── render.yaml                      # Render deployment config
 └── .github/workflows/               # CI/CD pipelines
 ```
@@ -109,7 +119,7 @@ propozitii-nostime/
 
 Schema is defined by [Flyway](https://flywaydb.org/) migrations in `src/main/resources/db/migration/`. Flyway runs automatically in dev/test but is **disabled in production** (`%prod.quarkus.flyway.migrate-at-start=false`). Schema changes must be applied manually to Supabase.
 
-Indexes on `(type)`, `(type, rhyme)`, `(type, syllables)`, `(type, first_letter)`, `(type, rhyme, syllables)`, and `(type, articulated_syllables)`.
+Indexes on `(type)`, `(type, syllables)`, `(type, first_letter)`, `(type, rhyme, syllables)`, and `(type, articulated_syllables)`.
 
 ## Acknowledgements
 

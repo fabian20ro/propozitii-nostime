@@ -1,58 +1,92 @@
 # Frontend Codemap
 
-> Freshness: 2026-02-01 | 3 files, ~845 lines
+Freshness: 2026-02-06
 
-## Files
+## File Map
 
-- `frontend/index.html` (113 lines) -- Single-page app with 6 card sections + draggable dexonline drawer
-- `frontend/app.js` (372 lines) -- API calls, cold-start handling, sanitization, theme, draggable drawer
-- `frontend/style.css` (360 lines) -- Responsive grid, dark mode, draggable bottom drawer styles
+- Markup: `frontend/index.html`
+- Logic: `frontend/app.js`
+- Styles: `frontend/style.css`
 
-## HTML Structure
+## UI Structure
 
-```
-<body>
-  <button>   Dark mode toggle (fixed top-right)
-  <main>     6x <section class="card"> (haiku, couplet, comparison, definition, tautogram, mirror)
-  <footer>   GitHub badge + tech stack credits
-  <div#dex-drawer>  Draggable bottom sheet drawer (panel with drag handle + header + iframe)
-```
+`index.html` renders:
+- theme toggle button
+- 6 sentence cards (`haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`)
+- refresh button
+- status/error message area
+- dexonline drawer (bottom sheet with iframe)
 
-CSP: `script-src 'self'`; `frame-src https://dexonline.ro`; `connect-src https://propozitii-nostime.onrender.com`; `object-src 'none'`; `base-uri 'self'`; `form-action 'none'`
-Iframe: `sandbox="allow-scripts allow-same-origin"`
+## Data Flow
 
-## app.js Key Functions
+1. `refresh()` is called on initial page load and refresh-button clicks.
+2. Main request: `fetchAllSentences()` -> `GET /api/all`.
+3. On fetch failure: show info state, poll `/q/health` for up to 60s (`waitForBackend()`), retry once.
+4. Success path: `applySentences(data)` sanitizes each field and writes to DOM.
 
-| Function | Purpose |
-|----------|---------|
-| `initTheme()` / `toggleTheme()` | Dark mode via `data-theme` + localStorage |
-| `sanitizeHtml(html)` | Allowlist sanitizer: `<a>`, `<div>`, `<br>`, `<span>`; href validated via URL parsing (only `https://dexonline.ro` allowed) |
-| `checkHealth()` | Pings `/q/health` with 5s timeout |
-| `waitForBackend()` | Polls health 12x (60s total) for Render.com cold starts |
-| `fetchSentence(endpoint)` | GET + validate + sanitize |
-| `fetchAllSentences()` | Single `GET /api/all` request returning all 6 sentences |
-| `applySentences(data)` | Sanitize + render all sentences into DOM |
-| `refresh()` | Fetch via `/api/all` -> on failure, wait for backend cold start -> retry once |
-| `initDexonlineDrawer()` | Draggable bottom sheet drawer for word definitions (see below) |
+## Security/Sanitization Contract
 
-## Dexonline Drawer
+Function: `sanitizeHtml(html)`
 
-Click-based, draggable bottom sheet replacing the old hover popup. Unified behavior for desktop and mobile:
+Allowed tags: `A`, `DIV`, `BR`, `SPAN`
+Allowed attributes: `href`, `target`, `rel`, `class`, `data-word`
 
-- **First click** on a word → opens drawer with dexonline.ro iframe
-- **Second click** on the same word → navigates to dexonline.ro in a new tab
-- **Click different word** → switches drawer content
-- **Close**: click outside panel, x button, or Escape key
-- **Drag to resize**: drag the header bar up/down to adjust height (pointer events with `setPointerCapture` for mouse+touch)
-- **Persistent height**: drawer height saved to localStorage (`dex-drawer-height`) and restored on next open
-- **Height limits**: clamped between 20vh and 90vh; defaults to 50vh on first use
-- **Visual drag handle**: small horizontal bar (`span.dex-drawer-handle`) at the top of the panel as affordance
-- **Iframe scroll offset**: `margin-top: -300px` on the iframe to skip dexonline.ro site header/navigation and show definitions directly
-- Focus management: moves focus to close button on open, restores to trigger link on close
+`href` is validated using `URL` parsing and must be:
+- protocol `https:`
+- hostname `dexonline.ro`
 
-## Config
+Any non-allowed tags/attrs are removed before rendering.
 
-```js
-API_BASE = 'https://propozitii-nostime.onrender.com/api'
-HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health'
-```
+## Backend Coupling Points
+
+Hardcoded API endpoints:
+- `API_BASE = https://propozitii-nostime.onrender.com/api`
+- `HEALTH_URL = https://propozitii-nostime.onrender.com/q/health`
+
+Response field mapping:
+- `FIELD_MAP` expects keys: `haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`
+
+If backend adds/removes sentence types, update both:
+- `FIELD_MAP` in `app.js`
+- corresponding card markup in `index.html`
+
+## Dexonline Drawer Behavior
+
+`initDexonlineDrawer()` features:
+- first click on a linked word opens drawer with iframe definition
+- second click on same word opens dexonline in new tab and closes drawer
+- drag header to resize drawer height (20vh..90vh)
+- store height in localStorage (`dex-drawer-height`)
+- close via X button or Escape
+
+## Styling Notes
+
+- Theme variables live under `:root` and `[data-theme="dark"]`.
+- Layout uses responsive CSS grid (1/2/3 columns at breakpoints).
+- Drawer is a fixed bottom sheet; visible state toggled by `.dex-drawer-hidden`.
+
+## Common Frontend Changes
+
+### Add new sentence card
+
+1. Add card section in `index.html`.
+2. Add new field in `FIELD_MAP`.
+3. Ensure backend `/api/all` includes matching key.
+
+### Change backend anchor attributes
+
+1. Update backend `DexonlineLinkAdder`.
+2. Update frontend `sanitizeHtml` allowlist to keep required attrs.
+3. Verify no unsafe URL path is introduced.
+
+### Improve cold-start UX
+
+Update:
+- retry limits/timeouts (`MAX_RETRIES`, `RETRY_DELAY`, `HEALTH_TIMEOUT`)
+- user-facing messages in `refresh()` / `waitForBackend()`
+
+## High-Risk Areas
+
+- Writing unsanitized backend HTML directly to `innerHTML`.
+- Broadening sanitizer URL policy beyond trusted dexonline domain.
+- Breaking `FIELD_MAP` alignment with backend `/api/all` response.
