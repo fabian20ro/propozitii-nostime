@@ -43,6 +43,8 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
 - DB access + startup caches: `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 - Word model + morphology/syllables: `src/main/kotlin/scrabble/phrases/words/`
 - Dictionary loader CLI: `src/main/kotlin/scrabble/phrases/tools/LoadDictionary.kt`
+- Rarity pipeline entrypoint: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
+- Rarity pipeline modules: `src/main/kotlin/scrabble/phrases/tools/rarity/`
 - Frontend app:
   - `frontend/index.html`
   - `frontend/app.js`
@@ -73,6 +75,11 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - Dev/test: migrations auto-run.
    - Prod (`%prod`): auto-migration is off; schema changes are manual.
    - Never edit already-applied migration files for production history; add a new `V*.sql` migration.
+
+6. **Rarity contracts:**
+   - Public query parameter is `rarity` (`1..5`, default `2`) on sentence endpoints.
+   - Step 2 is CSV-only and must keep exclusive file lock + guarded final rewrite.
+   - Step 4 default upload mode is `partial`; global fallback writes must require explicit `--mode full-fallback`.
 
 ## How To Add A New Sentence Type
 

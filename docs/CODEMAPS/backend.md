@@ -1,6 +1,6 @@
 # Backend Codemap
 
-Freshness: 2026-02-06
+Freshness: 2026-02-07
 
 ## Entry Points
 
@@ -21,8 +21,8 @@ Freshness: 2026-02-06
 | `/api/mirror` | `MirrorProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 4 lines, ABBA rhyme by verb endings |
 | `/api/all` | Aggregates above | N/A | frontend's main fetch path |
 
-All sentence endpoints accept optional `strangeness=1..5` (default `2`).
-If constraints are impossible at low strangeness, endpoints return a placeholder sentence with HTTP 200.
+All sentence endpoints accept optional `rarity=1..5` (default `2`).
+If constraints are impossible at low rarity, endpoints return a placeholder sentence with HTTP 200.
 
 ## Provider Responsibilities
 
@@ -69,6 +69,32 @@ File: `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 - With exclusions: uses `NOT IN (...) ORDER BY RANDOM() LIMIT 1`.
 - Mapping methods build `Noun`, `Adjective`, `Verb` domain objects directly.
 
+## Rarity Tooling Map
+
+Entry point:
+- `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
+
+Modular implementation:
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RarityCli.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep1Exporter.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep2Scorer.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep3Comparator.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep4Uploader.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioClient.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RunCsvRepository.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/UploadMarkerWriter.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RunLockManager.kt`
+
+Step behavior:
+- Step 1/4 touch DB.
+- Step 2/3 are local CSV-only.
+- Step 4 default mode is `partial`; legacy global fallback writes require `--mode full-fallback`.
+
+Step 2 safety:
+- exclusive file lock on output CSV
+- guarded atomic rewrite (merge latest disk + memory, then shrink checks)
+- strict CSV parse (malformed rows fail; no silent skip)
+
 ## Domain Word Model
 
 Folder: `src/main/kotlin/scrabble/phrases/words/`
@@ -101,6 +127,7 @@ Folder: `src/main/kotlin/scrabble/phrases/words/`
 - Integration: `src/test/kotlin/scrabble/phrases/PhraseResourceTest.kt`
 - Decorator unit tests: `src/test/kotlin/scrabble/phrases/decorators/DecoratorTest.kt`
 - Morphology/utils tests: `src/test/kotlin/scrabble/phrases/words/`
+- Rarity tooling unit/regression tests: `src/test/kotlin/scrabble/phrases/tools/rarity/`
 
 ## High-Risk Areas
 

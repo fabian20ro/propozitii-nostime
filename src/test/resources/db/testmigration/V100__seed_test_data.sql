@@ -1,6 +1,6 @@
 -- Test seed data for integration tests
--- Words chosen to satisfy all provider constraints at strangeness=2.
--- At strangeness=1, some constrained providers should become unsatisfiable.
+-- Words chosen to satisfy all provider constraints at rarity=2.
+-- At rarity=1, some constrained providers should become unsatisfiable.
 
 -- Nouns (type='N')
 -- Rhyme group 'asă' (feminine, 4 nouns for CoupletProvider ABBA + MirrorProvider)

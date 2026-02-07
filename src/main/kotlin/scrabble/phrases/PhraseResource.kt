@@ -28,43 +28,43 @@ class PhraseResource {
 
     @GET
     @Path("/haiku")
-    fun getHaiku(@QueryParam("strangeness") strangeness: Int?): SentenceResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getHaiku(@QueryParam("rarity") rarity: Int?): SentenceResponse {
+        val maxRarity = normalizeRarity(rarity)
         return SentenceResponse(safeGenerate { decorateVerse(HaikuProvider(wordRepository, maxRarity)).getSentence() })
     }
 
     @GET
     @Path("/couplet")
-    fun getCouplet(@QueryParam("strangeness") strangeness: Int?): SentenceResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getCouplet(@QueryParam("rarity") rarity: Int?): SentenceResponse {
+        val maxRarity = normalizeRarity(rarity)
         return SentenceResponse(safeGenerate { decorateVerse(CoupletProvider(wordRepository, maxRarity)).getSentence() })
     }
 
     @GET
     @Path("/comparison")
-    fun getComparison(@QueryParam("strangeness") strangeness: Int?): SentenceResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getComparison(@QueryParam("rarity") rarity: Int?): SentenceResponse {
+        val maxRarity = normalizeRarity(rarity)
         return SentenceResponse(safeGenerate { decorateSentence(ComparisonProvider(wordRepository, maxRarity)).getSentence() })
     }
 
     @GET
     @Path("/definition")
-    fun getDefinition(@QueryParam("strangeness") strangeness: Int?): SentenceResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getDefinition(@QueryParam("rarity") rarity: Int?): SentenceResponse {
+        val maxRarity = normalizeRarity(rarity)
         return SentenceResponse(safeGenerate { DexonlineLinkAdder(DefinitionProvider(wordRepository, maxRarity)).getSentence() })
     }
 
     @GET
     @Path("/tautogram")
-    fun getTautogram(@QueryParam("strangeness") strangeness: Int?): SentenceResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getTautogram(@QueryParam("rarity") rarity: Int?): SentenceResponse {
+        val maxRarity = normalizeRarity(rarity)
         return SentenceResponse(safeGenerate { decorateSentence(TautogramProvider(wordRepository, maxRarity)).getSentence() })
     }
 
     @GET
     @Path("/all")
-    fun getAll(@QueryParam("strangeness") strangeness: Int?): AllSentencesResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getAll(@QueryParam("rarity") rarity: Int?): AllSentencesResponse {
+        val maxRarity = normalizeRarity(rarity)
         return AllSentencesResponse(
             haiku = getHaiku(maxRarity).sentence,
             couplet = getCouplet(maxRarity).sentence,
@@ -77,8 +77,8 @@ class PhraseResource {
 
     @GET
     @Path("/mirror")
-    fun getMirror(@QueryParam("strangeness") strangeness: Int?): SentenceResponse {
-        val maxRarity = normalizeStrangeness(strangeness)
+    fun getMirror(@QueryParam("rarity") rarity: Int?): SentenceResponse {
+        val maxRarity = normalizeRarity(rarity)
         return SentenceResponse(safeGenerate { decorateVerse(MirrorProvider(wordRepository, maxRarity)).getSentence() })
     }
 
@@ -89,8 +89,8 @@ class PhraseResource {
             UNSATISFIABLE_PLACEHOLDER
         }
 
-    private fun normalizeStrangeness(strangeness: Int?): Int =
-        (strangeness ?: DEFAULT_STRANGENESS).coerceIn(1, 5)
+    private fun normalizeRarity(rarity: Int?): Int =
+        (rarity ?: DEFAULT_RARITY).coerceIn(1, 5)
 
     private fun decorateVerse(provider: ISentenceProvider): ISentenceProvider =
         HtmlVerseBreaker(DexonlineLinkAdder(VerseLineCapitalizer(provider)))
@@ -99,7 +99,7 @@ class PhraseResource {
         DexonlineLinkAdder(FirstSentenceLetterCapitalizer(provider))
 
     companion object {
-        const val DEFAULT_STRANGENESS = 2
-        const val UNSATISFIABLE_PLACEHOLDER = "Nu există suficiente cuvinte pentru nivelul de stranietate ales."
+        const val DEFAULT_RARITY = 2
+        const val UNSATISFIABLE_PLACEHOLDER = "Nu există suficiente cuvinte pentru nivelul de raritate ales."
     }
 }

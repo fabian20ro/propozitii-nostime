@@ -35,7 +35,7 @@ The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take
 - `GET /api/mirror` — ABBA rhyme scheme (4 lines)
 - `GET /q/health` — Health check
 
-All sentence endpoints accept optional query parameter `strangeness=1..5` (default `2`):
+All sentence endpoints accept optional query parameter `rarity=1..5` (default `2`):
 - `1` = very common words
 - `5` = very rare/archaic/regional words
 
@@ -89,19 +89,27 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Step 3: local comparison + outliers CSV
 ./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/gpt_oss_20b_v1.csv --run-b-csv build/rarity/runs/glm47_flash_v1.csv --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
 
-# Step 4: upload final CSV to Supabase (fallback=4 for missing rows)
+# Step 4: upload final CSV to Supabase (default mode=partial, only IDs present in final CSV)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
+
+# Optional legacy mode: update all words, fallback=4 for IDs missing from final CSV
+./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv --mode full-fallback"
 ```
 
 Artifacts:
 - `build/rarity/runs/<run>.jsonl` raw LMStudio request/response log
 - `build/rarity/runs/<run>.csv` normalized per-word run output
+- `build/rarity/runs/<run>.state.json` step2 runtime state (pid/host/start/end/status)
 - `build/rarity/failed_batches/<run>.failed.jsonl` failures after retries/split
 - `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
 - `build/rarity/step4_upload_report.csv`
+- marker columns are written back into `--final-csv` (`uploaded_at`, `uploaded_level`, `upload_status`, `upload_batch_id`)
+  - if input CSV is read-only, marker output goes to `<final-csv>.upload_markers.csv`
 
 Resume tip:
 - Rerun the same `rarityStep2Score` command with the same `--output-csv`; already scored `word_id`s are skipped.
+- Step2 takes an exclusive lock on `<run>.csv.lock`; a second writer to the same output file fails fast.
+- Step2 guarded rewrite aborts if a rewrite would shrink row cardinality.
 
 Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 
@@ -143,7 +151,8 @@ propozitii-nostime/
 │   ├── repository/                  # WordRepository (SQL queries to Supabase)
 │   ├── providers/                   # Sentence generators (6 types)
 │   ├── decorators/                  # Sentence decorators (links, formatting)
-│   └── tools/                       # LoadDictionary + RarityPipeline utilities
+│   └── tools/                       # LoadDictionary + RarityPipeline entrypoint
+│       └── rarity/                  # Modular rarity pipeline implementation
 ├── frontend/                        # Static frontend for GitHub Pages
 ├── Dockerfile                       # JVM uber-jar multi-stage build
 ├── render.yaml                      # Render deployment config

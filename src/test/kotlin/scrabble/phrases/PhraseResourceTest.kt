@@ -85,9 +85,9 @@ class PhraseResourceTest {
     }
 
     @Test
-    fun shouldClampStrangenessQueryParam() {
+    fun shouldClampRarityQueryParam() {
         given()
-            .queryParam("strangeness", 0)
+            .queryParam("rarity", 0)
             .`when`().get("/api/all")
             .then()
             .statusCode(200)
@@ -99,7 +99,7 @@ class PhraseResourceTest {
             .body("mirror", notNullValue())
 
         given()
-            .queryParam("strangeness", 6)
+            .queryParam("rarity", 6)
             .`when`().get("/api/all")
             .then()
             .statusCode(200)
@@ -114,7 +114,7 @@ class PhraseResourceTest {
     @Test
     fun shouldReturnPlaceholderWhenConstraintsAreImpossible() {
         given()
-            .queryParam("strangeness", 1)
+            .queryParam("rarity", 1)
             .`when`().get("/api/couplet")
             .then()
             .statusCode(200)

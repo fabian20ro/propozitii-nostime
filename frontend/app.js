@@ -76,10 +76,10 @@ const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
 const HEALTH_TIMEOUT = 5000;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
-const STRANGENESS_KEY = 'strangeness-level';
-const DEFAULT_STRANGENESS = 2;
-const MIN_STRANGENESS = 1;
-const MAX_STRANGENESS = 5;
+const RARITY_KEY = 'rarity-level';
+const DEFAULT_RARITY = 2;
+const MIN_RARITY = 1;
+const MAX_RARITY = 5;
 
 // Maps /api/all response keys to DOM element IDs
 const FIELD_MAP = {
@@ -95,16 +95,16 @@ const FIELD_IDS = Object.values(FIELD_MAP);
 // DOM elements
 const refreshBtn = document.getElementById('refresh');
 const errorMessage = document.getElementById('error-message');
-const strangenessSlider = document.getElementById('strangeness-slider');
-const strangenessValue = document.getElementById('strangeness-value');
+const raritySlider = document.getElementById('rarity-slider');
+const rarityValue = document.getElementById('rarity-value');
 
-function normalizeStrangeness(value) {
+function normalizeRarity(value) {
     const parsed = Number.parseInt(value, 10);
-    if (Number.isNaN(parsed)) return DEFAULT_STRANGENESS;
-    return Math.max(MIN_STRANGENESS, Math.min(MAX_STRANGENESS, parsed));
+    if (Number.isNaN(parsed)) return DEFAULT_RARITY;
+    return Math.max(MIN_RARITY, Math.min(MAX_RARITY, parsed));
 }
 
-function strangenessLabel(level) {
+function rarityLabel(level) {
     switch (level) {
         case 1: return 'Foarte comun';
         case 2: return 'Uzual extins';
@@ -115,21 +115,21 @@ function strangenessLabel(level) {
     }
 }
 
-function setStrangeness(level) {
-    const normalized = normalizeStrangeness(level);
-    strangenessSlider.value = String(normalized);
-    strangenessValue.textContent = `${normalized} - ${strangenessLabel(normalized)}`;
-    localStorage.setItem(STRANGENESS_KEY, String(normalized));
+function setRarity(level) {
+    const normalized = normalizeRarity(level);
+    raritySlider.value = String(normalized);
+    rarityValue.textContent = `${normalized} - ${rarityLabel(normalized)}`;
+    localStorage.setItem(RARITY_KEY, String(normalized));
     return normalized;
 }
 
-function getCurrentStrangeness() {
-    return normalizeStrangeness(strangenessSlider.value);
+function getCurrentRarity() {
+    return normalizeRarity(raritySlider.value);
 }
 
-function initStrangeness() {
-    const stored = localStorage.getItem(STRANGENESS_KEY);
-    setStrangeness(stored ?? DEFAULT_STRANGENESS);
+function initRarity() {
+    const stored = localStorage.getItem(RARITY_KEY);
+    setRarity(stored ?? DEFAULT_RARITY);
 }
 
 /**
@@ -186,8 +186,8 @@ async function waitForBackend() {
  * Fetch all sentences in a single request
  * @returns {Promise<Object>} Parsed JSON with all sentence fields
  */
-async function fetchAllSentences(strangeness) {
-    const query = new URLSearchParams({ strangeness: String(normalizeStrangeness(strangeness)) });
+async function fetchAllSentences(rarity) {
+    const query = new URLSearchParams({ rarity: String(normalizeRarity(rarity)) });
     const response = await fetch(`${API_BASE}/all?${query.toString()}`);
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -244,7 +244,7 @@ function hideMessage() {
  */
 function setButtonsDisabled(disabled) {
     refreshBtn.disabled = disabled;
-    strangenessSlider.disabled = disabled;
+    raritySlider.disabled = disabled;
 }
 
 /**
@@ -267,11 +267,11 @@ async function refresh() {
     hideMessage();
     showLoading();
     setButtonsDisabled(true);
-    const strangeness = getCurrentStrangeness();
+    const rarity = getCurrentRarity();
 
     try {
         // Try fetching directly — no health check on warm backend
-        const data = await fetchAllSentences(strangeness);
+        const data = await fetchAllSentences(rarity);
         applySentences(data);
     } catch {
         // Fetch failed — backend likely cold-starting
@@ -290,7 +290,7 @@ async function refresh() {
 
         // Backend is up — retry once
         try {
-            const data = await fetchAllSentences(strangeness);
+            const data = await fetchAllSentences(rarity);
             applySentences(data);
         } catch {
             showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
@@ -420,10 +420,10 @@ function initDexonlineDrawer() {
 
 // Event listeners
 refreshBtn.addEventListener('click', refresh);
-strangenessSlider.addEventListener('input', (e) => setStrangeness(e.target.value));
-strangenessSlider.addEventListener('change', refresh);
+raritySlider.addEventListener('input', (e) => setRarity(e.target.value));
+raritySlider.addEventListener('change', refresh);
 initDexonlineDrawer();
-initStrangeness();
+initRarity();
 
 // Initial load
 refresh();

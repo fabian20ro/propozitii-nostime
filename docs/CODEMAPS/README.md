@@ -10,3 +10,4 @@ Read in this order for fastest ramp-up:
 Companion docs:
 - `AGENTS.md`
 - `docs/ONBOARDING.md`
+- `README.md` (rarity pipeline runbook + operational defaults)

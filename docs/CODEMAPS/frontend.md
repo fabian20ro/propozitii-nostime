@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-06
+Freshness: 2026-02-07
 
 ## File Map
 
@@ -12,7 +12,7 @@ Freshness: 2026-02-06
 
 `index.html` renders:
 - theme toggle button
-- strangeness slider (`1..5`, persisted in localStorage)
+- rarity slider (`1..5`, persisted in localStorage)
 - 6 sentence cards (`haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`)
 - refresh button
 - status/error message area
@@ -22,7 +22,7 @@ Freshness: 2026-02-06
 
 1. `refresh()` is called on initial page load and refresh-button clicks.
 2. Main request: `fetchAllSentences()` -> `GET /api/all`.
-   - includes `?strangeness=<1..5>`
+   - includes `?rarity=<1..5>`
 3. On fetch failure: show info state, poll `/q/health` for up to 60s (`waitForBackend()`), retry once.
 4. Success path: `applySentences(data)` sanitizes each field and writes to DOM.
 
@@ -44,6 +44,12 @@ Any non-allowed tags/attrs are removed before rendering.
 Hardcoded API endpoints:
 - `API_BASE = https://propozitii-nostime.onrender.com/api`
 - `HEALTH_URL = https://propozitii-nostime.onrender.com/q/health`
+
+Rarity UI/storage contract:
+- slider id: `rarity-slider`
+- value label id: `rarity-value`
+- localStorage key: `rarity-level`
+- normalization/clamp: `1..5`, default `2`
 
 Response field mapping:
 - `FIELD_MAP` expects keys: `haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`

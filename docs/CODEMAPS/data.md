@@ -1,6 +1,6 @@
 # Data Codemap
 
-Freshness: 2026-02-06
+Freshness: 2026-02-07
 
 ## Database Schema
 
@@ -9,6 +9,7 @@ Primary table: `words`
 Defined by:
 - `src/main/resources/db/migration/V1__create_words_table.sql`
 - `src/main/resources/db/migration/V2__add_articulated_syllables.sql`
+- `src/main/resources/db/migration/V3__rarity_level.sql`
 
 Columns:
 - `id` (PK)
@@ -48,12 +49,22 @@ Pipeline:
 
 ### Rarity scoring pipeline
 
-File: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
+Entry point: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
+Implementation package: `src/main/kotlin/scrabble/phrases/tools/rarity/`
 
 - Step 1: export words from `words` table to local `step1_words.csv`
 - Step 2: score with LMStudio into local run CSVs (resumable by `word_id`)
 - Step 3: compare run CSVs locally, compute median/outliers/final level
-- Step 4: upload final CSV levels into `words.rarity_level` (fallback 4)
+- Step 4: upload final CSV levels into `words.rarity_level`
+  - default mode: `partial` (updates only IDs present in final CSV)
+  - optional mode: `full-fallback` (updates all words, missing IDs become `4`)
+
+Step 2 artifacts and guards:
+- `build/rarity/runs/<run>.csv` (scored rows)
+- `build/rarity/runs/<run>.jsonl` (raw request/response log)
+- `build/rarity/runs/<run>.state.json` (runtime state)
+- `<run>.csv.lock` exclusive writer lock
+- final guarded atomic rewrite with anti-shrink checks
 
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 
@@ -101,4 +112,5 @@ When changing lexical rules/schema:
 2. Update loader logic (if computed fields changed).
 3. Update repository query/caches if new dimensions are queried frequently.
 4. Update seed data to satisfy provider constraints.
-5. Run `./gradlew test`.
+5. If rarity pipeline behavior changes, update docs + tooling tests (`src/test/kotlin/scrabble/phrases/tools/rarity/`).
+6. Run `./gradlew test`.

@@ -37,12 +37,14 @@ Follow this exact path:
 3. `src/main/kotlin/scrabble/phrases/decorators/`
 4. `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 5. `src/main/kotlin/scrabble/phrases/words/`
-6. `frontend/app.js`
+6. `src/main/kotlin/scrabble/phrases/tools/rarity/`
+7. `frontend/app.js`
 
 Mental model:
 - provider = language logic
 - decorator = formatting/linking
 - repository = DB random selection + constraints
+- rarity tools = offline scoring workflow (CSV-first; DB write only on upload)
 - frontend = `/api/all` fetch, sanitize, render
 
 ## 3. Understand Data Guarantees (10 min)
@@ -78,6 +80,7 @@ Always before handoff:
 
 Then manually verify:
 - `/api/all` returns valid keys
+- `/api/all` accepts `rarity=1..5` and clamps invalid values
 - frontend still renders links and line breaks
 - no unsanitized HTML path introduced
 
