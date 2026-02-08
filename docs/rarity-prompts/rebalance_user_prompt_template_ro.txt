@@ -1,19 +1,27 @@
 Returnează DOAR JSON valid: un ARRAY de obiecte.
-Pentru fiecare intrare, păstrezi exact câmpurile:
+Niciun alt text.
+
+Pentru fiecare intrare, output-ul trebuie să conțină EXACT aceste câmpuri:
 - word_id (int)
 - word (string)
 - type ("N" | "A" | "V")
-- rarity_level (int, permis doar {{TO_LEVEL}} sau {{OTHER_LEVEL}})
+- rarity_level (int, permis DOAR {{TO_LEVEL}} sau {{OTHER_LEVEL}})
 - tag ("common|less_common|rare|technical|regional|archaic|uncertain")
 - confidence (număr 0.0..1.0)
 
-Reguli:
-- Trebuie să existe exact un rezultat pentru fiecare intrare.
+Reguli obligatorii:
+- Un rezultat pentru fiecare intrare (același număr total).
 - Păstrează ordinea intrărilor și word_id-urile identice.
 - Exact {{TARGET_COUNT}} intrări trebuie să aibă rarity_level={{TO_LEVEL}}.
-- Restul intrărilor au rarity_level={{OTHER_LEVEL}}.
+- TOATE celelalte intrări au rarity_level={{OTHER_LEVEL}}.
+- Nu folosi altă valoare pentru rarity_level.
 - Alege pentru {{TO_LEVEL}} cele mai comune/uzuale cuvinte din batch.
+- Fără duplicate de word_id.
 - Fără text înainte/după JSON.
+
+Verificare internă obligatorie înainte de răspuns:
+- count(rarity_level={{TO_LEVEL}}) == {{TARGET_COUNT}}
+- count(rarity_level={{OTHER_LEVEL}}) == total_intrări - {{TARGET_COUNT}}
 
 Intrări:
 {{INPUT_JSON}}

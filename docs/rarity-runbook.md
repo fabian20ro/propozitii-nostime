@@ -83,9 +83,16 @@ Current safety baseline for all model profiles:
 
 Step5 notes:
 - Input is explicitly a Step2-like CSV via `--step2-csv` (expects `word_id,word,type` plus level column).
+- Alias `--input-csv` is accepted to plug step5 after other local pipeline outputs.
 - Level source precedence is `final_level`, then `rarity_level`, then `median_level`.
 - Each `word_id` is processed at most once per step5 run, even if later transitions would match.
 - Multi-transition mode is available via `--transitions "2:1,3:2,4:3"`.
+
+Pipeline integration patterns:
+- Per-model normalization before merge:
+  - `step2(modelA) -> step5(modelA) -> step2(modelB) -> step5(modelB) -> step3(compare rebalanced runs) -> step4`
+- Final-only normalization:
+  - `step2(*) -> step3 -> step5(on step3_comparison.csv) -> step4`
 
 ## Verification gates
 

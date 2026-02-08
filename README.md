@@ -100,7 +100,7 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Step 3: local comparison + outliers CSV (2-run median, or 3-run any-extremes)
 ./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --run-c-csv build/rarity/runs/campaign_20260207_c_eurollm22b.csv --merge-strategy any-extremes --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
 
-# Step 5 (optional): rebalance a Step2 CSV in batches, then upload the rebalanced CSV
+# Step 5 (optional): rebalance a Step2/Step3 CSV in batches, then upload or compare
 # Example A: downgrade split (from=3, target lower=2, rest remain 3)
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_3_to_2 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 3 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/rebalance_system_prompt_ro.txt --user-template-file docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
 # Example B: keep+promote split (from=2,to=2 => 1/3 remain 2, 2/3 move to 3)
@@ -130,6 +130,13 @@ Resume tip:
 - Step2 now caches endpoint capability: once `response_format` is rejected, it is disabled for the rest of that process run.
 - Step2 now sends `word_id` in LM input and can retry only unresolved items from partial LM outputs (helps large batches).
 - Step2 prompt/schema now asks for a plain JSON array (simpler for weaker local models); parser still accepts both array and object envelopes.
+
+Step5 integration tips:
+- Input can be provided as `--step2-csv` (preferred) or `--input-csv` alias.
+- Rebalance output can feed directly into:
+  - `step3` as a run CSV (if source was a Step2 run CSV),
+  - or `step4` upload (uses `final_level` when present).
+- Each `word_id` is processed by Step5 at most once per run.
 
 Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 

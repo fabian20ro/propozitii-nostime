@@ -17,30 +17,39 @@ const val REBALANCE_TARGET_COUNT_PLACEHOLDER: String = "{{TARGET_COUNT}}"
 
 val REBALANCE_SYSTEM_PROMPT: String =
     """
-    Ești evaluator lexical pentru limba română.
-    Primești doar cuvinte dintr-un nivel de raritate și trebuie să alegi exact un subset mic pentru nivelul țintă.
-    Nu refuza niciun input.
-    Răspunde strict JSON valid, fără text extra.
+    Ești un clasificator lexical strict pentru limba română.
+    Task-ul tău este doar repartizarea unui batch între două niveluri fixe.
+    Respectă exact cerințele numerice din promptul utilizatorului.
+    Nu adăuga explicații, nu refuza intrări.
+    Răspunde strict JSON valid.
     """.trimIndent()
 
 val REBALANCE_USER_PROMPT_TEMPLATE: String =
     """
     Returnează DOAR JSON valid: un ARRAY de obiecte.
-    Pentru fiecare intrare, păstrezi exact câmpurile:
+    Niciun alt text.
+
+    Pentru fiecare intrare, output-ul trebuie să conțină EXACT aceste câmpuri:
     - word_id (int)
     - word (string)
     - type ("N" | "A" | "V")
-    - rarity_level (int, permis doar {{TO_LEVEL}} sau {{OTHER_LEVEL}})
+    - rarity_level (int, permis DOAR {{TO_LEVEL}} sau {{OTHER_LEVEL}})
     - tag ("common|less_common|rare|technical|regional|archaic|uncertain")
     - confidence (număr 0.0..1.0)
 
-    Reguli:
-    - Trebuie să existe exact un rezultat pentru fiecare intrare.
+    Reguli obligatorii:
+    - Un rezultat pentru fiecare intrare (același număr total).
     - Păstrează ordinea intrărilor și word_id-urile identice.
     - Exact {{TARGET_COUNT}} intrări trebuie să aibă rarity_level={{TO_LEVEL}}.
-    - Restul intrărilor au rarity_level={{OTHER_LEVEL}}.
+    - TOATE celelalte intrări au rarity_level={{OTHER_LEVEL}}.
+    - Nu folosi altă valoare pentru rarity_level.
     - Alege pentru {{TO_LEVEL}} cele mai comune/uzuale cuvinte din batch.
+    - Fără duplicate de word_id.
     - Fără text înainte/după JSON.
+
+    Verificare internă obligatorie înainte de răspuns:
+    - count(rarity_level={{TO_LEVEL}}) == {{TARGET_COUNT}}
+    - count(rarity_level={{OTHER_LEVEL}}) == total_intrări - {{TARGET_COUNT}}
 
     Intrări:
     {{INPUT_JSON}}
@@ -76,10 +85,28 @@ private data class RebalanceWord(
     val type: String
 )
 
+private data class RebalanceDataset(
+    val inputHeaders: List<String>,
+    val mutableRows: List<MutableMap<String, String>>,
+    val wordsById: Map<Int, RebalanceWord>,
+    val levelsById: MutableMap<Int, Int>
+)
+
+private data class RebalanceRuntime(
+    val levelsById: MutableMap<Int, Int>,
+    val rebalanceRules: MutableMap<Int, String>,
+    val processedWordIds: MutableSet<Int>
+)
+
 private data class TransitionSummary(
     val transition: LevelTransition,
     val eligible: Int,
     val targetAssigned: Int
+)
+
+private data class Step5Logs(
+    val runLogPath: Path,
+    val failedLogPath: Path
 )
 
 class RarityStep5Rebalancer(
@@ -89,17 +116,55 @@ class RarityStep5Rebalancer(
 ) {
 
     fun execute(options: Step5Options) {
-        val table = runCsvRepository.readTable(options.inputCsvPath)
-        val headers = table.headers
+        validateTransitionSet(options.transitions)
+        val dataset = loadDataset(options.inputCsvPath)
+        val resolvedEndpoint = resolveEndpoint(options)
+        val logs = prepareLogs(options.runSlug)
+        val runtime = RebalanceRuntime(
+            levelsById = dataset.levelsById,
+            rebalanceRules = mutableMapOf(),
+            processedWordIds = mutableSetOf()
+        )
+
+        val seed = options.seed ?: System.currentTimeMillis()
+        println(
+            "Step 5 rebalance run='${options.runSlug}' seed=$seed batchSize=${options.batchSize} " +
+                "lowerRatio=${String.format(Locale.ROOT, "%.4f", options.lowerRatio)} transitions=" +
+                options.transitions.joinToString(",") { "${it.fromLevel}->${it.toLevel}" }
+        )
+        println("Step 5 input distribution ${formatDistribution(runtime.levelsById.values)}")
+
+        val summaries = applyTransitions(
+            options = options,
+            dataset = dataset,
+            resolvedEndpoint = resolvedEndpoint,
+            logs = logs,
+            runtime = runtime,
+            random = Random(seed)
+        )
+
+        writeOutput(dataset, runtime, options)
+        summaries.forEach { summary ->
+            println(
+                "Step 5 transition ${summary.transition.fromLevel}->${summary.transition.toLevel}: " +
+                    "eligible=${summary.eligible} target_assigned=${summary.targetAssigned}"
+            )
+        }
+        println("Step 5 output distribution ${formatDistribution(runtime.levelsById.values)}")
+        println("Step 5 output CSV: ${options.outputCsvPath.toAbsolutePath()}")
+    }
+
+    private fun loadDataset(inputCsvPath: Path): RebalanceDataset {
+        val table = runCsvRepository.readTable(inputCsvPath)
         val required = listOf("word_id", "word", "type")
-        val missing = required.filterNot(headers::contains)
+        val missing = required.filterNot(table.headers::contains)
         require(missing.isEmpty()) {
-            "CSV ${options.inputCsvPath.toAbsolutePath()} is missing required columns: ${missing.joinToString(", ")}"
+            "CSV ${inputCsvPath.toAbsolutePath()} is missing required columns: ${missing.joinToString(", ")}"
         }
 
-        val levelColumn = resolveLevelColumn(headers)
+        val levelColumn = resolveLevelColumn(table.headers)
         val mutableRows = table.records.map { record ->
-            headers.zip(record.values).toMap().toMutableMap()
+            table.headers.zip(record.values).toMap().toMutableMap()
         }
 
         val wordsById = linkedMapOf<Int, RebalanceWord>()
@@ -107,18 +172,29 @@ class RarityStep5Rebalancer(
         mutableRows.forEachIndexed { index, row ->
             val lineNumber = index + 2
             val wordId = row["word_id"]?.toIntOrNull()
-                ?: throw CsvFormatException("Invalid word_id at ${options.inputCsvPath.toAbsolutePath()}:$lineNumber")
+                ?: throw CsvFormatException("Invalid word_id at ${inputCsvPath.toAbsolutePath()}:$lineNumber")
             val level = row[levelColumn]?.toIntOrNull()
-                ?: throw CsvFormatException("Invalid $levelColumn at ${options.inputCsvPath.toAbsolutePath()}:$lineNumber")
+                ?: throw CsvFormatException("Invalid $levelColumn at ${inputCsvPath.toAbsolutePath()}:$lineNumber")
             if (level !in 1..5) {
-                throw CsvFormatException("$levelColumn out of range at ${options.inputCsvPath.toAbsolutePath()}:$lineNumber")
+                throw CsvFormatException("$levelColumn out of range at ${inputCsvPath.toAbsolutePath()}:$lineNumber")
             }
-            val word = row["word"].orEmpty()
-            val type = row["type"].orEmpty()
-            wordsById[wordId] = RebalanceWord(wordId = wordId, word = word, type = type)
+            wordsById[wordId] = RebalanceWord(
+                wordId = wordId,
+                word = row["word"].orEmpty(),
+                type = row["type"].orEmpty()
+            )
             levelsById[wordId] = level
         }
 
+        return RebalanceDataset(
+            inputHeaders = table.headers,
+            mutableRows = mutableRows,
+            wordsById = wordsById,
+            levelsById = levelsById
+        )
+    }
+
+    private fun resolveEndpoint(options: Step5Options): ResolvedEndpoint {
         val resolvedEndpoint = lmClient.resolveEndpoint(options.endpointOption, options.baseUrlOption)
         println(
             "LMStudio endpoint: ${resolvedEndpoint.endpoint} " +
@@ -129,164 +205,173 @@ class RarityStep5Rebalancer(
         } else {
             println("Skipping LMStudio preflight (--skip-preflight=true)")
         }
+        return resolvedEndpoint
+    }
 
-        val seed = options.seed ?: System.currentTimeMillis()
-        println(
-            "Step 5 rebalance run='${options.runSlug}' seed=$seed batchSize=${options.batchSize} " +
-                "lowerRatio=${String.format(Locale.ROOT, "%.4f", options.lowerRatio)} transitions=" +
-                options.transitions.joinToString(",") { "${it.fromLevel}->${it.toLevel}" }
-        )
-        println("Step 5 input distribution ${formatDistribution(levelsById.values)}")
-
-        val logs = prepareLogs(options.runSlug)
-        val random = Random(seed)
-        val transitionSummaries = mutableListOf<TransitionSummary>()
-        val rebalanceRules = mutableMapOf<Int, String>()
-        val processedWordIds = mutableSetOf<Int>()
-
-        options.transitions.forEach { transition ->
-            val eligibleWords = levelsById.entries
+    private fun applyTransitions(
+        options: Step5Options,
+        dataset: RebalanceDataset,
+        resolvedEndpoint: ResolvedEndpoint,
+        logs: Step5Logs,
+        runtime: RebalanceRuntime,
+        random: Random
+    ): List<TransitionSummary> {
+        return options.transitions.map { transition ->
+            val eligibleWords = dataset.wordsById.values
                 .asSequence()
-                .filter { it.value == transition.fromLevel }
-                .mapNotNull { wordsById[it.key] }
-                .filterNot { it.wordId in processedWordIds }
+                .filter { word -> runtime.levelsById[word.wordId] == transition.fromLevel }
+                .filterNot { word -> runtime.processedWordIds.contains(word.wordId) }
                 .shuffled(random)
                 .toList()
 
             if (eligibleWords.isEmpty()) {
-                transitionSummaries += TransitionSummary(transition, eligible = 0, targetAssigned = 0)
-                return@forEach
+                return@map TransitionSummary(transition = transition, eligible = 0, targetAssigned = 0)
             }
 
-            var targetAssignedCount = 0
             var processed = 0
+            var targetAssigned = 0
             eligibleWords.chunked(options.batchSize).forEach { batch ->
                 processed += batch.size
-                val targetToCount = computeTargetLowerCount(batch.size, options.lowerRatio)
-                if (targetToCount <= 0) {
+                val targetCount = computeTargetCount(batch.size, options.lowerRatio)
+                if (targetCount <= 0) {
+                    batch.forEach { runtime.processedWordIds += it.wordId }
                     return@forEach
                 }
-                val otherLevel = transition.otherLevel()
 
-                val scoringContext = ScoringContext(
-                    runSlug = "${options.runSlug}_${transition.fromLevel}_${transition.toLevel}",
-                    model = options.model,
-                    endpoint = resolvedEndpoint.endpoint,
-                    maxRetries = options.maxRetries,
-                    timeoutSeconds = options.timeoutSeconds,
-                    runLogPath = logs.runLogPath,
-                    failedLogPath = logs.failedLogPath,
-                    systemPrompt = renderTemplate(
-                        options.systemPrompt,
-                        transition = transition,
-                        targetCount = targetToCount
-                    ),
-                    userTemplate = renderTemplate(
-                        options.userTemplate,
-                        transition = transition,
-                        targetCount = targetToCount
-                    ),
-                    flavor = resolvedEndpoint.flavor,
-                    maxTokens = options.maxTokens
+                val scored = scoreTransitionBatch(
+                    options = options,
+                    resolvedEndpoint = resolvedEndpoint,
+                    logs = logs,
+                    transition = transition,
+                    targetCount = targetCount,
+                    batch = batch
                 )
-
-                val baseRows = batch.map { BaseWordRow(wordId = it.wordId, word = it.word, type = it.type) }
-                val scored = lmClient.scoreBatchResilient(baseRows, scoringContext)
-                val scoredById = scored.associateBy { it.wordId }
-
-                val selectedByModel = scored
-                    .asSequence()
-                    .filter { it.rarityLevel == transition.toLevel }
-                    .map { it.wordId }
-                    .filter { id -> batch.any { it.wordId == id } }
-                    .distinct()
-                    .toMutableList()
-
-                val selected = selectedByModel.take(targetToCount).toMutableSet()
-                if (selected.size < targetToCount) {
-                    val additional = batch
-                        .asSequence()
-                        .filter { it.wordId !in selected }
-                        .map { row ->
-                            val score = scoredById[row.wordId]
-                            val modelKeptAtFromLevel = score?.rarityLevel == transition.fromLevel
-                            Triple(row.wordId, modelKeptAtFromLevel, score?.confidence ?: 0.5)
-                        }
-                        .sortedWith(
-                            compareBy<Triple<Int, Boolean, Double>> { !it.second }
-                                .thenBy { it.third }
-                                .thenBy { it.first }
-                        )
-                        .map { it.first }
-                        .take(targetToCount - selected.size)
-                        .toList()
-                    selected += additional
-                }
-
-                batch.forEach { row ->
-                    val isTarget = row.wordId in selected
-                    val nextLevel = if (isTarget) transition.toLevel else otherLevel
-                    val previous = levelsById[row.wordId]
-                    levelsById[row.wordId] = nextLevel
-                    processedWordIds += row.wordId
-                    if (previous != nextLevel) {
-                        rebalanceRules[row.wordId] = "${transition.fromLevel}->${nextLevel} (via ${transition.fromLevel}:${transition.toLevel})"
-                    }
-                }
-                targetAssignedCount += selected.size
+                val selectedWordIds = selectTargetWordIds(batch, scored, transition, targetCount)
+                applyBatchAssignments(batch, selectedWordIds, transition, runtime)
+                targetAssigned += selectedWordIds.size
 
                 println(
                     "Step 5 progress run='${options.runSlug}' transition=${transition.fromLevel}->${transition.toLevel} " +
-                        "processed=$processed/${eligibleWords.size} target_assigned=$targetAssignedCount ${formatDistribution(levelsById.values)}"
+                        "processed=$processed/${eligibleWords.size} target_assigned=$targetAssigned " +
+                        "${formatDistribution(runtime.levelsById.values)}"
                 )
             }
 
-            transitionSummaries += TransitionSummary(
+            TransitionSummary(
                 transition = transition,
                 eligible = eligibleWords.size,
-                targetAssigned = targetAssignedCount
+                targetAssigned = targetAssigned
             )
         }
+    }
 
-        val outputHeaders = headers.toMutableList()
+    private fun scoreTransitionBatch(
+        options: Step5Options,
+        resolvedEndpoint: ResolvedEndpoint,
+        logs: Step5Logs,
+        transition: LevelTransition,
+        targetCount: Int,
+        batch: List<RebalanceWord>
+    ): List<ScoreResult> {
+        val scoringContext = ScoringContext(
+            runSlug = "${options.runSlug}_${transition.fromLevel}_${transition.toLevel}",
+            model = options.model,
+            endpoint = resolvedEndpoint.endpoint,
+            maxRetries = options.maxRetries,
+            timeoutSeconds = options.timeoutSeconds,
+            runLogPath = logs.runLogPath,
+            failedLogPath = logs.failedLogPath,
+            systemPrompt = renderTemplate(options.systemPrompt, transition, targetCount),
+            userTemplate = renderTemplate(options.userTemplate, transition, targetCount),
+            flavor = resolvedEndpoint.flavor,
+            maxTokens = options.maxTokens
+        )
+
+        val baseRows = batch.map { BaseWordRow(wordId = it.wordId, word = it.word, type = it.type) }
+        return lmClient.scoreBatchResilient(baseRows, scoringContext)
+    }
+
+    private fun selectTargetWordIds(
+        batch: List<RebalanceWord>,
+        scored: List<ScoreResult>,
+        transition: LevelTransition,
+        targetCount: Int
+    ): Set<Int> {
+        val batchIds = batch.map { it.wordId }.toSet()
+        val scoredById = scored.associateBy { it.wordId }
+
+        val selected = scored
+            .asSequence()
+            .filter { it.rarityLevel == transition.toLevel }
+            .map { it.wordId }
+            .filter { it in batchIds }
+            .distinct()
+            .take(targetCount)
+            .toMutableSet()
+
+        if (selected.size >= targetCount) {
+            return selected
+        }
+
+        val fallback = batch
+            .asSequence()
+            .map { it.wordId }
+            .filterNot { it in selected }
+            .sortedWith(compareBy<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
+            .take(targetCount - selected.size)
+            .toList()
+        selected += fallback
+        return selected
+    }
+
+    private fun applyBatchAssignments(
+        batch: List<RebalanceWord>,
+        selectedWordIds: Set<Int>,
+        transition: LevelTransition,
+        runtime: RebalanceRuntime
+    ) {
+        val otherLevel = transition.otherLevel()
+        batch.forEach { word ->
+            val nextLevel = if (word.wordId in selectedWordIds) transition.toLevel else otherLevel
+            val previousLevel = runtime.levelsById[word.wordId]
+            runtime.levelsById[word.wordId] = nextLevel
+            runtime.processedWordIds += word.wordId
+            if (previousLevel != nextLevel) {
+                runtime.rebalanceRules[word.wordId] =
+                    "${transition.fromLevel}->${nextLevel} (via ${transition.fromLevel}:${transition.toLevel})"
+            }
+        }
+    }
+
+    private fun writeOutput(dataset: RebalanceDataset, runtime: RebalanceRuntime, options: Step5Options) {
+        val outputHeaders = dataset.inputHeaders.toMutableList()
         if (!outputHeaders.contains("final_level")) outputHeaders += "final_level"
         if (!outputHeaders.contains("rebalance_rule")) outputHeaders += "rebalance_rule"
         if (!outputHeaders.contains("rebalance_model")) outputHeaders += "rebalance_model"
         if (!outputHeaders.contains("rebalance_run")) outputHeaders += "rebalance_run"
         if (!outputHeaders.contains("rebalanced_at")) outputHeaders += "rebalanced_at"
-        val now = OffsetDateTime.now().toString()
 
-        val rows = mutableRows.map { row ->
+        val rebalancedAt = OffsetDateTime.now().toString()
+        val outputRows = dataset.mutableRows.map { row ->
             val wordId = row["word_id"]?.toIntOrNull()
                 ?: throw CsvFormatException("Invalid word_id in memory while writing output")
-            val finalLevel = levelsById[wordId]
+            val finalLevel = runtime.levelsById[wordId]
                 ?: throw CsvFormatException("Missing level for word_id=$wordId while writing output")
             row["final_level"] = finalLevel.toString()
-            row["rebalance_rule"] = rebalanceRules[wordId].orEmpty()
-            row["rebalance_model"] = if (rebalanceRules.containsKey(wordId)) options.model else row["rebalance_model"].orEmpty()
-            row["rebalance_run"] = if (rebalanceRules.containsKey(wordId)) options.runSlug else row["rebalance_run"].orEmpty()
-            row["rebalanced_at"] = if (rebalanceRules.containsKey(wordId)) now else row["rebalanced_at"].orEmpty()
+            row["rebalance_rule"] = runtime.rebalanceRules[wordId].orEmpty()
+            row["rebalance_model"] = if (runtime.rebalanceRules.containsKey(wordId)) options.model else row["rebalance_model"].orEmpty()
+            row["rebalance_run"] = if (runtime.rebalanceRules.containsKey(wordId)) options.runSlug else row["rebalance_run"].orEmpty()
+            row["rebalanced_at"] = if (runtime.rebalanceRules.containsKey(wordId)) rebalancedAt else row["rebalanced_at"].orEmpty()
             outputHeaders.map { header -> row[header].orEmpty() }
         }
-
-        runCsvRepository.writeTableAtomic(options.outputCsvPath, outputHeaders, rows)
-
-        transitionSummaries.forEach { summary ->
-            println(
-                "Step 5 transition ${summary.transition.fromLevel}->${summary.transition.toLevel}: " +
-                    "eligible=${summary.eligible} target_assigned=${summary.targetAssigned}"
-            )
-        }
-        println("Step 5 output distribution ${formatDistribution(levelsById.values)}")
-        println("Step 5 output CSV: ${options.outputCsvPath.toAbsolutePath()}")
+        runCsvRepository.writeTableAtomic(options.outputCsvPath, outputHeaders, outputRows)
     }
 
     private fun renderTemplate(template: String, transition: LevelTransition, targetCount: Int): String {
-        val otherLevel = transition.otherLevel()
         return template
             .replace(REBALANCE_FROM_LEVEL_PLACEHOLDER, transition.fromLevel.toString())
             .replace(REBALANCE_TO_LEVEL_PLACEHOLDER, transition.toLevel.toString())
-            .replace(REBALANCE_OTHER_LEVEL_PLACEHOLDER, otherLevel.toString())
+            .replace(REBALANCE_OTHER_LEVEL_PLACEHOLDER, transition.otherLevel().toString())
             .replace(REBALANCE_TARGET_COUNT_PLACEHOLDER, targetCount.toString())
     }
 
@@ -302,9 +387,9 @@ class RarityStep5Rebalancer(
         }
     }
 
-    private fun computeTargetLowerCount(batchSize: Int, lowerRatio: Double): Int {
+    private fun computeTargetCount(batchSize: Int, ratio: Double): Int {
         if (batchSize < 3) return 0
-        val target = floor(batchSize * lowerRatio).toInt().coerceAtLeast(1)
+        val target = floor(batchSize * ratio).toInt().coerceAtLeast(1)
         return target.coerceAtMost(batchSize - 1)
     }
 
@@ -328,14 +413,9 @@ class RarityStep5Rebalancer(
     }
 }
 
-private data class Step5Logs(
-    val runLogPath: Path,
-    val failedLogPath: Path
-)
-
 fun parseStep5Transitions(raw: String?): List<LevelTransition> {
     val input = raw?.trim().takeUnless { it.isNullOrBlank() } ?: DEFAULT_REBALANCE_TRANSITIONS
-    return input.split(",")
+    val parsed = input.split(",")
         .map { token ->
             val parts = token.trim().split(":")
             require(parts.size == 2) {
@@ -345,19 +425,33 @@ fun parseStep5Transitions(raw: String?): List<LevelTransition> {
                 ?: error("Invalid transition source level in '$token'")
             val to = parts[1].trim().toIntOrNull()
                 ?: error("Invalid transition target level in '$token'")
-            require(from in 1..5 && to in 1..5 && (to == from - 1 || to == from) && !(to == 5 && from == 5)) {
-                "Invalid transition '$token'. Allowed: one-step downgrade (ex: 3:2) or keep+promote split (ex: 2:2)"
-            }
+            requireValidStep5Transition(from, to)
             LevelTransition(fromLevel = from, toLevel = to)
         }
-        .distinct()
-        .sortedBy { it.fromLevel }
+    validateTransitionSet(parsed)
+    return parsed.distinct().sortedBy { it.fromLevel }
+}
+
+fun requireValidStep5Transition(fromLevel: Int, toLevel: Int) {
+    val validRange = fromLevel in 1..5 && toLevel in 1..5
+    val validRelation = toLevel == fromLevel - 1 || toLevel == fromLevel
+    val invalidTopSelfSplit = fromLevel == 5 && toLevel == 5
+    require(validRange && validRelation && !invalidTopSelfSplit) {
+        "Invalid transition '$fromLevel:$toLevel'. Allowed: one-step downgrade (ex: 3:2) " +
+            "or keep+promote split (ex: 2:2). 5:5 is not allowed."
+    }
+}
+
+fun validateTransitionSet(transitions: List<LevelTransition>) {
+    require(transitions.isNotEmpty()) { "Step 5 requires at least one transition." }
+    val duplicateFromLevels = transitions.groupBy { it.fromLevel }
+        .filterValues { it.size > 1 }
+        .keys
+    require(duplicateFromLevels.isEmpty()) {
+        "Step 5 transitions must have unique from-level values. Duplicates: ${duplicateFromLevels.sorted().joinToString(",")}"
+    }
 }
 
 private fun LevelTransition.otherLevel(): Int {
-    return if (toLevel == fromLevel) {
-        (toLevel + 1).coerceAtMost(5)
-    } else {
-        fromLevel
-    }
+    return if (toLevel == fromLevel) (toLevel + 1).coerceAtMost(5) else fromLevel
 }

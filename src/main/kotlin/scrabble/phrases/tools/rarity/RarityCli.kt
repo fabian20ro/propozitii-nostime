@@ -102,19 +102,22 @@ class RarityCli(
                 require(fromLevel != null && toLevel != null) {
                     "Step 5 requires both --from-level and --to-level when one is provided."
                 }
-                require(toLevel == fromLevel - 1 || toLevel == fromLevel) {
-                    "Step 5 supports only one-step downgrade (ex: 3->2) or keep+promote split (ex: 2->2), " +
-                        "received --from-level=$fromLevel --to-level=$toLevel"
-                }
+                requireValidStep5Transition(fromLevel, toLevel)
                 listOf(LevelTransition(fromLevel = fromLevel, toLevel = toLevel))
             }
             else -> parseStep5Transitions(options["transitions"])
+        }
+        validateTransitionSet(transitions)
+
+        val inputCsv = options["step2-csv"] ?: options["input-csv"]
+        require(!inputCsv.isNullOrBlank()) {
+            "Missing required option --step2-csv (alias: --input-csv)"
         }
 
         val stepOptions = Step5Options(
             runSlug = sanitizeRunSlug(requiredOption(options, "run")),
             model = requiredOption(options, "model"),
-            inputCsvPath = requiredPath(options, "step2-csv"),
+            inputCsvPath = Paths.get(inputCsv),
             outputCsvPath = requiredPath(options, "output-csv"),
             batchSize = intOption(options, "batch-size", DEFAULT_REBALANCE_BATCH_SIZE, min = 3),
             lowerRatio = options["lower-ratio"]?.toDoubleOrNull()?.coerceIn(0.01, 0.49) ?: DEFAULT_REBALANCE_LOWER_RATIO,

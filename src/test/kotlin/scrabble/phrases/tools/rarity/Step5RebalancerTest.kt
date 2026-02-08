@@ -1,6 +1,7 @@
 package scrabble.phrases.tools.rarity
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -20,6 +21,16 @@ class Step5RebalancerTest {
 
         val custom = parseStep5Transitions("4:3,2:1")
         assertEquals(listOf(LevelTransition(2, 1), LevelTransition(4, 3)), custom)
+    }
+
+    @Test
+    fun parseTransitions_rejects_invalid_and_duplicate_from_level() {
+        assertThrows(IllegalArgumentException::class.java) {
+            parseStep5Transitions("5:5")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            parseStep5Transitions("2:1,2:2")
+        }
     }
 
     @Test
