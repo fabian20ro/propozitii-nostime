@@ -214,6 +214,20 @@ class RarityStep2Scorer(
             minSize = minAdaptiveSize
         )
 
+        val scoringContext = ScoringContext(
+            runSlug = options.runSlug,
+            model = options.model,
+            endpoint = resolvedEndpoint.endpoint,
+            maxRetries = options.maxRetries,
+            timeoutSeconds = options.timeoutSeconds,
+            runLogPath = files.runLogPath,
+            failedLogPath = files.failedLogPath,
+            systemPrompt = options.systemPrompt,
+            userTemplate = options.userTemplate,
+            flavor = resolvedEndpoint.flavor,
+            maxTokens = options.maxTokens
+        )
+
         val remaining = context.pending.toMutableList()
 
         while (remaining.isNotEmpty()) {
@@ -223,17 +237,7 @@ class RarityStep2Scorer(
 
             val scored = lmClient.scoreBatchResilient(
                 batch = batch,
-                runSlug = options.runSlug,
-                model = options.model,
-                endpoint = resolvedEndpoint.endpoint,
-                maxRetries = options.maxRetries,
-                timeoutSeconds = options.timeoutSeconds,
-                runLogPath = files.runLogPath,
-                failedLogPath = files.failedLogPath,
-                systemPrompt = options.systemPrompt,
-                userTemplate = options.userTemplate,
-                flavor = resolvedEndpoint.flavor,
-                maxTokens = options.maxTokens
+                context = scoringContext
             )
 
             adapter.recordOutcome(scored.size.toDouble() / batch.size.toDouble())

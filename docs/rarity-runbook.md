@@ -95,14 +95,15 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 
 ## Step 2 resilience features
 
+- **Recursion depth guard**: batch split/retry is capped at depth 10 to prevent unbounded recursion; exceeded words are logged to failed log
 - **JSON repair**: truncated/malformed LM output is auto-repaired before parsing (trailing decimals, unclosed structures, comments, trailing commas)
 - **Partial extraction + retry on unresolved**: parsed rows are kept, and unresolved rows are retried separately in-process
 - **Malformed item salvage**: if one object in `results` is invalid JSON, valid sibling objects are still kept and only unresolved words are retried
 - **`word_id` matching first**: parser pairs results by `word_id` before fallback matching on `word/type`
 - **Fuzzy matching**: Romanian diacritical misspellings from LM are accepted (Levenshtein distance <= 2 on normalized forms)
 - **Adaptive batching**: batch size shrinks after weak outcomes (floor=`max(5, initial/5)`), grows back after sustained success (cap=initial)
-- **`response_format` capability cache**: after one unsupported response, the run disables `response_format` for all following requests
-- **reasoning-control capability cache** (GLM profile): after one unsupported `reasoning_effort`/`chat_template_kwargs`, the run disables those controls for all following requests
+- **`response_format` capability cache**: after one unsupported response, the run disables `response_format` for all following requests (tracked via `CapabilityState`: JSON_OBJECT -> JSON_SCHEMA -> NONE)
+- **reasoning-control capability cache** (GLM profile): after one unsupported `reasoning_effort`/`chat_template_kwargs`, the run disables those controls for all following requests (tracked via `CapabilityState`)
 - **Lenient envelope parsing**: parser accepts top-level array plus object envelopes like `results`/`items`/`data`
 - **Model crash backoff**: linear delay (10s * attempt) when LMStudio reports model crash
 - **Metrics**: end-of-run summary with WPM, ETA, error breakdown by category

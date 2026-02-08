@@ -1,7 +1,5 @@
 package scrabble.phrases.tools.rarity
 
-import java.nio.file.Path
-
 class InMemoryWordStore(initialLevels: Map<Int, Int>) : WordStore {
     val levels: MutableMap<Int, Int> = initialLevels.toMutableMap()
     val updatesHistory: MutableList<Map<Int, Int>> = mutableListOf()
@@ -49,17 +47,7 @@ class FakeLmClient(
 
     override fun scoreBatchResilient(
         batch: List<BaseWordRow>,
-        runSlug: String,
-        model: String,
-        endpoint: String,
-        maxRetries: Int,
-        timeoutSeconds: Long,
-        runLogPath: Path,
-        failedLogPath: Path,
-        systemPrompt: String,
-        userTemplate: String,
-        flavor: LmApiFlavor,
-        maxTokens: Int
+        context: ScoringContext
     ): List<ScoreResult> {
         scoreCalls++
         return batch.map(resolver)

@@ -28,6 +28,31 @@ class LmStudioClientTest {
     @TempDir
     lateinit var tempDir: Path
 
+    private fun ctx(
+        runSlug: String = "run_test",
+        model: String = "model_a",
+        endpoint: String = "http://localhost",
+        maxRetries: Int = 1,
+        timeoutSeconds: Long = 5,
+        runLogPath: Path = tempDir.resolve("run.jsonl"),
+        failedLogPath: Path = tempDir.resolve("failed.jsonl"),
+        maxTokens: Int = 8000
+    ): ScoringContext {
+        return ScoringContext(
+            runSlug = runSlug,
+            model = model,
+            endpoint = endpoint,
+            maxRetries = maxRetries,
+            timeoutSeconds = timeoutSeconds,
+            runLogPath = runLogPath,
+            failedLogPath = failedLogPath,
+            systemPrompt = SYSTEM_PROMPT,
+            userTemplate = USER_PROMPT_TEMPLATE,
+            flavor = LmApiFlavor.OPENAI_COMPAT,
+            maxTokens = maxTokens
+        )
+    }
+
     @Test
     fun switches_response_format_to_json_schema_after_json_object_is_unsupported() {
         val requests = mutableListOf<String>()
@@ -46,37 +71,16 @@ class LmStudioClientTest {
 
         try {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
-            val runLogPath = tempDir.resolve("run.jsonl")
-            val failedLogPath = tempDir.resolve("failed.jsonl")
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val context = ctx(runSlug = "run_a", endpoint = endpoint, maxRetries = 2, maxTokens = 200)
 
             val first = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_a",
-                model = "model_a",
-                endpoint = endpoint,
-                maxRetries = 2,
-                timeoutSeconds = 5,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 200
+                context = context
             )
             val second = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(2, "brad", "N")),
-                runSlug = "run_a",
-                model = "model_a",
-                endpoint = endpoint,
-                maxRetries = 2,
-                timeoutSeconds = 5,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 200
+                context = context
             )
 
             assertEquals(1, first.size)
@@ -102,26 +106,15 @@ class LmStudioClientTest {
 
         try {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
-            val runLogPath = tempDir.resolve("run.jsonl")
-            val failedLogPath = tempDir.resolve("failed.jsonl")
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val failedLogPath = tempDir.resolve("failed.jsonl")
 
             val scored = client.scoreBatchResilient(
                 batch = listOf(
                     BaseWordRow(1, "cuvant1", "N"),
                     BaseWordRow(2, "cuvant2", "N")
                 ),
-                runSlug = "run_a",
-                model = "model_a",
-                endpoint = endpoint,
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 200
+                context = ctx(runSlug = "run_a", endpoint = endpoint, failedLogPath = failedLogPath, maxTokens = 200)
             )
 
             assertTrue(scored.isEmpty())
@@ -173,8 +166,6 @@ class LmStudioClientTest {
 
         try {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
-            val runLogPath = tempDir.resolve("run_partial.jsonl")
-            val failedLogPath = tempDir.resolve("failed_partial.jsonl")
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
 
             val scored = client.scoreBatchResilient(
@@ -182,17 +173,14 @@ class LmStudioClientTest {
                     BaseWordRow(1, "cuvant1", "N"),
                     BaseWordRow(2, "cuvant2", "N")
                 ),
-                runSlug = "run_partial",
-                model = "model_a",
-                endpoint = endpoint,
-                maxRetries = 2,
-                timeoutSeconds = 5,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 200
+                context = ctx(
+                    runSlug = "run_partial",
+                    endpoint = endpoint,
+                    maxRetries = 2,
+                    runLogPath = tempDir.resolve("run_partial.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_partial.jsonl"),
+                    maxTokens = 200
+                )
             )
 
             assertEquals(2, scored.size)
@@ -231,17 +219,13 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_array",
-                model = MODEL_MINISTRAL_3_8B,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_array.jsonl"),
-                failedLogPath = tempDir.resolve("failed_array.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_array",
+                    model = MODEL_MINISTRAL_3_8B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_array.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_array.jsonl")
+                )
             )
 
             assertEquals(1, scored.size)
@@ -273,17 +257,13 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_items",
-                model = MODEL_MINISTRAL_3_8B,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_items.jsonl"),
-                failedLogPath = tempDir.resolve("failed_items.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_items",
+                    model = MODEL_MINISTRAL_3_8B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_items.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_items.jsonl")
+                )
             )
 
             assertEquals(1, scored.size)
@@ -313,17 +293,13 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_reasoning_text",
-                model = MODEL_GLM_47_FLASH,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_reasoning_text.jsonl"),
-                failedLogPath = tempDir.resolve("failed_reasoning_text.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_reasoning_text",
+                    model = MODEL_GLM_47_FLASH,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_reasoning_text.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_reasoning_text.jsonl")
+                )
             )
 
             assertEquals(1, scored.size)
@@ -353,17 +329,13 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_numbered_reasoning_text",
-                model = MODEL_GLM_47_FLASH,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_numbered_reasoning_text.jsonl"),
-                failedLogPath = tempDir.resolve("failed_numbered_reasoning_text.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_numbered_reasoning_text",
+                    model = MODEL_GLM_47_FLASH,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_numbered_reasoning_text.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_numbered_reasoning_text.jsonl")
+                )
             )
 
             assertEquals(1, scored.size)
@@ -420,17 +392,13 @@ class LmStudioClientTest {
                     BaseWordRow(1, "apa", "N"),
                     BaseWordRow(2, "brad", "N")
                 ),
-                runSlug = "run_salvage_malformed_item",
-                model = MODEL_MINISTRAL_3_8B,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_salvage_malformed_item.jsonl"),
-                failedLogPath = tempDir.resolve("failed_salvage_malformed_item.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_salvage_malformed_item",
+                    model = MODEL_MINISTRAL_3_8B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_salvage_malformed_item.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_salvage_malformed_item.jsonl")
+                )
             )
 
             assertEquals(2, scored.size)
@@ -461,17 +429,14 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_schema_unsupported",
-                model = MODEL_GLM_47_FLASH,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 3,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_schema_unsupported.jsonl"),
-                failedLogPath = tempDir.resolve("failed_schema_unsupported.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_schema_unsupported",
+                    model = MODEL_GLM_47_FLASH,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    maxRetries = 3,
+                    runLogPath = tempDir.resolve("run_schema_unsupported.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_schema_unsupported.jsonl")
+                )
             )
 
             assertEquals(1, scored.size)
@@ -502,37 +467,23 @@ class LmStudioClientTest {
 
         try {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
-            val runLogPath = tempDir.resolve("run_glm_reasoning.jsonl")
-            val failedLogPath = tempDir.resolve("failed_glm_reasoning.jsonl")
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val context = ctx(
+                runSlug = "run_glm_reasoning",
+                model = MODEL_GLM_47_FLASH,
+                endpoint = endpoint,
+                maxRetries = 2,
+                runLogPath = tempDir.resolve("run_glm_reasoning.jsonl"),
+                failedLogPath = tempDir.resolve("failed_glm_reasoning.jsonl")
+            )
 
             val first = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_glm_reasoning",
-                model = MODEL_GLM_47_FLASH,
-                endpoint = endpoint,
-                maxRetries = 2,
-                timeoutSeconds = 5,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = context
             )
             val second = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(2, "brad", "N")),
-                runSlug = "run_glm_reasoning",
-                model = MODEL_GLM_47_FLASH,
-                endpoint = endpoint,
-                maxRetries = 2,
-                timeoutSeconds = 5,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = context
             )
 
             assertEquals(1, first.size)
@@ -560,17 +511,13 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_glm_profile",
-                model = MODEL_GLM_47_FLASH,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_glm_profile.jsonl"),
-                failedLogPath = tempDir.resolve("failed_glm_profile.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_glm_profile",
+                    model = MODEL_GLM_47_FLASH,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_glm_profile.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_glm_profile.jsonl")
+                )
             )
 
             val request = ObjectMapper().readTree(requests.single())
@@ -599,17 +546,13 @@ class LmStudioClientTest {
             val client = LmStudioClient(ObjectMapper(), apiKey = null)
             client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
-                runSlug = "run_gpt_profile",
-                model = MODEL_GPT_OSS_20B,
-                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
-                maxRetries = 1,
-                timeoutSeconds = 5,
-                runLogPath = tempDir.resolve("run_gpt_profile.jsonl"),
-                failedLogPath = tempDir.resolve("failed_gpt_profile.jsonl"),
-                systemPrompt = SYSTEM_PROMPT,
-                userTemplate = USER_PROMPT_TEMPLATE,
-                flavor = LmApiFlavor.OPENAI_COMPAT,
-                maxTokens = 8000
+                context = ctx(
+                    runSlug = "run_gpt_profile",
+                    model = MODEL_GPT_OSS_20B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_gpt_profile.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_gpt_profile.jsonl")
+                )
             )
 
             val request = ObjectMapper().readTree(requests.single())
@@ -639,42 +582,38 @@ class LmStudioClientTest {
     }
 
     private fun successResponseFor(word: String, type: String, rarity: Int, confidence: Double): String {
-        return successResponse(
-            """[{"word":"$word","type":"$type","rarity_level":$rarity,"tag":"common","confidence":$confidence}]"""
-        )
+        val resultsJson = """[{"word":"$word","type":"$type","rarity_level":$rarity,"tag":"common","confidence":$confidence}]"""
+        val escaped = escapeJsonContent("""{"results":$resultsJson}""")
+            .replace("\n", "")
+        return wrapInChatResponse(escaped)
     }
 
     private fun successResponse(resultsArrayJson: String): String {
-        val escaped = resultsArrayJson
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
+        val escaped = escapeJsonContent("""{"results":$resultsArrayJson}""")
             .replace("\n", "")
-            .replace("\r", "")
-        return """
-            {
-              "choices": [
-                {
-                  "message": {
-                    "content": "{\"results\":$escaped}"
-                  }
-                }
-              ]
-            }
-        """.trimIndent()
+        return wrapInChatResponse(escaped)
     }
 
     private fun successResponseRawContent(content: String): String {
-        val escaped = content
+        val escaped = escapeJsonContent(content)
+            .replace("\n", "\\n")
+        return wrapInChatResponse(escaped)
+    }
+
+    private fun escapeJsonContent(content: String): String {
+        return content
             .replace("\\", "\\\\")
             .replace("\"", "\\\"")
-            .replace("\n", "\\n")
             .replace("\r", "")
+    }
+
+    private fun wrapInChatResponse(escapedContent: String): String {
         return """
             {
               "choices": [
                 {
                   "message": {
-                    "content": "$escaped"
+                    "content": "$escapedContent"
                   }
                 }
               ]

@@ -97,6 +97,7 @@ Modular implementation:
 
 Step 2 resilience utilities:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/JsonRepair.kt` -- best-effort repair of truncated/malformed LM JSON (trailing decimals, unclosed structures, trailing commas, line comments)
+- `src/main/kotlin/scrabble/phrases/tools/rarity/JsonStringWalker.kt` -- shared inline `walkJsonChars` for tracking in-string/escaped state across JSON characters; used by `JsonRepair` and `LmStudioResponseParser`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/BatchSizeAdapter.kt` -- adaptive batch sizing via sliding window; uses per-batch success ratio, shrinks on weak outcomes, grows on sustained success
 - `src/main/kotlin/scrabble/phrases/tools/rarity/FuzzyWordMatcher.kt` -- Romanian diacritics normalization + Levenshtein distance for matching LM-misspelled words
 - `src/main/kotlin/scrabble/phrases/tools/rarity/Step2Metrics.kt` -- observability: error categorization, WPM, ETA, progress formatting, end-of-run summary
@@ -110,6 +111,11 @@ Step 2 safety:
 - exclusive file lock on output CSV
 - guarded atomic rewrite (merge latest disk + memory, then shrink checks)
 - strict CSV parse (malformed rows fail; no silent skip)
+- recursion depth guard (max 10) on batch split/retry to prevent unbounded recursion
+
+Step 2 interface design:
+- `LmClient` interface uses `ScoringContext` parameter object (groups run slug, model, endpoint, retry/timeout settings, prompts, etc.)
+- `CapabilityState` data class tracks run-scoped response-format and reasoning-control degradation
 
 Step 2 LM response handling:
 - `JsonRepair` applied before JSON parsing to fix truncated output from token exhaustion
@@ -158,6 +164,11 @@ Folder: `src/main/kotlin/scrabble/phrases/words/`
 - Decorator unit tests: `src/test/kotlin/scrabble/phrases/decorators/DecoratorTest.kt`
 - Morphology/utils tests: `src/test/kotlin/scrabble/phrases/words/`
 - Rarity tooling unit/regression tests: `src/test/kotlin/scrabble/phrases/tools/rarity/`
+  - LM response parser: `LmStudioResponseParserTest.kt` (11 tests: code fences, fuzzy diacritics, salvage, confidence normalization, etc.)
+  - Step 3 comparator: `Step3ComparatorTest.kt` (5 tests: agreement, outlier detection, missing runs)
+  - Upload markers: `UploadMarkerWriterTest.kt` (3 tests: marking, empty status, partial marking)
+  - Step 2 scorer counters: `Step2ScorerCountersTest.kt` (partial results, full scoring)
+  - LmStudioClient integration: `LmStudioClientTest.kt` (capability degradation, parsing, model profiles)
 
 ## High-Risk Areas
 

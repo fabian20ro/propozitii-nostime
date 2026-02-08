@@ -75,7 +75,7 @@ class RunCsvRepository(
         val fileExists = Files.exists(path)
         val appendHeaders = resolveAppendHeaders(path, fileExists)
 
-        Files.newBufferedWriter(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND).use { writer ->
+        Files.newBufferedWriter(path, Charsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND).use { writer ->
             if (!fileExists) {
                 writer.write(appendHeaders.joinToString(",") { csv.escape(it) })
                 writer.newLine()
@@ -112,7 +112,7 @@ class RunCsvRepository(
     fun rewriteRunRowsAtomic(path: Path, rows: Collection<RunCsvRow>) {
         val body = rows
             .sortedBy { it.wordId }
-            .map(::serializeRunRow)
+            .map { serializeForHeaders(it, RUN_CSV_HEADERS) }
 
         csv.writeTableAtomic(path, RUN_CSV_HEADERS, body)
     }
@@ -155,20 +155,6 @@ class RunCsvRepository(
         csv.writeTableAtomic(path, headers, rows)
     }
 
-    private fun serializeRunRow(row: RunCsvRow): List<String> {
-        return listOf(
-            row.wordId.toString(),
-            row.word,
-            row.type,
-            row.rarityLevel.toString(),
-            row.tag,
-            row.confidence.toString(),
-            row.scoredAt,
-            row.model,
-            row.runSlug
-        )
-    }
-
     private fun serializeForHeaders(row: RunCsvRow, headers: List<String>): List<String> {
         val base = mapOf(
             "word_id" to row.wordId.toString(),
@@ -187,7 +173,7 @@ class RunCsvRepository(
     private fun resolveAppendHeaders(path: Path, fileExists: Boolean): List<String> {
         if (!fileExists) return RUN_CSV_HEADERS
 
-        val headerLine = Files.newBufferedReader(path).use { reader -> reader.readLine() }
+        val headerLine = Files.newBufferedReader(path, Charsets.UTF_8).use { reader -> reader.readLine() }
             ?: return RUN_CSV_HEADERS
         val headers = csv.parseLine(headerLine, lineNumber = 1)
         requireColumns(path, headers, RUN_CSV_HEADERS)

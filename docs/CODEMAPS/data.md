@@ -67,7 +67,8 @@ Step 2 artifacts and guards:
 - final guarded atomic rewrite with anti-shrink checks
 
 Step 2 resilience:
-- `LmStudioClient` orchestrates retries/split/failure logging, while request/parse/HTTP concerns are split into dedicated classes
+- `LmStudioClient` orchestrates retries/split/failure logging (max recursion depth 10), while request/parse/HTTP concerns are split into dedicated classes
+- `LmClient` interface uses `ScoringContext` parameter object; `CapabilityState` tracks run-scoped degradation
 - model configs are registry-driven; per-model defaults live in dedicated files and include all generation knobs (`temperature`, `top_k`, `top_p`, `min_p`, penalties, reasoning controls)
 - `JsonRepair` fixes truncated/malformed LM JSON before parsing
 - `BatchSizeAdapter` adapts by success ratio (not all-or-nothing), with runtime floor `max(5, initial/5)`

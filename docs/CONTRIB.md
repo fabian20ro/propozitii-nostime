@@ -39,7 +39,7 @@ git config core.hooksPath .githooks
 | `./gradlew downloadDictionary` | Download + checksum-verify dictionary |
 | `./gradlew loadDictionary` | Load dictionary into target PostgreSQL |
 
-Rarity-specific regression suite:
+Rarity-specific regression suite (includes parser, comparator, scorer, upload marker tests):
 - `./gradlew test --tests 'scrabble.phrases.tools.rarity.*'`
 
 ## Environment Variables

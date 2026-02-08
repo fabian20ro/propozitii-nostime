@@ -140,21 +140,18 @@ class LmStudioResponseParser(
     }
 
     private fun parseContentJson(content: String): JsonNode {
+        val excerpt = LmStudioErrorClassifier.excerptForLog(content)
+
         val direct = runCatching { mapper.readTree(content) }.getOrNull()
         if (direct != null && !direct.isValueNode) {
             return direct
         }
 
         val extracted = extractFirstJsonBlock(content)
-            ?: if (direct != null) {
-                throw IllegalStateException(
-                    "LMStudio content is not a JSON object/array. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
-                )
-            } else {
-                throw IllegalStateException(
-                    "LMStudio content is not valid JSON. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
-                )
-            }
+            ?: throw IllegalStateException(
+                if (direct != null) "LMStudio content is not a JSON object/array. Excerpt: $excerpt"
+                else "LMStudio content is not valid JSON. Excerpt: $excerpt"
+            )
 
         val extractedParse = runCatching { mapper.readTree(extracted) }
         val extractedJson = extractedParse.getOrNull()
@@ -162,20 +159,14 @@ class LmStudioResponseParser(
             return extractedJson
         }
 
-        salvageResultsFromMalformedContent(extracted)?.let { salvaged ->
-            return salvaged
-        }
+        salvageResultsFromMalformedContent(extracted)?.let { return it }
 
         if (extractedJson != null) {
-            throw IllegalStateException(
-                "LMStudio content is not a JSON object/array. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
-            )
+            throw IllegalStateException("LMStudio content is not a JSON object/array. Excerpt: $excerpt")
         }
 
         val parseMessage = extractedParse.exceptionOrNull()?.message ?: "unknown parse error"
-        throw IllegalStateException(
-            "LMStudio content JSON parse failed: $parseMessage. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
-        )
+        throw IllegalStateException("LMStudio content JSON parse failed: $parseMessage. Excerpt: $excerpt")
     }
 
     private fun extractResultsArray(contentJson: JsonNode): JsonNode {
@@ -238,40 +229,28 @@ class LmStudioResponseParser(
         val start = content.indexOfFirst { it == '{' || it == '[' }
         if (start < 0) return null
 
-        var inString = false
-        var escaped = false
         var objectDepth = 0
         var arrayDepth = 0
+        var endIndex = -1
 
-        for (index in start until content.length) {
-            val ch = content[index]
-            if (escaped) {
-                escaped = false
-                continue
+        walkJsonChars(content, startIndex = start) { i, ch, inString ->
+            if (!inString) {
+                when (ch) {
+                    '{' -> objectDepth++
+                    '}' -> objectDepth--
+                    '[' -> arrayDepth++
+                    ']' -> arrayDepth--
+                }
+                if (objectDepth == 0 && arrayDepth == 0) {
+                    endIndex = i
+                    return@walkJsonChars content.length // stop walking
+                }
             }
-            if (ch == '\\' && inString) {
-                escaped = true
-                continue
-            }
-            if (ch == '"') {
-                inString = !inString
-                continue
-            }
-            if (inString) continue
-
-            when (ch) {
-                '{' -> objectDepth++
-                '}' -> objectDepth--
-                '[' -> arrayDepth++
-                ']' -> arrayDepth--
-            }
-
-            if (objectDepth == 0 && arrayDepth == 0) {
-                return content.substring(start, index + 1).trim()
-            }
+            i + 1
         }
 
-        return null
+        if (endIndex < 0) return null
+        return content.substring(start, endIndex + 1).trim()
     }
 
     /**
@@ -323,71 +302,47 @@ class LmStudioResponseParser(
     ): Int {
         if (start !in text.indices || text[start] != opener) return -1
         var depth = 0
-        var inString = false
-        var escaped = false
+        var result = -1
 
-        for (index in start until text.length) {
-            val ch = text[index]
-            if (escaped) {
-                escaped = false
-                continue
+        walkJsonChars(text, startIndex = start) { i, ch, inString ->
+            if (!inString) {
+                if (ch == opener) depth++
+                if (ch == closer) depth--
+                if (depth == 0) {
+                    result = i
+                    return@walkJsonChars text.length // stop walking
+                }
             }
-            if (ch == '\\' && inString) {
-                escaped = true
-                continue
-            }
-            if (ch == '"') {
-                inString = !inString
-                continue
-            }
-            if (inString) continue
-
-            if (ch == opener) depth++
-            if (ch == closer) depth--
-            if (depth == 0) return index
+            i + 1
         }
-        return -1
+
+        return result
     }
 
     private fun extractTopLevelObjectSlices(arraySlice: String): List<String> {
         val slices = mutableListOf<String>()
-        var inString = false
-        var escaped = false
         var objectDepth = 0
         var objectStart = -1
 
-        for (index in arraySlice.indices) {
-            val ch = arraySlice[index]
-            if (escaped) {
-                escaped = false
-                continue
-            }
-            if (ch == '\\' && inString) {
-                escaped = true
-                continue
-            }
-            if (ch == '"') {
-                inString = !inString
-                continue
-            }
-            if (inString) continue
-
-            when (ch) {
-                '{' -> {
-                    if (objectDepth == 0) {
-                        objectStart = index
+        walkJsonChars(arraySlice) { i, ch, inString ->
+            if (!inString) {
+                when (ch) {
+                    '{' -> {
+                        if (objectDepth == 0) objectStart = i
+                        objectDepth++
                     }
-                    objectDepth++
-                }
-                '}' -> {
-                    if (objectDepth <= 0) continue
-                    objectDepth--
-                    if (objectDepth == 0 && objectStart >= 0) {
-                        slices += arraySlice.substring(objectStart, index + 1)
-                        objectStart = -1
+                    '}' -> {
+                        if (objectDepth > 0) {
+                            objectDepth--
+                            if (objectDepth == 0 && objectStart >= 0) {
+                                slices += arraySlice.substring(objectStart, i + 1)
+                                objectStart = -1
+                            }
+                        }
                     }
                 }
             }
+            i + 1
         }
 
         return slices

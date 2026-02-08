@@ -34,3 +34,10 @@
 - 2026-02-08: `LmStudioClient.kt` crossed maintainability limits and caused duplicate-line regressions during fast edits; keep LMStudio flow split by concern (`LmClient`, request builder, response parser, HTTP gateway) and keep single classes under ~500 lines.
 - 2026-02-08: Model tuning drifts quickly when spread across conditionals; keep per-model sampling/reasoning defaults in dedicated constants files plus a registry to avoid hidden behavior changes.
 - 2026-02-08: A single malformed object inside `results` (e.g. missing `:`/extra brace) can break full JSON parse for the whole batch; parser must salvage valid top-level objects and retry only unresolved words.
+- 2026-02-08: `scoreBatchResilient` binary-split retry had no recursion depth bound; a worst-case batch of 50 can recurse ~6 levels, but adversarial partial results could go deeper. Cap at 10 and log exceeded words to failed log.
+- 2026-02-08: `Files.readAllLines(path)` uses platform default charset, not UTF-8; Romanian diacritics silently corrupt on non-UTF-8 JVMs. Always pass `Charsets.UTF_8` explicitly.
+- 2026-02-08: Duplicate serialization paths (positional vs header-driven) in `RunCsvRepository` caused subtle column-order bugs when CSV headers evolved; unify to a single `serializeForHeaders` path.
+- 2026-02-08: Duplicated JSON in-string/escaped state tracking across `JsonRepair` and `LmStudioResponseParser` (~100 lines) was a maintenance risk; extracted shared `walkJsonChars` inline function.
+- 2026-02-08: `LmClient.scoreBatchResilient` had 12 parameters that grew with each feature; consolidating into `ScoringContext` data class made the interface stable and test doubles simpler.
+- 2026-02-08: Scattered `@Volatile` fields + `synchronized` blocks for capability degradation were error-prone; extracting `CapabilityState` data class with immutable `copy()` updates is both clearer and equally thread-safe for single-threaded scorer loops.
+- 2026-02-08: Nested if/else chains in parser fallback logic (`parseContentJson`) are hard to audit for coverage; converting to linear early-return style made each fallback path independently testable.

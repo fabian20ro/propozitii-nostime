@@ -10,6 +10,13 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.time.OffsetDateTime
 
+private const val MAX_RECURSION_DEPTH = 10
+
+data class CapabilityState(
+    val responseFormatMode: ResponseFormatMode = ResponseFormatMode.JSON_OBJECT,
+    val reasoningControlsSupported: Boolean = true
+)
+
 class LmStudioClient(
     private val mapper: ObjectMapper = ObjectMapper(),
     private val apiKey: String? = System.getenv("LMSTUDIO_API_KEY"),
@@ -20,10 +27,7 @@ class LmStudioClient(
 ) : LmClient {
 
     @Volatile
-    private var responseFormatMode: ResponseFormatMode = ResponseFormatMode.JSON_OBJECT
-
-    @Volatile
-    private var reasoningControlsSupported: Boolean = true
+    private var capabilityState: CapabilityState = CapabilityState()
 
     override fun resolveEndpoint(endpointOption: String?, baseUrlOption: String?): ResolvedEndpoint {
         return httpGateway.resolveEndpoint(endpointOption, baseUrlOption)
@@ -35,69 +39,58 @@ class LmStudioClient(
 
     override fun scoreBatchResilient(
         batch: List<BaseWordRow>,
-        runSlug: String,
-        model: String,
-        endpoint: String,
-        maxRetries: Int,
-        timeoutSeconds: Long,
-        runLogPath: Path,
-        failedLogPath: Path,
-        systemPrompt: String,
-        userTemplate: String,
-        flavor: LmApiFlavor,
-        maxTokens: Int
+        context: ScoringContext
     ): List<ScoreResult> {
-        val direct = tryScoreBatch(
-            batch = batch,
-            runSlug = runSlug,
-            model = model,
-            endpoint = endpoint,
-            maxRetries = maxRetries,
-            timeoutSeconds = timeoutSeconds,
-            runLogPath = runLogPath,
-            systemPrompt = systemPrompt,
-            userTemplate = userTemplate,
-            flavor = flavor,
-            maxTokens = maxTokens
-        )
+        return scoreBatchResilientInternal(batch, context, depth = 0)
+    }
+
+    private fun scoreBatchResilientInternal(
+        batch: List<BaseWordRow>,
+        ctx: ScoringContext,
+        depth: Int
+    ): List<ScoreResult> {
+        if (depth >= MAX_RECURSION_DEPTH) {
+            batch.forEach { word ->
+                appendJsonLine(
+                    ctx.failedLogPath,
+                    mapOf(
+                        "ts" to OffsetDateTime.now().toString(),
+                        "run" to ctx.runSlug,
+                        "word_id" to word.wordId,
+                        "word" to word.word,
+                        "type" to word.type,
+                        "error" to "max_recursion_depth_exceeded",
+                        "depth" to depth
+                    )
+                )
+            }
+            return emptyList()
+        }
+
+        val direct = tryScoreBatch(batch, ctx)
 
         if (direct.connectivityFailure) {
             throw IllegalStateException(
-                "LMStudio request failed due connectivity/timeout issues at '$endpoint': ${direct.lastError}"
+                "LMStudio request failed due connectivity/timeout issues at '${ctx.endpoint}': ${direct.lastError}"
             )
         }
 
-        if (direct.scores.isNotEmpty() && direct.unresolved.isEmpty()) {
-            return direct.scores
-        }
-
-        if (direct.scores.isNotEmpty() && direct.unresolved.isNotEmpty()) {
-            val retried = scoreBatchResilient(
-                batch = direct.unresolved,
-                runSlug = runSlug,
-                model = model,
-                endpoint = endpoint,
-                maxRetries = maxRetries,
-                timeoutSeconds = timeoutSeconds,
-                runLogPath = runLogPath,
-                failedLogPath = failedLogPath,
-                systemPrompt = systemPrompt,
-                userTemplate = userTemplate,
-                flavor = flavor,
-                maxTokens = maxTokens
-            )
+        if (direct.scores.isNotEmpty()) {
+            if (direct.unresolved.isEmpty()) return direct.scores
+            val retried = scoreBatchResilientInternal(direct.unresolved, ctx, depth + 1)
             return direct.scores + retried
         }
 
         if (batch.size == 1) {
+            val word = batch.first()
             appendJsonLine(
-                failedLogPath,
+                ctx.failedLogPath,
                 mapOf(
                     "ts" to OffsetDateTime.now().toString(),
-                    "run" to runSlug,
-                    "word_id" to batch.first().wordId,
-                    "word" to batch.first().word,
-                    "type" to batch.first().type,
+                    "run" to ctx.runSlug,
+                    "word_id" to word.wordId,
+                    "word" to word.word,
+                    "type" to word.type,
                     "error" to "batch_failed_after_retries",
                     "last_error" to direct.lastError
                 )
@@ -106,71 +99,36 @@ class LmStudioClient(
         }
 
         val splitIndex = batch.size / 2
-        val left = scoreBatchResilient(
-            batch = batch.subList(0, splitIndex),
-            runSlug = runSlug,
-            model = model,
-            endpoint = endpoint,
-            maxRetries = maxRetries,
-            timeoutSeconds = timeoutSeconds,
-            runLogPath = runLogPath,
-            failedLogPath = failedLogPath,
-            systemPrompt = systemPrompt,
-            userTemplate = userTemplate,
-            flavor = flavor,
-            maxTokens = maxTokens
-        )
-        val right = scoreBatchResilient(
-            batch = batch.subList(splitIndex, batch.size),
-            runSlug = runSlug,
-            model = model,
-            endpoint = endpoint,
-            maxRetries = maxRetries,
-            timeoutSeconds = timeoutSeconds,
-            runLogPath = runLogPath,
-            failedLogPath = failedLogPath,
-            systemPrompt = systemPrompt,
-            userTemplate = userTemplate,
-            flavor = flavor,
-            maxTokens = maxTokens
-        )
+        val left = scoreBatchResilientInternal(batch.subList(0, splitIndex), ctx, depth + 1)
+        val right = scoreBatchResilientInternal(batch.subList(splitIndex, batch.size), ctx, depth + 1)
         return left + right
     }
 
     private fun tryScoreBatch(
         batch: List<BaseWordRow>,
-        runSlug: String,
-        model: String,
-        endpoint: String,
-        maxRetries: Int,
-        timeoutSeconds: Long,
-        runLogPath: Path,
-        systemPrompt: String,
-        userTemplate: String,
-        flavor: LmApiFlavor,
-        maxTokens: Int
+        ctx: ScoringContext
     ): BatchAttempt {
         var lastError: String? = null
         var sawOnlyConnectivityFailures = true
-        val config = requestBuilder.modelConfigFor(model)
-        var currentResponseFormatMode = responseFormatModeFor(flavor)
-        var includeReasoningControls = shouldIncludeReasoningControls(flavor, config)
+        val config = requestBuilder.modelConfigFor(ctx.model)
+        var currentResponseFormatMode = responseFormatModeFor(ctx.flavor)
+        var includeReasoningControls = shouldIncludeReasoningControls(ctx.flavor, config)
 
-        repeat(maxRetries) { attempt ->
+        repeat(ctx.maxRetries) { attempt ->
             var responseBody: String? = null
             val requestPayload = requestBuilder.buildRequest(
-                model = model,
+                model = ctx.model,
                 batch = batch,
-                systemPrompt = systemPrompt,
-                userTemplate = userTemplate,
+                systemPrompt = ctx.systemPrompt,
+                userTemplate = ctx.userTemplate,
                 responseFormatMode = currentResponseFormatMode,
                 includeReasoningControls = includeReasoningControls,
                 config = config,
-                maxTokens = maxTokens
+                maxTokens = ctx.maxTokens
             )
 
             try {
-                val response = httpGateway.postJsonRequest(endpoint, requestPayload, timeoutSeconds)
+                val response = httpGateway.postJsonRequest(ctx.endpoint, requestPayload, ctx.timeoutSeconds)
                 responseBody = response.body
                 if (response.statusCode !in 200..299) {
                     throw IllegalStateException("HTTP ${response.statusCode}: ${response.body}")
@@ -178,10 +136,10 @@ class LmStudioClient(
 
                 val parsed = responseParser.parse(batch, response.body)
                 appendJsonLine(
-                    runLogPath,
+                    ctx.runLogPath,
                     mapOf(
                         "ts" to OffsetDateTime.now().toString(),
-                        "run" to runSlug,
+                        "run" to ctx.runSlug,
                         "attempt" to (attempt + 1),
                         "batch_size" to batch.size,
                         "parsed_count" to parsed.scores.size,
@@ -215,10 +173,10 @@ class LmStudioClient(
                 metrics?.recordError(Step2Metrics.categorizeError(lastError))
 
                 appendJsonLine(
-                    runLogPath,
+                    ctx.runLogPath,
                     mapOf(
                         "ts" to OffsetDateTime.now().toString(),
-                        "run" to runSlug,
+                        "run" to ctx.runSlug,
                         "attempt" to (attempt + 1),
                         "batch_size" to batch.size,
                         "error" to lastError,
@@ -262,43 +220,49 @@ class LmStudioClient(
 
     private fun responseFormatModeFor(flavor: LmApiFlavor): ResponseFormatMode {
         if (flavor != LmApiFlavor.OPENAI_COMPAT) return ResponseFormatMode.NONE
-        return responseFormatMode
+        return capabilityState.responseFormatMode
     }
 
     private fun shouldIncludeReasoningControls(flavor: LmApiFlavor, config: LmModelConfig): Boolean {
         if (flavor != LmApiFlavor.OPENAI_COMPAT) return false
         if (!config.hasReasoningControls()) return false
-        return reasoningControlsSupported
+        return capabilityState.reasoningControlsSupported
+    }
+
+    private fun updateCapability(transform: (CapabilityState) -> CapabilityState, message: String) {
+        val current = capabilityState
+        val updated = transform(current)
+        if (updated != current) {
+            synchronized(this) {
+                val latest = capabilityState
+                val newState = transform(latest)
+                if (newState != latest) {
+                    capabilityState = newState
+                    println(message)
+                }
+            }
+        }
     }
 
     private fun markResponseFormatJsonSchema() {
-        if (responseFormatMode == ResponseFormatMode.JSON_SCHEMA) return
-        synchronized(this) {
-            if (responseFormatMode != ResponseFormatMode.JSON_SCHEMA) {
-                responseFormatMode = ResponseFormatMode.JSON_SCHEMA
-                println("LMStudio capability: switching response_format to json_schema for this run.")
-            }
-        }
+        updateCapability(
+            { it.copy(responseFormatMode = ResponseFormatMode.JSON_SCHEMA) },
+            "LMStudio capability: switching response_format to json_schema for this run."
+        )
     }
 
     private fun markResponseFormatDisabled() {
-        if (responseFormatMode == ResponseFormatMode.NONE) return
-        synchronized(this) {
-            if (responseFormatMode != ResponseFormatMode.NONE) {
-                responseFormatMode = ResponseFormatMode.NONE
-                println("LMStudio capability: disabling response_format for this run.")
-            }
-        }
+        updateCapability(
+            { it.copy(responseFormatMode = ResponseFormatMode.NONE) },
+            "LMStudio capability: disabling response_format for this run."
+        )
     }
 
     private fun markReasoningControlsUnsupported() {
-        if (!reasoningControlsSupported) return
-        synchronized(this) {
-            if (reasoningControlsSupported) {
-                reasoningControlsSupported = false
-                println("LMStudio capability: disabling reasoning controls for this run.")
-            }
-        }
+        updateCapability(
+            { it.copy(reasoningControlsSupported = false) },
+            "LMStudio capability: disabling reasoning controls for this run."
+        )
     }
 
     private fun isConnectivityFailure(e: Exception): Boolean {

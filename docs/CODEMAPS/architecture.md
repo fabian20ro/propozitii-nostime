@@ -66,6 +66,7 @@ Operational safeguards:
 - exclusive file lock per run CSV (`<run>.csv.lock`)
 - guarded final rewrite (abort on shrink)
 - strict CSV parsing (malformed rows fail fast)
+- recursion depth guard (max 10) on batch split/retry
 - step state trace in `build/rarity/runs/<run>.state.json`
 - run-scoped fallback when `response_format` is unsupported
 - run-scoped fallback when model-specific reasoning controls are unsupported

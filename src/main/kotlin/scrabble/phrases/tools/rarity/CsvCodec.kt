@@ -20,7 +20,7 @@ data class CsvTable(
 class CsvCodec {
     fun readTable(path: Path): CsvTable {
         require(Files.exists(path)) { "CSV file not found: ${path.toAbsolutePath()}" }
-        val lines = Files.readAllLines(path)
+        val lines = Files.readAllLines(path, Charsets.UTF_8)
         require(lines.isNotEmpty()) { "CSV file is empty: ${path.toAbsolutePath()}" }
 
         val headers = parseLine(lines.first(), lineNumber = 1)
@@ -44,7 +44,7 @@ class CsvCodec {
 
     fun writeTable(path: Path, headers: List<String>, rows: List<List<String>>) {
         ensureParent(path)
-        Files.newBufferedWriter(path).use { writer ->
+        Files.newBufferedWriter(path, Charsets.UTF_8).use { writer ->
             writer.writeRow(headers)
             rows.forEach { row ->
                 require(row.size == headers.size) {

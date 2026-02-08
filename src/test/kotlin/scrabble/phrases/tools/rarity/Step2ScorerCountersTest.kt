@@ -12,9 +12,35 @@ class Step2ScorerCountersTest {
     @TempDir
     lateinit var tempDir: Path
 
+    private val repo = RunCsvRepository()
+
+    private fun options(
+        runSlug: String,
+        baseCsvPath: Path,
+        outputCsvPath: Path
+    ): Step2Options {
+        return Step2Options(
+            runSlug = runSlug,
+            model = "model_x",
+            baseCsvPath = baseCsvPath,
+            outputCsvPath = outputCsvPath,
+            inputCsvPath = null,
+            batchSize = 2,
+            limit = null,
+            maxRetries = 1,
+            timeoutSeconds = 5,
+            maxTokens = 128,
+            skipPreflight = true,
+            force = false,
+            endpointOption = null,
+            baseUrlOption = null,
+            systemPrompt = SYSTEM_PROMPT,
+            userTemplate = USER_PROMPT_TEMPLATE
+        )
+    }
+
     @Test
     fun counters_track_mixed_scored_and_failed_rows() {
-        val repo = RunCsvRepository()
         val baseCsv = tempDir.resolve("step1_words.csv")
         val outputCsv = tempDir.resolve("runs/run_mix.csv")
         val outputDir = tempDir.resolve("build/rarity")
@@ -37,26 +63,7 @@ class Step2ScorerCountersTest {
             outputDir = outputDir
         )
 
-        val options = Step2Options(
-            runSlug = "run_mix",
-            model = "model_x",
-            baseCsvPath = baseCsv,
-            outputCsvPath = outputCsv,
-            inputCsvPath = null,
-            batchSize = 2,
-            limit = null,
-            maxRetries = 1,
-            timeoutSeconds = 5,
-            maxTokens = 128,
-            skipPreflight = true,
-            force = false,
-            endpointOption = null,
-            baseUrlOption = null,
-            systemPrompt = SYSTEM_PROMPT,
-            userTemplate = USER_PROMPT_TEMPLATE
-        )
-
-        scorer.execute(options)
+        scorer.execute(options("run_mix", baseCsv, outputCsv))
 
         val rows = repo.loadRunRows(outputCsv)
         assertEquals(listOf(1, 3), rows.map { it.wordId })
@@ -72,7 +79,6 @@ class Step2ScorerCountersTest {
 
     @Test
     fun completed_state_reports_zero_pending_when_all_words_scored() {
-        val repo = RunCsvRepository()
         val baseCsv = tempDir.resolve("step1_words_all_scored.csv")
         val outputCsv = tempDir.resolve("runs/run_all_scored.csv")
         val outputDir = tempDir.resolve("build/rarity")
@@ -94,26 +100,7 @@ class Step2ScorerCountersTest {
             outputDir = outputDir
         )
 
-        val options = Step2Options(
-            runSlug = "run_all_scored",
-            model = "model_x",
-            baseCsvPath = baseCsv,
-            outputCsvPath = outputCsv,
-            inputCsvPath = null,
-            batchSize = 2,
-            limit = null,
-            maxRetries = 1,
-            timeoutSeconds = 5,
-            maxTokens = 128,
-            skipPreflight = true,
-            force = false,
-            endpointOption = null,
-            baseUrlOption = null,
-            systemPrompt = SYSTEM_PROMPT,
-            userTemplate = USER_PROMPT_TEMPLATE
-        )
-
-        scorer.execute(options)
+        scorer.execute(options("run_all_scored", baseCsv, outputCsv))
 
         val statePath = outputDir.resolve("runs/run_all_scored.state.json")
         val state = ObjectMapper().readTree(statePath.toFile())
@@ -133,17 +120,7 @@ private class HalfBatchLmClient : LmClient {
 
     override fun scoreBatchResilient(
         batch: List<BaseWordRow>,
-        runSlug: String,
-        model: String,
-        endpoint: String,
-        maxRetries: Int,
-        timeoutSeconds: Long,
-        runLogPath: Path,
-        failedLogPath: Path,
-        systemPrompt: String,
-        userTemplate: String,
-        flavor: LmApiFlavor,
-        maxTokens: Int
+        context: ScoringContext
     ): List<ScoreResult> {
         val first = batch.firstOrNull() ?: return emptyList()
         return listOf(
