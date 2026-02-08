@@ -80,6 +80,7 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep2Scorer.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep3Comparator.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep4Uploader.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep5Rebalancer.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmClient.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioClient.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelConfig.kt`
@@ -105,7 +106,7 @@ Step 2 resilience utilities:
 
 Step behavior:
 - Step 1/4 touch DB.
-- Step 2/3 are local CSV-only.
+- Step 2/3/5 are local CSV-only.
 - Step 4 default mode is `partial`; legacy global fallback writes require `--mode full-fallback`.
 
 Step 2 safety:

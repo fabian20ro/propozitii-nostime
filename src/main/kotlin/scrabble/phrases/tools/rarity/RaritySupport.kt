@@ -12,7 +12,7 @@ fun resolveStep(args: Array<String>): Pair<String, List<String>> {
     }
 
     if (args.isEmpty()) {
-        error("Missing step. Usage: RarityPipelineKt <step1|step2|step3|step4> [options]")
+        error("Missing step. Usage: RarityPipelineKt <step1|step2|step3|step4|step5> [options]")
     }
 
     return args[0] to args.drop(1)

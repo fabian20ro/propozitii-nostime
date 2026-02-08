@@ -48,3 +48,5 @@
 - 2026-02-08: TOON format is promising for token compression, but in this pipeline the dominant failures were model/runtime stability (`[]`, timeouts, connection drops), so JSON remains the safer default and TOON should be tested only via controlled A/B smoke runs.
 - 2026-02-08: High-stochastic decoding profiles (temperature>0, restrictive `top_p`/`min_p`) caused structured-output drift (`word_id` corruption, invalid ranges) and severe retry amplification; deterministic defaults (`temperature=0`, `top_p=1`) restored Step 2 stability.
 - 2026-02-08: `json_schema` can degrade into partially valid batches; auto-disabling `response_format` when unresolved ratio is high avoids prolonged batch collapse to size 1/2.
+- 2026-02-08: New Step 5 rebalance operates on Step2-style CSVs and must enforce single-pass semantics: each `word_id` can be sent to LM at most once per run, even with multiple transitions.
+- 2026-02-08: Step 5 transition mode `from=to` means split+promote, not no-op: target ratio stays at `to`, while remaining words are reassigned to `to+1`.

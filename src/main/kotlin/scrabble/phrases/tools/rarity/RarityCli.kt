@@ -21,7 +21,8 @@ class RarityCli(
             "step2" -> runStep2(options)
             "step3" -> runStep3(options)
             "step4" -> runStep4(options)
-            else -> error("Unknown step '$step'. Use one of: step1, step2, step3, step4.")
+            "step5" -> runStep5(options)
+            else -> error("Unknown step '$step'. Use one of: step1, step2, step3, step4, step5.")
         }
     }
 
@@ -90,6 +91,49 @@ class RarityCli(
             wordStore = wordStore,
             runCsvRepository = runCsvRepository,
             uploadMarkerWriter = UploadMarkerWriter(runCsvRepository)
+        ).execute(stepOptions)
+    }
+
+    private fun runStep5(options: Map<String, String>) {
+        val fromLevel = options["from-level"]?.toIntOrNull()
+        val toLevel = options["to-level"]?.toIntOrNull()
+        val transitions = when {
+            fromLevel != null || toLevel != null -> {
+                require(fromLevel != null && toLevel != null) {
+                    "Step 5 requires both --from-level and --to-level when one is provided."
+                }
+                require(toLevel == fromLevel - 1 || toLevel == fromLevel) {
+                    "Step 5 supports only one-step downgrade (ex: 3->2) or keep+promote split (ex: 2->2), " +
+                        "received --from-level=$fromLevel --to-level=$toLevel"
+                }
+                listOf(LevelTransition(fromLevel = fromLevel, toLevel = toLevel))
+            }
+            else -> parseStep5Transitions(options["transitions"])
+        }
+
+        val stepOptions = Step5Options(
+            runSlug = sanitizeRunSlug(requiredOption(options, "run")),
+            model = requiredOption(options, "model"),
+            inputCsvPath = requiredPath(options, "step2-csv"),
+            outputCsvPath = requiredPath(options, "output-csv"),
+            batchSize = intOption(options, "batch-size", DEFAULT_REBALANCE_BATCH_SIZE, min = 3),
+            lowerRatio = options["lower-ratio"]?.toDoubleOrNull()?.coerceIn(0.01, 0.49) ?: DEFAULT_REBALANCE_LOWER_RATIO,
+            maxRetries = intOption(options, "max-retries", DEFAULT_MAX_RETRIES, min = 1),
+            timeoutSeconds = longOption(options, "timeout-seconds", DEFAULT_TIMEOUT_SECONDS, min = 5),
+            maxTokens = intOption(options, "max-tokens", DEFAULT_MAX_TOKENS, min = 64),
+            skipPreflight = booleanOption(options, "skip-preflight", default = false),
+            endpointOption = options["endpoint"] ?: System.getenv("LMSTUDIO_API_URL"),
+            baseUrlOption = options["base-url"] ?: System.getenv("LMSTUDIO_BASE_URL"),
+            seed = options["seed"]?.toLongOrNull(),
+            transitions = transitions,
+            systemPrompt = loadPrompt(options["system-prompt-file"], REBALANCE_SYSTEM_PROMPT),
+            userTemplate = loadPrompt(options["user-template-file"], REBALANCE_USER_PROMPT_TEMPLATE)
+        )
+
+        RarityStep5Rebalancer(
+            runCsvRepository = runCsvRepository,
+            lmClient = lmClient,
+            outputDir = outputDir
         ).execute(stepOptions)
     }
 

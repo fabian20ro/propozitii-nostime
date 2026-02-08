@@ -60,6 +60,7 @@ These caches support fast random-offset queries and avoid repeated group scans.
 - Step 2: LMStudio scoring -> `build/rarity/runs/<run>.csv` + JSONL logs
 - Step 3: local compare -> `build/rarity/step3_comparison.csv`
 - Step 4: upload final levels -> `words.rarity_level`
+- Step 5 (optional): LM rebalance on Step2/Step3 CSV -> rebalanced local CSV (`final_level`)
 - Step 2 internals are split by concern: `LmStudioClient` (orchestration), `LmStudioRequestSupport` (payload assembly), `LmStudioResponseParser` (lenient parse/matching), `LmStudioHttpGateway` (transport/endpoints), plus model-config registry/constants for per-model defaults
 
 Operational safeguards:
@@ -68,6 +69,7 @@ Operational safeguards:
 - strict CSV parsing (malformed rows fail fast)
 - recursion depth guard (max 10) on batch split/retry
 - step state trace in `build/rarity/runs/<run>.state.json`
+- step5 traces in `build/rarity/rebalance/runs/<run>.jsonl` and `build/rarity/rebalance/failed_batches/<run>.failed.jsonl`
 - run-scoped fallback when `response_format` is unsupported
 - run-scoped fallback when model-specific reasoning controls are unsupported
 - `word_id`-first parsing + in-process retry for unresolved partial LM outputs

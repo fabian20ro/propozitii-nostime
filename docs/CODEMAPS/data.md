@@ -59,6 +59,9 @@ Implementation package: `src/main/kotlin/scrabble/phrases/tools/rarity/`
 - Step 4: upload final CSV levels into `words.rarity_level`
   - default mode: `partial` (updates only IDs present in final CSV)
   - optional mode: `full-fallback` (updates all words, missing IDs become `4`)
+- Step 5 (optional): rebalance a Step2/Step3 CSV locally with LM prompts and write adjusted `final_level`
+  - supports transitions like `3:2` (downgrade 1/3 to 2) and `2:2` (keep 1/3 at 2, move 2/3 to 3)
+  - each `word_id` is processed at most once per run
 
 Step 2 artifacts and guards:
 - `build/rarity/runs/<run>.csv` (scored rows)

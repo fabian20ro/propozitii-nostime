@@ -100,6 +100,12 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Step 3: local comparison + outliers CSV (2-run median, or 3-run any-extremes)
 ./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --run-c-csv build/rarity/runs/campaign_20260207_c_eurollm22b.csv --merge-strategy any-extremes --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
 
+# Step 5 (optional): rebalance a Step2 CSV in batches, then upload the rebalanced CSV
+# Example A: downgrade split (from=3, target lower=2, rest remain 3)
+./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_3_to_2 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 3 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/rebalance_system_prompt_ro.txt --user-template-file docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
+# Example B: keep+promote split (from=2,to=2 => 1/3 remain 2, 2/3 move to 3)
+./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 2 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
+
 # Step 4: upload final CSV to Supabase (default mode=partial, only IDs present in final CSV)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
 ```
@@ -111,6 +117,8 @@ Artifacts:
   - `pending` in state = unresolved words remaining after the run
 - `build/rarity/failed_batches/<run>.failed.jsonl` failures after retries/split
 - `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
+- `build/rarity/rebalance/runs/<run>.jsonl` step5 raw LM requests/responses
+- `build/rarity/rebalance/failed_batches/<run>.failed.jsonl` step5 unresolved errors
 - `build/rarity/step4_upload_report.csv`
 - marker columns are written back into `--final-csv` (`uploaded_at`, `uploaded_level`, `upload_status`, `upload_batch_id`)
   - if input CSV is read-only, marker output goes to `<final-csv>.upload_markers.csv`

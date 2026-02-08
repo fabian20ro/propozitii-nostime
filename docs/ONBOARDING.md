@@ -12,7 +12,7 @@ You are working on a sentence-generation system with a strict split:
 Read first:
 - `README.md`
 - `AGENTS.md`
-- `docs/rarity-runbook.md` (if your change touches rarity Step 2/3/4 behavior)
+- `docs/rarity-runbook.md` (if your change touches rarity Step 2/3/4/5 behavior)
 
 ## 1. Run Locally (10 min)
 

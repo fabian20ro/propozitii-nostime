@@ -153,3 +153,11 @@ tasks.register('rarityStep4Upload', JavaExec) {
     systemProperty 'file.encoding', 'UTF-8'
     systemProperty 'rarity.step', 'step4'
 }
+
+tasks.register('rarityStep5Rebalance', JavaExec) {
+    dependsOn 'classes'
+    mainClass = 'scrabble.phrases.tools.RarityPipelineKt'
+    classpath = sourceSets.main.runtimeClasspath
+    systemProperty 'file.encoding', 'UTF-8'
+    systemProperty 'rarity.step', 'step5'
+}
