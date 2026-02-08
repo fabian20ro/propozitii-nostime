@@ -4,6 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import scrabble.phrases.tools.rarity.BaseWordRow
 import scrabble.phrases.tools.rarity.USER_INPUT_PLACEHOLDER
 
+enum class ResponseFormatMode {
+    NONE,
+    JSON_OBJECT,
+    JSON_SCHEMA
+}
+
 class LmStudioRequestBuilder(
     private val mapper: ObjectMapper = ObjectMapper(),
     private val configRegistry: LmModelConfigRegistry = LmModelConfigRegistry()
@@ -18,7 +24,7 @@ class LmStudioRequestBuilder(
         batch: List<BaseWordRow>,
         systemPrompt: String,
         userTemplate: String,
-        includeResponseFormat: Boolean,
+        responseFormatMode: ResponseFormatMode,
         includeReasoningControls: Boolean,
         config: LmModelConfig,
         maxTokens: Int
@@ -69,11 +75,57 @@ class LmStudioRequestBuilder(
             config.enableThinking?.let { payload["chat_template_kwargs"] = mapOf("enable_thinking" to it) }
         }
 
-        if (includeResponseFormat) {
-            payload["response_format"] = mapOf("type" to "json_object")
+        when (responseFormatMode) {
+            ResponseFormatMode.NONE -> Unit
+            ResponseFormatMode.JSON_OBJECT -> payload["response_format"] = mapOf("type" to "json_object")
+            ResponseFormatMode.JSON_SCHEMA -> payload["response_format"] = buildJsonSchemaResponseFormat()
         }
 
         return mapper.writeValueAsString(payload)
+    }
+
+    private fun buildJsonSchemaResponseFormat(): Map<String, Any> {
+        val resultItemSchema = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "word_id" to mapOf("type" to "integer"),
+                "word" to mapOf("type" to "string"),
+                "type" to mapOf("type" to "string"),
+                "rarity_level" to mapOf(
+                    "type" to "integer",
+                    "minimum" to 1,
+                    "maximum" to 5
+                ),
+                "tag" to mapOf("type" to "string"),
+                "confidence" to mapOf(
+                    "type" to "number",
+                    "minimum" to 0,
+                    "maximum" to 1
+                )
+            ),
+            "required" to listOf("word_id", "word", "type", "rarity_level", "tag", "confidence"),
+            "additionalProperties" to false
+        )
+
+        val responseSchema = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "results" to mapOf(
+                    "type" to "array",
+                    "items" to resultItemSchema
+                )
+            ),
+            "required" to listOf("results"),
+            "additionalProperties" to false
+        )
+
+        return mapOf(
+            "type" to "json_schema",
+            "json_schema" to mapOf(
+                "name" to "rarity_batch",
+                "schema" to responseSchema
+            )
+        )
     }
 }
 
@@ -86,6 +138,12 @@ object LmStudioErrorClassifier {
             text.contains("must be") ||
             text.contains("json_schema") ||
             text.contains("json object")
+    }
+
+    fun shouldSwitchToJsonSchema(e: Exception): Boolean {
+        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
+        if (!text.contains("response_format")) return false
+        return text.contains("must be") && text.contains("json_schema")
     }
 
     fun isUnsupportedReasoningControls(e: Exception): Boolean {

@@ -33,3 +33,4 @@
 - 2026-02-08: `max_tokens` should be treated as an upper bound, not a floor; using dynamic per-batch estimates reduces long "thinking" outputs and improves Step 2 throughput.
 - 2026-02-08: `LmStudioClient.kt` crossed maintainability limits and caused duplicate-line regressions during fast edits; keep LMStudio flow split by concern (`LmClient`, request builder, response parser, HTTP gateway) and keep single classes under ~500 lines.
 - 2026-02-08: Model tuning drifts quickly when spread across conditionals; keep per-model sampling/reasoning defaults in dedicated constants files plus a registry to avoid hidden behavior changes.
+- 2026-02-08: A single malformed object inside `results` (e.g. missing `:`/extra brace) can break full JSON parse for the whole batch; parser must salvage valid top-level objects and retry only unresolved words.

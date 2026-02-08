@@ -140,15 +140,42 @@ class LmStudioResponseParser(
     }
 
     private fun parseContentJson(content: String): JsonNode {
-        return try {
-            mapper.readTree(content)
-        } catch (_: Exception) {
-            val extracted = extractFirstJsonBlock(content)
-                ?: throw IllegalStateException(
+        val direct = runCatching { mapper.readTree(content) }.getOrNull()
+        if (direct != null && !direct.isValueNode) {
+            return direct
+        }
+
+        val extracted = extractFirstJsonBlock(content)
+            ?: if (direct != null) {
+                throw IllegalStateException(
+                    "LMStudio content is not a JSON object/array. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
+                )
+            } else {
+                throw IllegalStateException(
                     "LMStudio content is not valid JSON. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
                 )
-            mapper.readTree(extracted)
+            }
+
+        val extractedParse = runCatching { mapper.readTree(extracted) }
+        val extractedJson = extractedParse.getOrNull()
+        if (extractedJson != null && !extractedJson.isValueNode) {
+            return extractedJson
         }
+
+        salvageResultsFromMalformedContent(extracted)?.let { salvaged ->
+            return salvaged
+        }
+
+        if (extractedJson != null) {
+            throw IllegalStateException(
+                "LMStudio content is not a JSON object/array. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
+            )
+        }
+
+        val parseMessage = extractedParse.exceptionOrNull()?.message ?: "unknown parse error"
+        throw IllegalStateException(
+            "LMStudio content JSON parse failed: $parseMessage. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
+        )
     }
 
     private fun extractResultsArray(contentJson: JsonNode): JsonNode {
@@ -245,6 +272,125 @@ class LmStudioResponseParser(
         }
 
         return null
+    }
+
+    /**
+     * Some local models emit a mostly-valid `results` payload where one object is malformed
+     * (e.g. missing `:`) and breaks full JSON parsing. Recover parsable top-level objects so
+     * only unresolved words are retried instead of collapsing the full batch.
+     */
+    private fun salvageResultsFromMalformedContent(content: String): JsonNode? {
+        val arraySlice = extractLikelyResultsArraySlice(content) ?: return null
+        val objectSlices = extractTopLevelObjectSlices(arraySlice)
+        if (objectSlices.isEmpty()) return null
+
+        val results = mapper.createArrayNode()
+        for (slice in objectSlices) {
+            val repaired = JsonRepair.repair(slice)
+            val node = runCatching { mapper.readTree(repaired) }.getOrNull() ?: continue
+            if (node.isObject) {
+                results.add(node)
+            }
+        }
+
+        if (results.size() == 0) return null
+
+        metrics?.recordJsonRepair()
+        val wrapper = mapper.createObjectNode()
+        wrapper.set<JsonNode>("results", results)
+        return wrapper
+    }
+
+    private fun extractLikelyResultsArraySlice(content: String): String? {
+        val trimmed = content.trim()
+        if (trimmed.startsWith("[")) return trimmed
+
+        val resultsKeyIndex = content.indexOf("\"results\"")
+        val searchStart = if (resultsKeyIndex >= 0) resultsKeyIndex else 0
+        val arrayStart = content.indexOf('[', startIndex = searchStart)
+        if (arrayStart < 0) return null
+
+        val arrayEnd = findMatchingClosingIndex(content, arrayStart, '[', ']')
+        if (arrayEnd < 0) return null
+        return content.substring(arrayStart, arrayEnd + 1)
+    }
+
+    private fun findMatchingClosingIndex(
+        text: String,
+        start: Int,
+        opener: Char,
+        closer: Char
+    ): Int {
+        if (start !in text.indices || text[start] != opener) return -1
+        var depth = 0
+        var inString = false
+        var escaped = false
+
+        for (index in start until text.length) {
+            val ch = text[index]
+            if (escaped) {
+                escaped = false
+                continue
+            }
+            if (ch == '\\' && inString) {
+                escaped = true
+                continue
+            }
+            if (ch == '"') {
+                inString = !inString
+                continue
+            }
+            if (inString) continue
+
+            if (ch == opener) depth++
+            if (ch == closer) depth--
+            if (depth == 0) return index
+        }
+        return -1
+    }
+
+    private fun extractTopLevelObjectSlices(arraySlice: String): List<String> {
+        val slices = mutableListOf<String>()
+        var inString = false
+        var escaped = false
+        var objectDepth = 0
+        var objectStart = -1
+
+        for (index in arraySlice.indices) {
+            val ch = arraySlice[index]
+            if (escaped) {
+                escaped = false
+                continue
+            }
+            if (ch == '\\' && inString) {
+                escaped = true
+                continue
+            }
+            if (ch == '"') {
+                inString = !inString
+                continue
+            }
+            if (inString) continue
+
+            when (ch) {
+                '{' -> {
+                    if (objectDepth == 0) {
+                        objectStart = index
+                    }
+                    objectDepth++
+                }
+                '}' -> {
+                    if (objectDepth <= 0) continue
+                    objectDepth--
+                    if (objectDepth == 0 && objectStart >= 0) {
+                        slices += arraySlice.substring(objectStart, index + 1)
+                        objectStart = -1
+                    }
+                }
+            }
+        }
+
+        return slices
     }
 
     private fun parseConfidence(node: JsonNode): Double {

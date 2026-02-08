@@ -115,6 +115,7 @@ Step 2 LM response handling:
 - `JsonRepair` applied before JSON parsing to fix truncated output from token exhaustion
 - parser matches by `word_id` first, then `word/type`, then fuzzy fallback
 - lenient result extraction: partial results accepted; unresolved rows are retried in-process before split fallback
+- malformed-item tolerance: when a single `results` item is malformed JSON, parser salvages valid sibling items and retries only unresolved rows
 - envelope tolerant parsing: accepts `results`, `items`, `data`, or top-level arrays
 - fuzzy word matching accepts diacritical misspellings
 - confidence parsed as string or number; accepts both `0..1` and `1..100` (normalized to `0..1`)

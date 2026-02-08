@@ -29,7 +29,7 @@ class LmStudioClientTest {
     lateinit var tempDir: Path
 
     @Test
-    fun disables_response_format_for_rest_of_run_after_unsupported_error() {
+    fun switches_response_format_to_json_schema_after_json_object_is_unsupported() {
         val requests = mutableListOf<String>()
         val callIndex = AtomicInteger(0)
         val server = startServer { exchange ->
@@ -84,8 +84,11 @@ class LmStudioClientTest {
             assertEquals(3, requests.size)
 
             assertTrue(requests[0].contains("\"response_format\""))
-            assertFalse(requests[1].contains("\"response_format\""))
-            assertFalse(requests[2].contains("\"response_format\""))
+            assertTrue(requests[0].contains("\"type\":\"json_object\""))
+            assertTrue(requests[1].contains("\"response_format\""))
+            assertTrue(requests[1].contains("\"type\":\"json_schema\""))
+            assertTrue(requests[2].contains("\"response_format\""))
+            assertTrue(requests[2].contains("\"type\":\"json_schema\""))
         } finally {
             server.stop(0)
         }
@@ -325,6 +328,157 @@ class LmStudioClientTest {
 
             assertEquals(1, scored.size)
             assertEquals(4, scored.first().rarityLevel)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun extracts_json_after_numbered_reasoning_prefix() {
+        val server = startServer { exchange ->
+            respond(
+                exchange,
+                200,
+                successResponseRawContent(
+                    """
+                    1. Analyze request
+                    2. Build response
+                    {"results":[{"word_id":1,"word":"apa","type":"N","rarity_level":2,"tag":"common","confidence":0.8}]}
+                    """.trimIndent()
+                )
+            )
+        }
+
+        try {
+            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val scored = client.scoreBatchResilient(
+                batch = listOf(BaseWordRow(1, "apa", "N")),
+                runSlug = "run_numbered_reasoning_text",
+                model = MODEL_GLM_47_FLASH,
+                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                maxRetries = 1,
+                timeoutSeconds = 5,
+                runLogPath = tempDir.resolve("run_numbered_reasoning_text.jsonl"),
+                failedLogPath = tempDir.resolve("failed_numbered_reasoning_text.jsonl"),
+                systemPrompt = SYSTEM_PROMPT,
+                userTemplate = USER_PROMPT_TEMPLATE,
+                flavor = LmApiFlavor.OPENAI_COMPAT,
+                maxTokens = 8000
+            )
+
+            assertEquals(1, scored.size)
+            assertEquals(2, scored.first().rarityLevel)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun salvages_valid_results_when_one_item_in_results_array_is_malformed() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(
+                    exchange,
+                    200,
+                    successResponseRawContent(
+                        """
+                        {
+                          "results": [
+                            {"word_id":1,"word":"apa","type":"N","rarity_level":2,"tag":"common","confidence":0.9},
+                            {"word_id":2,"word":"brad","type":"N","rarity_level":4,"tag":"rare","confidence" 0.8}
+                          ]
+                        }
+                        """.trimIndent()
+                    )
+                )
+                1 -> respond(
+                    exchange,
+                    200,
+                    successResponseRawContent(
+                        """
+                        {
+                          "results": [
+                            {"word_id":2,"word":"brad","type":"N","rarity_level":4,"tag":"rare","confidence":0.8}
+                          ]
+                        }
+                        """.trimIndent()
+                    )
+                )
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val scored = client.scoreBatchResilient(
+                batch = listOf(
+                    BaseWordRow(1, "apa", "N"),
+                    BaseWordRow(2, "brad", "N")
+                ),
+                runSlug = "run_salvage_malformed_item",
+                model = MODEL_MINISTRAL_3_8B,
+                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                maxRetries = 1,
+                timeoutSeconds = 5,
+                runLogPath = tempDir.resolve("run_salvage_malformed_item.jsonl"),
+                failedLogPath = tempDir.resolve("failed_salvage_malformed_item.jsonl"),
+                systemPrompt = SYSTEM_PROMPT,
+                userTemplate = USER_PROMPT_TEMPLATE,
+                flavor = LmApiFlavor.OPENAI_COMPAT,
+                maxTokens = 8000
+            )
+
+            assertEquals(2, scored.size)
+            assertEquals(listOf(1, 2), scored.map { it.wordId }.sorted())
+            assertEquals(2, requests.size)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun disables_response_format_if_json_schema_is_also_unsupported() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                1 -> respond(exchange, 400, """{"error":"response_format json_schema unsupported"}""")
+                2 -> respond(exchange, 200, successResponseFor("apa", "N", 2, 0.9))
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val scored = client.scoreBatchResilient(
+                batch = listOf(BaseWordRow(1, "apa", "N")),
+                runSlug = "run_schema_unsupported",
+                model = MODEL_GLM_47_FLASH,
+                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                maxRetries = 3,
+                timeoutSeconds = 5,
+                runLogPath = tempDir.resolve("run_schema_unsupported.jsonl"),
+                failedLogPath = tempDir.resolve("failed_schema_unsupported.jsonl"),
+                systemPrompt = SYSTEM_PROMPT,
+                userTemplate = USER_PROMPT_TEMPLATE,
+                flavor = LmApiFlavor.OPENAI_COMPAT,
+                maxTokens = 8000
+            )
+
+            assertEquals(1, scored.size)
+            assertEquals(3, requests.size)
+            assertTrue(requests[0].contains("\"type\":\"json_object\""))
+            assertTrue(requests[1].contains("\"type\":\"json_schema\""))
+            assertFalse(requests[2].contains("\"response_format\""))
         } finally {
             server.stop(0)
         }

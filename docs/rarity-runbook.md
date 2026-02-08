@@ -97,6 +97,7 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 
 - **JSON repair**: truncated/malformed LM output is auto-repaired before parsing (trailing decimals, unclosed structures, comments, trailing commas)
 - **Partial extraction + retry on unresolved**: parsed rows are kept, and unresolved rows are retried separately in-process
+- **Malformed item salvage**: if one object in `results` is invalid JSON, valid sibling objects are still kept and only unresolved words are retried
 - **`word_id` matching first**: parser pairs results by `word_id` before fallback matching on `word/type`
 - **Fuzzy matching**: Romanian diacritical misspellings from LM are accepted (Levenshtein distance <= 2 on normalized forms)
 - **Adaptive batching**: batch size shrinks after weak outcomes (floor=`max(5, initial/5)`), grows back after sustained success (cap=initial)

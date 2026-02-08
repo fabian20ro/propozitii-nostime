@@ -19,17 +19,11 @@ class LmStudioClient(
     private val httpGateway: LmStudioHttpGateway = LmStudioHttpGateway(apiKey)
 ) : LmClient {
 
-    private enum class CapabilitySupport {
-        UNKNOWN,
-        SUPPORTED,
-        UNSUPPORTED
-    }
+    @Volatile
+    private var responseFormatMode: ResponseFormatMode = ResponseFormatMode.JSON_OBJECT
 
     @Volatile
-    private var responseFormatSupport: CapabilitySupport = CapabilitySupport.UNKNOWN
-
-    @Volatile
-    private var reasoningControlsSupport: CapabilitySupport = CapabilitySupport.UNKNOWN
+    private var reasoningControlsSupported: Boolean = true
 
     override fun resolveEndpoint(endpointOption: String?, baseUrlOption: String?): ResolvedEndpoint {
         return httpGateway.resolveEndpoint(endpointOption, baseUrlOption)
@@ -159,7 +153,7 @@ class LmStudioClient(
         var lastError: String? = null
         var sawOnlyConnectivityFailures = true
         val config = requestBuilder.modelConfigFor(model)
-        var includeResponseFormat = shouldIncludeResponseFormat(flavor)
+        var currentResponseFormatMode = responseFormatModeFor(flavor)
         var includeReasoningControls = shouldIncludeReasoningControls(flavor, config)
 
         repeat(maxRetries) { attempt ->
@@ -169,7 +163,7 @@ class LmStudioClient(
                 batch = batch,
                 systemPrompt = systemPrompt,
                 userTemplate = userTemplate,
-                includeResponseFormat = includeResponseFormat,
+                responseFormatMode = currentResponseFormatMode,
                 includeReasoningControls = includeReasoningControls,
                 config = config,
                 maxTokens = maxTokens
@@ -192,18 +186,12 @@ class LmStudioClient(
                         "batch_size" to batch.size,
                         "parsed_count" to parsed.scores.size,
                         "unresolved_count" to parsed.unresolved.size,
-                        "response_format_enabled" to includeResponseFormat,
+                        "response_format_mode" to currentResponseFormatMode.name.lowercase(),
                         "reasoning_controls_enabled" to includeReasoningControls,
                         "request" to toJsonNodeOrString(requestPayload),
                         "response" to toJsonNodeOrString(response.body)
                     )
                 )
-                if (includeResponseFormat) {
-                    markResponseFormatSupported()
-                }
-                if (includeReasoningControls) {
-                    markReasoningControlsSupported()
-                }
                 return BatchAttempt(
                     scores = parsed.scores,
                     unresolved = parsed.unresolved,
@@ -213,8 +201,10 @@ class LmStudioClient(
             } catch (e: Exception) {
                 lastError = e.message ?: e::class.simpleName.orEmpty()
                 val connectivityFailure = isConnectivityFailure(e)
-                val unsupportedResponseFormat = includeResponseFormat &&
+                val unsupportedResponseFormat = currentResponseFormatMode != ResponseFormatMode.NONE &&
                     LmStudioErrorClassifier.isUnsupportedResponseFormat(e)
+                val shouldSwitchToJsonSchema = currentResponseFormatMode == ResponseFormatMode.JSON_OBJECT &&
+                    LmStudioErrorClassifier.shouldSwitchToJsonSchema(e)
                 val unsupportedReasoningControls = includeReasoningControls &&
                     LmStudioErrorClassifier.isUnsupportedReasoningControls(e)
                 val modelCrash = isModelCrash(e)
@@ -234,8 +224,9 @@ class LmStudioClient(
                         "error" to lastError,
                         "connectivity_failure" to connectivityFailure,
                         "unsupported_response_format" to unsupportedResponseFormat,
+                        "switch_to_json_schema" to shouldSwitchToJsonSchema,
                         "unsupported_reasoning_controls" to unsupportedReasoningControls,
-                        "response_format_enabled" to includeResponseFormat,
+                        "response_format_mode" to currentResponseFormatMode.name.lowercase(),
                         "reasoning_controls_enabled" to includeReasoningControls,
                         "model_crash" to modelCrash,
                         "request" to requestPayload,
@@ -243,9 +234,12 @@ class LmStudioClient(
                     )
                 )
 
-                if (unsupportedResponseFormat) {
-                    markResponseFormatUnsupported()
-                    includeResponseFormat = false
+                if (shouldSwitchToJsonSchema) {
+                    markResponseFormatJsonSchema()
+                    currentResponseFormatMode = ResponseFormatMode.JSON_SCHEMA
+                } else if (unsupportedResponseFormat) {
+                    markResponseFormatDisabled()
+                    currentResponseFormatMode = ResponseFormatMode.NONE
                 }
                 if (unsupportedReasoningControls) {
                     markReasoningControlsUnsupported()
@@ -266,50 +260,42 @@ class LmStudioClient(
         )
     }
 
-    private fun shouldIncludeResponseFormat(flavor: LmApiFlavor): Boolean {
-        if (flavor != LmApiFlavor.OPENAI_COMPAT) return false
-        return responseFormatSupport != CapabilitySupport.UNSUPPORTED
+    private fun responseFormatModeFor(flavor: LmApiFlavor): ResponseFormatMode {
+        if (flavor != LmApiFlavor.OPENAI_COMPAT) return ResponseFormatMode.NONE
+        return responseFormatMode
     }
 
     private fun shouldIncludeReasoningControls(flavor: LmApiFlavor, config: LmModelConfig): Boolean {
         if (flavor != LmApiFlavor.OPENAI_COMPAT) return false
         if (!config.hasReasoningControls()) return false
-        return reasoningControlsSupport != CapabilitySupport.UNSUPPORTED
+        return reasoningControlsSupported
     }
 
-    private fun markResponseFormatSupported() {
-        if (responseFormatSupport != CapabilitySupport.UNKNOWN) return
+    private fun markResponseFormatJsonSchema() {
+        if (responseFormatMode == ResponseFormatMode.JSON_SCHEMA) return
         synchronized(this) {
-            if (responseFormatSupport == CapabilitySupport.UNKNOWN) {
-                responseFormatSupport = CapabilitySupport.SUPPORTED
+            if (responseFormatMode != ResponseFormatMode.JSON_SCHEMA) {
+                responseFormatMode = ResponseFormatMode.JSON_SCHEMA
+                println("LMStudio capability: switching response_format to json_schema for this run.")
             }
         }
     }
 
-    private fun markResponseFormatUnsupported() {
-        if (responseFormatSupport == CapabilitySupport.UNSUPPORTED) return
+    private fun markResponseFormatDisabled() {
+        if (responseFormatMode == ResponseFormatMode.NONE) return
         synchronized(this) {
-            if (responseFormatSupport != CapabilitySupport.UNSUPPORTED) {
-                responseFormatSupport = CapabilitySupport.UNSUPPORTED
-                println("LMStudio capability: disabling response_format=json_object for this run.")
-            }
-        }
-    }
-
-    private fun markReasoningControlsSupported() {
-        if (reasoningControlsSupport != CapabilitySupport.UNKNOWN) return
-        synchronized(this) {
-            if (reasoningControlsSupport == CapabilitySupport.UNKNOWN) {
-                reasoningControlsSupport = CapabilitySupport.SUPPORTED
+            if (responseFormatMode != ResponseFormatMode.NONE) {
+                responseFormatMode = ResponseFormatMode.NONE
+                println("LMStudio capability: disabling response_format for this run.")
             }
         }
     }
 
     private fun markReasoningControlsUnsupported() {
-        if (reasoningControlsSupport == CapabilitySupport.UNSUPPORTED) return
+        if (!reasoningControlsSupported) return
         synchronized(this) {
-            if (reasoningControlsSupport != CapabilitySupport.UNSUPPORTED) {
-                reasoningControlsSupport = CapabilitySupport.UNSUPPORTED
+            if (reasoningControlsSupported) {
+                reasoningControlsSupported = false
                 println("LMStudio capability: disabling reasoning controls for this run.")
             }
         }
