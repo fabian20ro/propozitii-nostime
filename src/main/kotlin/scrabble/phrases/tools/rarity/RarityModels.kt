@@ -162,26 +162,49 @@ val SYSTEM_PROMPT: String =
     Pentru fiecare intrare estimezi raritatea pe scară 1..5 pentru un vorbitor român contemporan din România.
 
     Scară:
-    1 = foarte uzual
-    2 = uzual extins
-    3 = mai puțin uzual, dar cunoscut
-    4 = rar/specializat/regional
-    5 = foarte rar/arhaic/regional puternic
+    1 = foarte uzual, de bază (cotidian foarte frecvent)
+    2 = uzual (frecvent în limbaj general)
+    3 = mai puțin uzual, dar cunoscut larg (nivel implicit)
+    4 = rar / specializat / regional clar
+    5 = foarte rar / arhaic / regional puternic / obscur
 
     Reguli:
-    - Arhaismele tind spre 5.
-    - Termenii tehnici/regionali tind spre 4 sau 5.
-    - La limită 1..3 => alege 2; la limită 3..5 => alege 4.
     - Evaluează doar forma lexicală, fără context propozițional.
-    - Nu refuza: pentru orice intrare întoarce o estimare; dacă e incert, folosește tag="uncertain" și confidence mai mic.
+    - Folosește nivelul 3 ca alegere implicită când nu există semnale puternice.
+    - Nu suprafolosi 4/5: alege 4 sau 5 doar când există indicii clare (arhaic, termen strict tehnic, regionalism marcat).
+    - Nu coborî automat la 2 doar pentru că un cuvânt „pare cunoscut”; 2 este pentru uz general frecvent.
+    - Nu urca automat la 4/5 pentru cuvinte necunoscute modelului; necunoscut/nesigur => de regulă 3 cu confidence mai mic.
+    - 1 este rezervat cuvintelor foarte comune de bază.
+    - Dacă e la limită între 2 și 4, preferă 3 în lipsa unui semnal clar.
+    - Nu refuza: pentru orice intrare întoarce o estimare; dacă e incert, folosește tag `uncertain` și confidence mai mic.
     - Nu inventa câmpuri.
     - Răspunde strict JSON valid, fără text extra.
     """.trimIndent()
 
 val USER_PROMPT_TEMPLATE: String =
     """
-    Returnează STRICT JSON: {"results":[{"word":"...","type":"N|A|V","rarity_level":1..5,"tag":"common|less_common|rare|technical|regional|archaic|uncertain","confidence":0.0..1.0},...]}
-    Un rezultat per intrare, în ordine. Fără text extra.
+    Returnează DOAR JSON cu schema:
+    {
+      "results": [
+        {
+          "word": "string",
+          "type": "N|A|V",
+          "rarity_level": 1,
+          "tag": "common|less_common|rare|technical|regional|archaic|uncertain",
+          "confidence": 0.0
+        }
+      ]
+    }
+
+    Cerințe:
+    - Un element rezultat pentru fiecare intrare.
+    - Păstrează ordinea intrărilor.
+    - rarity_level trebuie să fie întreg 1..5.
+    - confidence între 0.0 și 1.0.
+    - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.
+    - Pentru incertitudine fără indicii clare, preferă nivelul 3 (nu 4/5).
+    - Nu supra-eticheta ca 4/5 fără semnal explicit de arhaic/tehnic/regional.
+    - Fără text înainte/după JSON.
 
     Intrări:
     {{INPUT_JSON}}
