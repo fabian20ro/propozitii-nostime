@@ -1,0 +1,305 @@
+package scrabble.phrases.tools.rarity
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+
+data class ParsedBatch(
+    val scores: List<ScoreResult>,
+    val unresolved: List<BaseWordRow>
+)
+
+private data class ScoreCandidate(
+    val wordId: Int?,
+    val word: String?,
+    val type: String?,
+    val rarityLevel: Int?,
+    val tag: String,
+    val confidence: Double
+)
+
+class LmStudioResponseParser(
+    private val mapper: ObjectMapper = ObjectMapper(),
+    private val metrics: Step2Metrics? = null
+) {
+
+    fun parse(batch: List<BaseWordRow>, responseBody: String): ParsedBatch {
+        val root = mapper.readTree(responseBody)
+        val content = extractModelContent(root)
+            ?: throw IllegalStateException("LMStudio response missing assistant content")
+
+        val repairedContent = JsonRepair.repair(content)
+        if (repairedContent != content) {
+            metrics?.recordJsonRepair()
+        }
+
+        val contentJson = parseContentJson(repairedContent)
+        val results = extractResultsArray(contentJson)
+        return parseResultsLenient(batch, results)
+    }
+
+    private fun parseResultsLenient(
+        batch: List<BaseWordRow>,
+        results: JsonNode
+    ): ParsedBatch {
+        if (batch.isEmpty()) {
+            return ParsedBatch(scores = emptyList(), unresolved = emptyList())
+        }
+
+        val pendingByWordId = batch.associateBy { it.wordId }.toMutableMap()
+        val pendingByWordType = batch
+            .groupBy { it.word to it.type }
+            .mapValues { (_, rows) -> rows.toMutableList() }
+            .toMutableMap()
+
+        val scored = mutableListOf<ScoreResult>()
+        for (i in 0 until results.size()) {
+            val candidate = parseScoreCandidate(results[i]) ?: continue
+            val matched = matchCandidate(candidate, pendingByWordId, pendingByWordType) ?: continue
+
+            scored += ScoreResult(
+                wordId = matched.wordId,
+                word = matched.word,
+                type = matched.type,
+                rarityLevel = candidate.rarityLevel ?: continue,
+                tag = candidate.tag.ifBlank { "uncertain" }.take(16),
+                confidence = candidate.confidence
+            )
+        }
+
+        val unresolved = pendingByWordId.values.sortedBy { it.wordId }
+
+        if (scored.isEmpty() && unresolved.size == batch.size) {
+            throw IllegalStateException(
+                "No valid results parsed from ${results.size()} result nodes for batch of ${batch.size}"
+            )
+        }
+
+        if (unresolved.isNotEmpty()) {
+            metrics?.recordError(Step2Metrics.ErrorCategory.WORD_MISMATCH)
+        }
+
+        return ParsedBatch(scores = scored, unresolved = unresolved)
+    }
+
+    private fun parseScoreCandidate(node: JsonNode): ScoreCandidate? {
+        val rarity = node.path("rarity_level").asInt(-1)
+        if (rarity !in 1..5) return null
+
+        val wordId = when {
+            node.path("word_id").isInt -> node.path("word_id").asInt()
+            node.path("word_id").isTextual -> node.path("word_id").asText("").toIntOrNull()
+            else -> null
+        }
+
+        val word = node.path("word").asText("").ifBlank { null }
+        val type = node.path("type").asText("").ifBlank { null }
+        val tag = node.path("tag").asText("uncertain")
+        val confidence = normalizeConfidence(parseConfidence(node.path("confidence")))
+
+        return ScoreCandidate(
+            wordId = wordId,
+            word = word,
+            type = type,
+            rarityLevel = rarity,
+            tag = tag,
+            confidence = confidence
+        )
+    }
+
+    private fun matchCandidate(
+        candidate: ScoreCandidate,
+        pendingByWordId: MutableMap<Int, BaseWordRow>,
+        pendingByWordType: MutableMap<Pair<String, String>, MutableList<BaseWordRow>>
+    ): BaseWordRow? {
+        candidate.wordId?.let { id ->
+            val row = pendingByWordId.remove(id) ?: return@let
+            val key = row.word to row.type
+            pendingByWordType.removeById(key, id)
+            return row
+        }
+
+        val word = candidate.word ?: return null
+        val type = candidate.type ?: return null
+        val exactKey = word to type
+
+        val exact = pendingByWordType.removeFirstOrNull(exactKey)
+        if (exact != null) {
+            pendingByWordId.remove(exact.wordId)
+            return exact
+        }
+
+        val fuzzy = pendingByWordType.removeFirstFuzzy(word, type)
+        if (fuzzy != null) {
+            pendingByWordId.remove(fuzzy.wordId)
+            metrics?.recordFuzzyMatch()
+            return fuzzy
+        }
+
+        return null
+    }
+
+    private fun parseContentJson(content: String): JsonNode {
+        return try {
+            mapper.readTree(content)
+        } catch (_: Exception) {
+            val extracted = extractFirstJsonBlock(content)
+                ?: throw IllegalStateException(
+                    "LMStudio content is not valid JSON. Excerpt: ${LmStudioErrorClassifier.excerptForLog(content)}"
+                )
+            mapper.readTree(extracted)
+        }
+    }
+
+    private fun extractResultsArray(contentJson: JsonNode): JsonNode {
+        if (contentJson.isArray) return contentJson
+
+        if (contentJson.isObject) {
+            val keysByPriority = listOf("results", "items", "data", "predictions")
+            for (key in keysByPriority) {
+                val node = contentJson.path(key)
+                if (node.isArray) return node
+            }
+
+            val arrayField = contentJson.fields().asSequence().firstOrNull { it.value.isArray }
+            if (arrayField != null) return arrayField.value
+
+            val keys = contentJson.fieldNames().asSequence().toList().joinToString(",")
+            throw IllegalStateException("LMStudio content has no results array. Object keys: [$keys]")
+        }
+
+        throw IllegalStateException("LMStudio content must be JSON object/array, got: ${contentJson.nodeType}")
+    }
+
+    private fun extractModelContent(root: JsonNode): String? {
+        return nodeToContentText(root.path("choices").path(0).path("message").path("content"))
+            ?: nodeToContentText(root.path("message").path("content"))
+            ?: nodeToContentText(root.path("output_text"))
+    }
+
+    private fun nodeToContentText(node: JsonNode?): String? {
+        if (node == null || node.isMissingNode || node.isNull) return null
+
+        val raw = when {
+            node.isTextual -> node.asText()
+            node.isArray -> node.mapNotNull { part ->
+                when {
+                    part.isTextual -> part.asText()
+                    part.isObject -> part.path("text").asText(null)
+                    else -> null
+                }
+            }.joinToString("")
+            node.isObject -> mapper.writeValueAsString(node)
+            else -> node.toString()
+        }
+
+        return stripCodeFences(raw).ifBlank { null }
+    }
+
+    private fun stripCodeFences(content: String): String {
+        val trimmed = content.trim()
+        if (!trimmed.startsWith("```")) return trimmed
+        return trimmed
+            .removePrefix("```json")
+            .removePrefix("```JSON")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+    }
+
+    private fun extractFirstJsonBlock(content: String): String? {
+        val start = content.indexOfFirst { it == '{' || it == '[' }
+        if (start < 0) return null
+
+        var inString = false
+        var escaped = false
+        var objectDepth = 0
+        var arrayDepth = 0
+
+        for (index in start until content.length) {
+            val ch = content[index]
+            if (escaped) {
+                escaped = false
+                continue
+            }
+            if (ch == '\\' && inString) {
+                escaped = true
+                continue
+            }
+            if (ch == '"') {
+                inString = !inString
+                continue
+            }
+            if (inString) continue
+
+            when (ch) {
+                '{' -> objectDepth++
+                '}' -> objectDepth--
+                '[' -> arrayDepth++
+                ']' -> arrayDepth--
+            }
+
+            if (objectDepth == 0 && arrayDepth == 0) {
+                return content.substring(start, index + 1).trim()
+            }
+        }
+
+        return null
+    }
+
+    private fun parseConfidence(node: JsonNode): Double {
+        return when {
+            node.isNumber -> node.asDouble(Double.NaN)
+            node.isTextual -> node.asText("").toDoubleOrNull() ?: Double.NaN
+            else -> Double.NaN
+        }
+    }
+
+    private fun normalizeConfidence(value: Double): Double {
+        if (value.isNaN()) return 0.5
+        if (value in 0.0..1.0) return value
+        if (value > 1.0 && value <= 100.0) return value / 100.0
+        return 0.5
+    }
+}
+
+private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeById(
+    key: Pair<String, String>,
+    wordId: Int
+) {
+    val rows = this[key] ?: return
+    rows.removeIf { it.wordId == wordId }
+    if (rows.isEmpty()) {
+        remove(key)
+    }
+}
+
+private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeFirstOrNull(
+    key: Pair<String, String>
+): BaseWordRow? {
+    val rows = this[key] ?: return null
+    if (rows.isEmpty()) {
+        remove(key)
+        return null
+    }
+    val row = rows.removeAt(0)
+    if (rows.isEmpty()) {
+        remove(key)
+    }
+    return row
+}
+
+private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeFirstFuzzy(
+    word: String,
+    type: String
+): BaseWordRow? {
+    val match = entries.firstOrNull { (key, rows) ->
+        key.second == type && rows.isNotEmpty() && FuzzyWordMatcher.matches(key.first, word)
+    } ?: return null
+
+    val rows = match.value
+    val row = rows.removeAt(0)
+    if (rows.isEmpty()) {
+        remove(match.key)
+    }
+    return row
+}

@@ -28,3 +28,7 @@
 - 2026-02-08: Step 2 append logic must serialize against existing CSV headers; otherwise adding Step 4 marker columns can corrupt resumed writes even with lock/guard protections.
 - 2026-02-08: Current practical Step 2 knobs for this repo are `--batch-size 50` + `--max-tokens 8000`; lower defaults were a major contributor to 12h full-run time.
 - 2026-02-08: Step 2 completion state must report `pending` as unresolved-after-run (`failed`) rather than the initial pending input size, otherwise operators get false completion signals.
+- 2026-02-08: Some local models return valid top-level JSON arrays or `items`/`data` envelopes instead of `{results:[...]}`; parser must accept these shapes to avoid false batch failures.
+- 2026-02-08: GLM/OpenAI-compatible endpoints may reject reasoning-control fields (`reasoning_effort`, `chat_template_kwargs`); cache unsupported capability once and continue without per-batch retries.
+- 2026-02-08: `max_tokens` should be treated as an upper bound, not a floor; using dynamic per-batch estimates reduces long "thinking" outputs and improves Step 2 throughput.
+- 2026-02-08: `LmStudioClient.kt` crossed maintainability limits and caused duplicate-line regressions during fast edits; keep LMStudio flow split by concern (`LmClient`, request builder, response parser, HTTP gateway) and keep single classes under ~500 lines.

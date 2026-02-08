@@ -80,7 +80,11 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep2Scorer.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep3Comparator.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep4Uploader.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmClient.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioClient.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioRequestSupport.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioResponseParser.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioHttpGateway.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RunCsvRepository.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/UploadMarkerWriter.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RunLockManager.kt`
@@ -105,11 +109,13 @@ Step 2 LM response handling:
 - `JsonRepair` applied before JSON parsing to fix truncated output from token exhaustion
 - parser matches by `word_id` first, then `word/type`, then fuzzy fallback
 - lenient result extraction: partial results accepted; unresolved rows are retried in-process before split fallback
+- envelope tolerant parsing: accepts `results`, `items`, `data`, or top-level arrays
 - fuzzy word matching accepts diacritical misspellings
 - confidence parsed as string or number; accepts both `0..1` and `1..100` (normalized to `0..1`)
 - run-scoped capability cache: after one unsupported `response_format` error, remaining requests skip `response_format`
+- run-scoped reasoning-controls cache (GLM): if `reasoning_effort`/`chat_template_kwargs` are unsupported, subsequent requests skip them
 - model crash backoff: linear delay on "model has crashed" errors
-- dynamic `max_tokens`: scales with batch size as `max(batchSize*26+120, --max-tokens)`
+- dynamic `max_tokens`: estimated per batch and capped by `--max-tokens` (plus model-specific cap when defined)
 
 ## Domain Word Model
 

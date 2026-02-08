@@ -21,7 +21,7 @@ Do not reuse old run slugs when restarting a new campaign.
 ## Recommended Step 2 knobs
 
 - `--batch-size 50` (adaptive: auto-shrinks on failures, grows back on success)
-- `--max-tokens 8000` (dynamic: actual value scales up with batch size as `max(batchSize*26+120, maxTokens)`)
+- `--max-tokens 8000` (dynamic ceiling: per-request budget is estimated from batch size and capped by `--max-tokens`)
 - `--timeout-seconds 120`
 - `--max-retries 2` for full pass
 - `--max-retries 3` for retry subset pass
@@ -96,6 +96,8 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 - **Fuzzy matching**: Romanian diacritical misspellings from LM are accepted (Levenshtein distance <= 2 on normalized forms)
 - **Adaptive batching**: batch size shrinks after weak outcomes (floor=`max(5, initial/5)`), grows back after sustained success (cap=initial)
 - **`response_format` capability cache**: after one unsupported response, the run disables `response_format` for all following requests
+- **reasoning-control capability cache** (GLM profile): after one unsupported `reasoning_effort`/`chat_template_kwargs`, the run disables those controls for all following requests
+- **Lenient envelope parsing**: parser accepts top-level array plus object envelopes like `results`/`items`/`data`
 - **Model crash backoff**: linear delay (10s * attempt) when LMStudio reports model crash
 - **Metrics**: end-of-run summary with WPM, ETA, error breakdown by category
 

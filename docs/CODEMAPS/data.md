@@ -67,14 +67,17 @@ Step 2 artifacts and guards:
 - final guarded atomic rewrite with anti-shrink checks
 
 Step 2 resilience:
+- `LmStudioClient` orchestrates retries/split/failure logging, while request/parse/HTTP concerns are split into dedicated classes
 - `JsonRepair` fixes truncated/malformed LM JSON before parsing
 - `BatchSizeAdapter` adapts by success ratio (not all-or-nothing), with runtime floor `max(5, initial/5)`
 - `FuzzyWordMatcher` accepts diacritical misspellings from LM (Levenshtein distance <= 2)
 - `Step2Metrics` tracks WPM, ETA, error breakdown by category (TRUNCATED_JSON, MODEL_CRASH, etc.)
 - parser matches returned rows by `word_id` first (then `word/type` + fuzzy fallback)
+- parser accepts top-level arrays and object envelopes (`results`, `items`, `data`)
 - lenient result extraction: partial batch results accepted, unresolved rows are retried in-process
 - run-scoped `response_format` capability cache avoids repeated HTTP 400 on unsupported endpoints
-- dynamic `max_tokens` scales with batch size as `max(batchSize*26+120, --max-tokens)`
+- run-scoped reasoning-controls cache (GLM profile) disables unsupported thinking flags after first rejection
+- dynamic `max_tokens` is estimated from batch size and capped by `--max-tokens` (+ model cap when present)
 
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 
