@@ -126,39 +126,37 @@ class LmStudioRequestBuilder(
 }
 
 object LmStudioErrorClassifier {
+
+    private fun errorTextOf(e: Exception): String =
+        "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
+
+    private fun String.containsAny(vararg terms: String): Boolean =
+        terms.any { contains(it) }
+
     fun isUnsupportedResponseFormat(e: Exception): Boolean {
-        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
+        val text = errorTextOf(e)
         if (!text.contains("response_format")) return false
-        return text.contains("unsupported") ||
-            text.contains("unknown") ||
-            text.contains("must be") ||
-            text.contains("json_schema") ||
-            text.contains("json object")
+        return text.containsAny("unsupported", "unknown", "must be", "json_schema", "json object")
     }
 
     fun shouldSwitchToJsonSchema(e: Exception): Boolean {
-        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
-        if (!text.contains("response_format")) return false
-        return text.contains("must be") && text.contains("json_schema")
+        val text = errorTextOf(e)
+        return text.contains("response_format") &&
+            text.contains("must be") &&
+            text.contains("json_schema")
     }
 
     fun isUnsupportedReasoningControls(e: Exception): Boolean {
-        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
-        val mentionsReasoningField = text.contains("reasoning_effort") ||
-            text.contains("thinking") ||
-            text.contains("chat_template_kwargs") ||
-            text.contains("enable_thinking")
+        val text = errorTextOf(e)
+        val mentionsReasoningField = text.containsAny(
+            "reasoning_effort", "thinking", "chat_template_kwargs", "enable_thinking"
+        )
         if (!mentionsReasoningField) return false
-        return text.contains("unsupported") ||
-            text.contains("unknown") ||
-            text.contains("unexpected") ||
-            text.contains("invalid")
+        return text.containsAny("unsupported", "unknown", "unexpected", "invalid")
     }
 
-    fun isEmptyParsedResults(e: Exception): Boolean {
-        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
-        return text.contains("no valid results parsed from 0 result nodes")
-    }
+    fun isEmptyParsedResults(e: Exception): Boolean =
+        errorTextOf(e).contains("no valid results parsed from 0 result nodes")
 
     fun excerptForLog(content: String?, maxChars: Int = 500): String? {
         if (content.isNullOrBlank()) return null

@@ -53,18 +53,7 @@ class LmStudioClient(
     ): List<ScoreResult> {
         if (depth >= MAX_RECURSION_DEPTH) {
             batch.forEach { word ->
-                appendJsonLine(
-                    ctx.failedLogPath,
-                    mapOf(
-                        "ts" to OffsetDateTime.now().toString(),
-                        "run" to ctx.runSlug,
-                        "word_id" to word.wordId,
-                        "word" to word.word,
-                        "type" to word.type,
-                        "error" to "max_recursion_depth_exceeded",
-                        "depth" to depth
-                    )
-                )
+                logFailedWord(ctx, word, "max_recursion_depth_exceeded", "depth" to depth)
             }
             return emptyList()
         }
@@ -84,19 +73,7 @@ class LmStudioClient(
         }
 
         if (batch.size == 1) {
-            val word = batch.single()
-            appendJsonLine(
-                ctx.failedLogPath,
-                mapOf(
-                    "ts" to OffsetDateTime.now().toString(),
-                    "run" to ctx.runSlug,
-                    "word_id" to word.wordId,
-                    "word" to word.word,
-                    "type" to word.type,
-                    "error" to "batch_failed_after_retries",
-                    "last_error" to direct.lastError
-                )
-            )
+            logFailedWord(ctx, batch.single(), "batch_failed_after_retries", "last_error" to direct.lastError)
             return emptyList()
         }
 
@@ -104,6 +81,19 @@ class LmStudioClient(
         val left = scoreBatchResilientInternal(batch.subList(0, splitIndex), ctx, depth + 1)
         val right = scoreBatchResilientInternal(batch.subList(splitIndex, batch.size), ctx, depth + 1)
         return left + right
+    }
+
+    private fun logFailedWord(ctx: ScoringContext, word: BaseWordRow, error: String, vararg extra: Pair<String, Any?>) {
+        val entry = linkedMapOf<String, Any?>(
+            "ts" to OffsetDateTime.now().toString(),
+            "run" to ctx.runSlug,
+            "word_id" to word.wordId,
+            "word" to word.word,
+            "type" to word.type,
+            "error" to error
+        )
+        extra.forEach { (key, value) -> entry[key] = value }
+        appendJsonLine(ctx.failedLogPath, entry)
     }
 
     private fun tryScoreBatch(
@@ -209,10 +199,7 @@ class LmStudioClient(
                 if (shouldSwitchToJsonSchema) {
                     markResponseFormatJsonSchema()
                     currentResponseFormatMode = ResponseFormatMode.JSON_SCHEMA
-                } else if (unsupportedResponseFormat) {
-                    markResponseFormatDisabled()
-                    currentResponseFormatMode = ResponseFormatMode.NONE
-                } else if (emptyParsedResults) {
+                } else if (unsupportedResponseFormat || emptyParsedResults) {
                     markResponseFormatDisabled()
                     currentResponseFormatMode = ResponseFormatMode.NONE
                 }
@@ -292,17 +279,11 @@ class LmStudioClient(
     }
 
     private fun isConnectivityFailure(e: Exception): Boolean {
-        return when (e) {
-            is ConnectException -> true
-            is SocketTimeoutException -> true
-            is HttpTimeoutException -> true
-            else -> {
-                val message = e.message?.lowercase().orEmpty()
-                message.contains("timed out") ||
-                    message.contains("connection refused") ||
-                    message.contains("couldn't connect")
-            }
-        }
+        if (e is ConnectException || e is SocketTimeoutException || e is HttpTimeoutException) return true
+        val message = e.message?.lowercase().orEmpty()
+        return message.contains("timed out") ||
+            message.contains("connection refused") ||
+            message.contains("couldn't connect")
     }
 
     private fun isModelCrash(e: Exception): Boolean {

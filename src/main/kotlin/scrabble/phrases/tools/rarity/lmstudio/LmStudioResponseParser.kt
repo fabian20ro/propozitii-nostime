@@ -86,9 +86,10 @@ class LmStudioResponseParser(
         val rarity = node.path("rarity_level").asInt(-1)
         if (rarity !in 1..5) return null
 
+        val wordIdNode = node.path("word_id")
         val wordId = when {
-            node.path("word_id").isInt -> node.path("word_id").asInt()
-            node.path("word_id").isTextual -> node.path("word_id").asText("").toIntOrNull()
+            wordIdNode.isInt -> wordIdNode.asInt()
+            wordIdNode.isTextual -> wordIdNode.asText("").toIntOrNull()
             else -> null
         }
 
@@ -123,13 +124,13 @@ class LmStudioResponseParser(
         val type = candidate.type ?: return null
         val exactKey = word to type
 
-        val exact = pendingByWordType.removeFirstOrNull(exactKey)
+        val exact = pendingByWordType.takeFirstFrom(exactKey)
         if (exact != null) {
             pendingByWordId.remove(exact.wordId)
             return exact
         }
 
-        val fuzzy = pendingByWordType.removeFirstFuzzy(word, type)
+        val fuzzy = pendingByWordType.takeFirstFuzzy(word, type)
         if (fuzzy != null) {
             pendingByWordId.remove(fuzzy.wordId)
             metrics?.recordFuzzyMatch()
@@ -142,31 +143,32 @@ class LmStudioResponseParser(
     private fun parseContentJson(content: String): JsonNode {
         val excerpt = LmStudioErrorClassifier.excerptForLog(content)
 
+        // 1. Try parsing the full content directly
         val direct = runCatching { mapper.readTree(content) }.getOrNull()
-        if (direct != null && !direct.isValueNode) {
-            return direct
-        }
+        if (direct != null && !direct.isValueNode) return direct
 
+        // 2. Extract the first JSON block (content may have surrounding text)
         val extracted = extractFirstJsonBlock(content)
             ?: throw IllegalStateException(
                 if (direct != null) "LMStudio content is not a JSON object/array. Excerpt: $excerpt"
                 else "LMStudio content is not valid JSON. Excerpt: $excerpt"
             )
 
+        // 3. Try parsing the extracted block
         val extractedParse = runCatching { mapper.readTree(extracted) }
         val extractedJson = extractedParse.getOrNull()
-        if (extractedJson != null && !extractedJson.isValueNode) {
-            return extractedJson
-        }
+        if (extractedJson != null && !extractedJson.isValueNode) return extractedJson
 
+        // 4. Try salvaging individual objects from malformed content
         salvageResultsFromMalformedContent(extracted)?.let { return it }
 
-        if (extractedJson != null) {
-            throw IllegalStateException("LMStudio content is not a JSON object/array. Excerpt: $excerpt")
+        // 5. Report failure with the most specific error available
+        val reason = if (extractedJson != null) {
+            "not a JSON object/array"
+        } else {
+            extractedParse.exceptionOrNull()?.message ?: "unknown parse error"
         }
-
-        val parseMessage = extractedParse.exceptionOrNull()?.message ?: "unknown parse error"
-        throw IllegalStateException("LMStudio content JSON parse failed: $parseMessage. Excerpt: $excerpt")
+        throw IllegalStateException("LMStudio content JSON parse failed: $reason. Excerpt: $excerpt")
     }
 
     private fun extractResultsArray(contentJson: JsonNode): JsonNode {
@@ -370,38 +372,28 @@ private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeByI
 ) {
     val rows = this[key] ?: return
     rows.removeIf { it.wordId == wordId }
-    if (rows.isEmpty()) {
-        remove(key)
-    }
+    if (rows.isEmpty()) remove(key)
 }
 
-private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeFirstOrNull(
+private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.takeFirstFrom(
     key: Pair<String, String>
 ): BaseWordRow? {
-    val rows = this[key] ?: return null
-    if (rows.isEmpty()) {
+    val rows = this[key]
+    if (rows.isNullOrEmpty()) {
         remove(key)
         return null
     }
     val row = rows.removeAt(0)
-    if (rows.isEmpty()) {
-        remove(key)
-    }
+    if (rows.isEmpty()) remove(key)
     return row
 }
 
-private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeFirstFuzzy(
+private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.takeFirstFuzzy(
     word: String,
     type: String
 ): BaseWordRow? {
-    val match = entries.firstOrNull { (key, rows) ->
+    val matchKey = entries.firstOrNull { (key, rows) ->
         key.second == type && rows.isNotEmpty() && FuzzyWordMatcher.matches(key.first, word)
-    } ?: return null
-
-    val rows = match.value
-    val row = rows.removeAt(0)
-    if (rows.isEmpty()) {
-        remove(match.key)
-    }
-    return row
+    }?.key ?: return null
+    return takeFirstFrom(matchKey)
 }
