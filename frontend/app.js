@@ -245,6 +245,9 @@ function hideMessage() {
 function setButtonsDisabled(disabled) {
     refreshBtn.disabled = disabled;
     raritySlider.disabled = disabled;
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.disabled = disabled;
+    });
 }
 
 /**
@@ -417,6 +420,46 @@ function initDexonlineDrawer() {
 
     initDrag();
 }
+
+// Copy to clipboard
+function extractPlainText(el) {
+    let text = '';
+    for (const node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.tagName === 'BR') {
+                text += '\n';
+            } else {
+                text += extractPlainText(node);
+            }
+        }
+    }
+    return text;
+}
+
+function showCopyFeedback(button) {
+    button.classList.add('copied');
+    setTimeout(() => button.classList.remove('copied'), 1500);
+}
+
+function copyCardText(button) {
+    const targetId = button.dataset.target;
+    const el = document.getElementById(targetId);
+    if (!el) return;
+
+    const text = extractPlainText(el).trim();
+    if (!text || el.querySelector('.loading') || text === 'Eroare' || text === 'Timeout') return;
+
+    navigator.clipboard.writeText(text)
+        .then(() => showCopyFeedback(button))
+        .catch(() => { /* clipboard denied — silent fail, no disruption */ });
+}
+
+document.querySelector('.grid').addEventListener('click', function (e) {
+    const btn = e.target.closest('.copy-btn');
+    if (btn) copyCardText(btn);
+});
 
 // Event listeners
 refreshBtn.addEventListener('click', refresh);

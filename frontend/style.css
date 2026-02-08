@@ -98,13 +98,54 @@ header h1 {
     box-shadow: var(--shadow);
 }
 
-.card h2 {
-    font-size: 1.25rem;
-    font-weight: normal;
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.card h2 {
+    font-size: 1.25rem;
+    font-weight: normal;
     color: var(--text-muted);
+}
+
+.copy-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.copy-btn:hover {
+    color: var(--primary-color);
+}
+
+.copy-btn .icon-check {
+    display: none;
+}
+
+.copy-btn.copied .icon-clipboard {
+    display: none;
+}
+
+.copy-btn.copied .icon-check {
+    display: block;
+    color: var(--primary-color);
+}
+
+.copy-btn:disabled {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .sentence {
