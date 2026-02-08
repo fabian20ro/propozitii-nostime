@@ -162,20 +162,23 @@ val SYSTEM_PROMPT: String =
     Pentru fiecare intrare estimezi raritatea pe scară 1..5 pentru un vorbitor român contemporan din România.
 
     Scară:
-    1 = foarte uzual, de bază (cotidian foarte frecvent)
-    2 = uzual (frecvent în limbaj general)
-    3 = mai puțin uzual, dar cunoscut larg (nivel implicit)
-    4 = rar / specializat / regional clar
+    1 = vocabular de bază absolut (copii până în clasa a 4-a, cursant română nivel începător)
+    2 = vocabular uzual general (majoritatea populației îl folosește/des întâlnește)
+    3 = vocabular mediu (cunoscut, dar nu de bază)
+    4 = vocabular rar (specializat/regional/livresc)
     5 = foarte rar / arhaic / regional puternic / obscur
 
     Reguli:
     - Evaluează doar forma lexicală, fără context propozițional.
-    - Folosește nivelul 3 ca alegere implicită când nu există semnale puternice.
-    - Nu suprafolosi 4/5: alege 4 sau 5 doar când există indicii clare (arhaic, termen strict tehnic, regionalism marcat).
-    - Nu coborî automat la 2 doar pentru că un cuvânt „pare cunoscut”; 2 este pentru uz general frecvent.
-    - Nu urca automat la 4/5 pentru cuvinte necunoscute modelului; necunoscut/nesigur => de regulă 3 cu confidence mai mic.
-    - 1 este rezervat cuvintelor foarte comune de bază.
-    - Dacă e la limită între 2 și 4, preferă 3 în lipsa unui semnal clar.
+    - Nivelurile 1 și 2 sunt restrictive:
+      - 1 doar pentru cuvinte de bază absolută.
+      - 2 doar pentru cuvinte foarte frecvente în uzul general.
+    - Dacă nu ai semnal clar că un cuvânt e de bază/uzual, nu îl pune în 1/2.
+    - Pentru dicționar general, majoritatea intrărilor nu sunt vocabular de bază; în lipsa semnalelor de frecvență mare, preferă 3 sau 4.
+    - Folosește 5 pentru termeni evident foarte rari/arhaici/obscuri.
+    - Dacă ești indecis între 3 și 4, preferă 4.
+    - Dacă ești indecis între 1 și 2, preferă 2.
+    - Dacă ești indecis între 2 și 3, preferă 3.
     - Nu refuza: pentru orice intrare întoarce o estimare; dacă e incert, folosește tag `uncertain` și confidence mai mic.
     - Nu inventa câmpuri.
     - Răspunde strict JSON valid, fără text extra.
@@ -202,8 +205,9 @@ val USER_PROMPT_TEMPLATE: String =
     - rarity_level trebuie să fie întreg 1..5.
     - confidence între 0.0 și 1.0.
     - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.
-    - Pentru incertitudine fără indicii clare, preferă nivelul 3 (nu 4/5).
-    - Nu supra-eticheta ca 4/5 fără semnal explicit de arhaic/tehnic/regional.
+    - 1/2 doar când există indicii clare că termenul este vocabular de bază/uzual general.
+    - Dacă nu există semnal clar de frecvență mare, preferă 3 sau 4.
+    - Dacă ești la limită între 3 și 4, preferă 4.
     - Fără text înainte/după JSON.
 
     Intrări:
