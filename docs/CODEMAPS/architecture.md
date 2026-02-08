@@ -71,6 +71,7 @@ Operational safeguards:
 - run-scoped fallback when `response_format` is unsupported
 - run-scoped fallback when model-specific reasoning controls are unsupported
 - `word_id`-first parsing + in-process retry for unresolved partial LM outputs
+- Step 3 supports a third run CSV (`--run-c-csv`) and configurable merge strategy (`--merge-strategy median|any-extremes`)
 
 ## Deployment Reality
 

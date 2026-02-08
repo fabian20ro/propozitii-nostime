@@ -65,12 +65,14 @@ class RarityCli(
         val stepOptions = Step3Options(
             runACsvPath = requiredPath(options, "run-a-csv"),
             runBCsvPath = requiredPath(options, "run-b-csv"),
+            runCCsvPath = optionalPath(options, "run-c-csv"),
             outputCsvPath = requiredPath(options, "output-csv"),
             outliersCsvPath = optionalPath(options, "outliers-csv") ?: outputDir.resolve("step3_outliers.csv"),
             baseCsvPath = optionalPath(options, "base-csv") ?: outputDir.resolve("step1_words.csv"),
             outlierThreshold = intOption(options, "outlier-threshold", DEFAULT_OUTLIER_THRESHOLD, min = 1),
             confidenceThreshold = options["confidence-threshold"]?.toDoubleOrNull()?.coerceIn(0.0, 1.0)
-                ?: DEFAULT_CONFIDENCE_THRESHOLD
+                ?: DEFAULT_CONFIDENCE_THRESHOLD,
+            mergeStrategy = Step3MergeStrategy.from(options["merge-strategy"])
         )
 
         RarityStep3Comparator(runCsvRepository).execute(stepOptions)

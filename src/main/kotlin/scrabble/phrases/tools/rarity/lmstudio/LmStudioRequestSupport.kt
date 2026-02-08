@@ -108,21 +108,14 @@ class LmStudioRequestBuilder(
         )
 
         val responseSchema = mapOf(
-            "type" to "object",
-            "properties" to mapOf(
-                "results" to mapOf(
-                    "type" to "array",
-                    "items" to resultItemSchema
-                )
-            ),
-            "required" to listOf("results"),
-            "additionalProperties" to false
+            "type" to "array",
+            "items" to resultItemSchema
         )
 
         return mapOf(
             "type" to "json_schema",
             "json_schema" to mapOf(
-                "name" to "rarity_batch",
+                "name" to "rarity_batch_array",
                 "schema" to responseSchema
             )
         )

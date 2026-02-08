@@ -10,6 +10,7 @@ const val LMSTUDIO_MODELS_PATH: String = "/api/v1/models"
 const val MODEL_GPT_OSS_20B: String = "openai/gpt-oss-20b"
 const val MODEL_GLM_47_FLASH: String = "zai-org/glm-4.7-flash"
 const val MODEL_MINISTRAL_3_8B: String = "ministral-3-8b-instruct-2512-mixed-8-6-bit"
+const val MODEL_EUROLLM_22B_MLX_4BIT: String = "mlx-community/EuroLLM-22B-Instruct-2512-mlx-4bit"
 
 const val DEFAULT_BATCH_SIZE: Int = 50
 const val DEFAULT_MAX_RETRIES: Int = 3
@@ -19,6 +20,7 @@ const val DEFAULT_MAX_TOKENS: Int = 8000
 const val MODEL_CRASH_BACKOFF_MS: Long = 10_000L
 const val DEFAULT_OUTLIER_THRESHOLD: Int = 2
 const val DEFAULT_CONFIDENCE_THRESHOLD: Double = 0.55
+val DEFAULT_STEP3_MERGE_STRATEGY: Step3MergeStrategy = Step3MergeStrategy.MEDIAN
 const val FALLBACK_RARITY_LEVEL: Int = 4
 const val USER_INPUT_PLACEHOLDER: String = "{{INPUT_JSON}}"
 
@@ -42,10 +44,14 @@ val COMPARISON_CSV_HEADERS: List<String> = listOf(
     "run_a_confidence",
     "run_b_level",
     "run_b_confidence",
+    "run_c_level",
+    "run_c_confidence",
     "median_level",
     "spread",
     "is_outlier",
     "reason",
+    "merge_strategy",
+    "merge_rule",
     "final_level"
 )
 val OUTLIERS_CSV_HEADERS: List<String> = listOf(
@@ -54,6 +60,7 @@ val OUTLIERS_CSV_HEADERS: List<String> = listOf(
     "type",
     "run_a_level",
     "run_b_level",
+    "run_c_level",
     "spread",
     "reason"
 )
@@ -81,6 +88,21 @@ enum class UploadMode {
                 null, "", "partial" -> PARTIAL
                 "full-fallback", "full_fallback" -> FULL_FALLBACK
                 else -> error("Invalid --mode '$value'. Use one of: partial, full-fallback")
+            }
+        }
+    }
+}
+
+enum class Step3MergeStrategy {
+    MEDIAN,
+    ANY_EXTREMES;
+
+    companion object {
+        fun from(value: String?): Step3MergeStrategy {
+            return when (value?.trim()?.lowercase()) {
+                null, "", "median" -> MEDIAN
+                "any-extremes", "any_extremes", "three-any-extremes", "three_any_extremes" -> ANY_EXTREMES
+                else -> error("Invalid --merge-strategy '$value'. Use one of: median, any-extremes")
             }
         }
     }
@@ -135,10 +157,14 @@ data class ComparisonRow(
     val runAConfidence: Double?,
     val runBLevel: Int?,
     val runBConfidence: Double?,
+    val runCLevel: Int?,
+    val runCConfidence: Double?,
     val medianLevel: Int,
     val spread: Int,
     val isOutlier: Boolean,
     val reason: String,
+    val mergeStrategy: Step3MergeStrategy,
+    val mergeRule: String,
     val finalLevel: Int
 )
 
@@ -194,19 +220,15 @@ val SYSTEM_PROMPT: String =
 
 val USER_PROMPT_TEMPLATE: String =
     """
-    Returnează DOAR JSON cu schema:
-    {
-      "results": [
-        {
-          "word_id": 1,
-          "word": "string",
-          "type": "N|A|V",
-          "rarity_level": 1,
-          "tag": "common|less_common|rare|technical|regional|archaic|uncertain",
-          "confidence": 0.0
-        }
-      ]
-    }
+    Returnează DOAR JSON valid: un ARRAY de obiecte.
+
+    Fiecare obiect are exact câmpurile:
+    - word_id (int)
+    - word (string)
+    - type ("N" | "A" | "V")
+    - rarity_level (int 1..5)
+    - tag ("common|less_common|rare|technical|regional|archaic|uncertain")
+    - confidence (număr 0.0..1.0)
 
     Cerințe:
     - Un element rezultat pentru fiecare intrare.

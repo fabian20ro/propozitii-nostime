@@ -1,16 +1,12 @@
-Returnează DOAR JSON cu schema:
-{
-  "results": [
-    {
-      "word_id": 1,
-      "word": "string",
-      "type": "N|A|V",
-      "rarity_level": 1,
-      "tag": "common|less_common|rare|technical|regional|archaic|uncertain",
-      "confidence": 0.0
-    }
-  ]
-}
+Returnează DOAR JSON valid: un ARRAY de obiecte.
+
+Fiecare obiect are exact câmpurile:
+- word_id (int)
+- word (string)
+- type ("N" | "A" | "V")
+- rarity_level (int 1..5)
+- tag ("common|less_common|rare|technical|regional|archaic|uncertain")
+- confidence (număr 0.0..1.0)
 
 Cerințe:
 - Un element rezultat pentru fiecare intrare.

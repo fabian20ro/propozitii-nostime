@@ -87,6 +87,7 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsGptOss20b.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsGlm47Flash.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsMinistral38b.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsEuroLlm22b.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsFallback.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioRequestSupport.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioResponseParser.kt`
@@ -121,8 +122,9 @@ Step 2 LM response handling:
 - `JsonRepair` applied before JSON parsing to fix truncated output from token exhaustion
 - parser matches by `word_id` first, then `word/type`, then fuzzy fallback
 - lenient result extraction: partial results accepted; unresolved rows are retried in-process before split fallback
-- malformed-item tolerance: when a single `results` item is malformed JSON, parser salvages valid sibling items and retries only unresolved rows
+- malformed-item tolerance: when a single returned item is malformed JSON, parser salvages valid sibling items and retries only unresolved rows
 - envelope tolerant parsing: accepts `results`, `items`, `data`, or top-level arrays
+- simple JSON contract: prompts request top-level array output (still envelope-tolerant at parse time)
 - fuzzy word matching accepts diacritical misspellings
 - confidence parsed as string or number; accepts both `0..1` and `1..100` (normalized to `0..1`)
 - run-scoped capability cache: after one unsupported `response_format` error, remaining requests skip `response_format`
@@ -165,7 +167,7 @@ Folder: `src/main/kotlin/scrabble/phrases/words/`
 - Morphology/utils tests: `src/test/kotlin/scrabble/phrases/words/`
 - Rarity tooling unit/regression tests: `src/test/kotlin/scrabble/phrases/tools/rarity/`
   - LM response parser: `LmStudioResponseParserTest.kt` (11 tests: code fences, fuzzy diacritics, salvage, confidence normalization, etc.)
-  - Step 3 comparator: `Step3ComparatorTest.kt` (5 tests: agreement, outlier detection, missing runs)
+  - Step 3 comparator: `Step3ComparatorTest.kt` (8 tests: agreement, outlier detection, missing runs, 3-run merge rules)
   - Upload markers: `UploadMarkerWriterTest.kt` (3 tests: marking, empty status, partial marking)
   - Step 2 scorer counters: `Step2ScorerCountersTest.kt` (partial results, full scoring)
   - LmStudioClient integration: `LmStudioClientTest.kt` (capability degradation, parsing, model profiles)

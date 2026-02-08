@@ -94,8 +94,11 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Step 2b: score model B later (same machine, sequential run)
 ./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
-# Step 3: local comparison + outliers CSV
-./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
+# Step 2c: optional third model (EuroLLM 22B MLX 4bit)
+./gradlew rarityStep2Score --args="--run campaign_20260207_c_eurollm22b --model mlx-community/EuroLLM-22B-Instruct-2512-mlx-4bit --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_c_eurollm22b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+
+# Step 3: local comparison + outliers CSV (2-run median, or 3-run any-extremes)
+./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --run-c-csv build/rarity/runs/campaign_20260207_c_eurollm22b.csv --merge-strategy any-extremes --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
 
 # Step 4: upload final CSV to Supabase (default mode=partial, only IDs present in final CSV)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
@@ -118,6 +121,7 @@ Resume tip:
 - Step2 guarded rewrite aborts if a rewrite would shrink row cardinality.
 - Step2 now caches endpoint capability: once `response_format` is rejected, it is disabled for the rest of that process run.
 - Step2 now sends `word_id` in LM input and can retry only unresolved items from partial LM outputs (helps large batches).
+- Step2 prompt/schema now asks for a plain JSON array (simpler for weaker local models); parser still accepts both array and object envelopes.
 
 Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 

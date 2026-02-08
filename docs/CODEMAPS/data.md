@@ -54,7 +54,8 @@ Implementation package: `src/main/kotlin/scrabble/phrases/tools/rarity/`
 
 - Step 1: export words from `words` table to local `step1_words.csv`
 - Step 2: score with LMStudio into local run CSVs (resumable by `word_id`)
-- Step 3: compare run CSVs locally, compute median/outliers/final level
+- Step 3: compare 2 or 3 run CSVs locally, compute median/outliers/final level
+  - merge strategy is configurable (`median` or `any-extremes`)
 - Step 4: upload final CSV levels into `words.rarity_level`
   - default mode: `partial` (updates only IDs present in final CSV)
   - optional mode: `full-fallback` (updates all words, missing IDs become `4`)
@@ -76,6 +77,7 @@ Step 2 resilience:
 - `Step2Metrics` tracks WPM, ETA, error breakdown by category (TRUNCATED_JSON, MODEL_CRASH, etc.)
 - parser matches returned rows by `word_id` first (then `word/type` + fuzzy fallback)
 - parser accepts top-level arrays and object envelopes (`results`, `items`, `data`)
+- prompt/schema request a top-level JSON array to reduce invalid outputs from weaker models
 - lenient result extraction: partial batch results accepted, unresolved rows are retried in-process
 - run-scoped `response_format` capability cache avoids repeated HTTP 400 on unsupported endpoints
 - run-scoped reasoning-controls cache (GLM profile) disables unsupported thinking flags after first rejection

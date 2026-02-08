@@ -82,7 +82,7 @@ class LmStudioClient(
         }
 
         if (batch.size == 1) {
-            val word = batch.first()
+            val word = batch.single()
             appendJsonLine(
                 ctx.failedLogPath,
                 mapOf(

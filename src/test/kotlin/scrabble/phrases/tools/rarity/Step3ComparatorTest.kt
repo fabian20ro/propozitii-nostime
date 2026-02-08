@@ -36,12 +36,15 @@ class Step3ComparatorTest {
         base: List<Triple<Int, String, String>>,
         runARows: List<RunCsvRow>,
         runBRows: List<RunCsvRow>,
+        runCRows: List<RunCsvRow> = emptyList(),
         outlierThreshold: Int = DEFAULT_OUTLIER_THRESHOLD,
-        confidenceThreshold: Double = DEFAULT_CONFIDENCE_THRESHOLD
+        confidenceThreshold: Double = DEFAULT_CONFIDENCE_THRESHOLD,
+        mergeStrategy: Step3MergeStrategy = DEFAULT_STEP3_MERGE_STRATEGY
     ): Pair<List<Map<String, String>>, List<Map<String, String>>> {
         val basePath = writeBaseCsv(base)
         val runAPath = writeRunCsv("run_a", runARows)
         val runBPath = writeRunCsv("run_b", runBRows)
+        val runCPath = writeRunCsv("run_c", runCRows)
         val outputPath = tempDir.resolve("comparison.csv")
         val outliersPath = tempDir.resolve("outliers.csv")
 
@@ -50,11 +53,13 @@ class Step3ComparatorTest {
             Step3Options(
                 runACsvPath = runAPath,
                 runBCsvPath = runBPath,
+                runCCsvPath = runCPath,
                 outputCsvPath = outputPath,
                 outliersCsvPath = outliersPath,
                 baseCsvPath = basePath,
                 outlierThreshold = outlierThreshold,
-                confidenceThreshold = confidenceThreshold
+                confidenceThreshold = confidenceThreshold,
+                mergeStrategy = mergeStrategy
             )
         )
 
@@ -85,6 +90,7 @@ class Step3ComparatorTest {
         assertEquals("0", row1["spread"])
         assertEquals("false", row1["is_outlier"])
         assertEquals("3", row1["final_level"])
+        assertEquals("median", row1["merge_rule"])
     }
 
     @Test
@@ -160,5 +166,68 @@ class Step3ComparatorTest {
         assertEquals("0", row["spread"])
         assertEquals("", row["run_a_level"])
         assertEquals("", row["run_b_level"])
+    }
+
+    @Test
+    fun any_extremes_strategy_uses_level_1_if_present_in_any_run() {
+        val base = listOf(Triple(1, "masa", "N"))
+        val runA = listOf(testRunRow(1, rarityLevel = 4, confidence = 0.8, runSlug = "a"))
+        val runB = listOf(testRunRow(1, rarityLevel = 1, confidence = 0.8, runSlug = "b"))
+        val runC = listOf(testRunRow(1, rarityLevel = 3, confidence = 0.8, runSlug = "c"))
+
+        val (comparison, _) = executeAndRead(
+            base = base,
+            runARows = runA,
+            runBRows = runB,
+            runCRows = runC,
+            mergeStrategy = Step3MergeStrategy.ANY_EXTREMES
+        )
+
+        val row = comparison.single()
+        assertEquals("3", row["median_level"])
+        assertEquals("1", row["final_level"])
+        assertEquals("any_level_1", row["merge_rule"])
+    }
+
+    @Test
+    fun any_extremes_strategy_uses_level_2_when_median_is_three_or_more() {
+        val base = listOf(Triple(1, "flaut", "N"))
+        val runA = listOf(testRunRow(1, rarityLevel = 4, confidence = 0.8, runSlug = "a"))
+        val runB = listOf(testRunRow(1, rarityLevel = 2, confidence = 0.8, runSlug = "b"))
+        val runC = listOf(testRunRow(1, rarityLevel = 4, confidence = 0.8, runSlug = "c"))
+
+        val (comparison, _) = executeAndRead(
+            base = base,
+            runARows = runA,
+            runBRows = runB,
+            runCRows = runC,
+            mergeStrategy = Step3MergeStrategy.ANY_EXTREMES
+        )
+
+        val row = comparison.single()
+        assertEquals("4", row["median_level"])
+        assertEquals("2", row["final_level"])
+        assertEquals("any_level_2_over_median", row["merge_rule"])
+    }
+
+    @Test
+    fun any_extremes_strategy_uses_level_5_when_median_is_three_or_four() {
+        val base = listOf(Triple(1, "zvop", "N"))
+        val runA = listOf(testRunRow(1, rarityLevel = 4, confidence = 0.8, runSlug = "a"))
+        val runB = listOf(testRunRow(1, rarityLevel = 5, confidence = 0.8, runSlug = "b"))
+        val runC = listOf(testRunRow(1, rarityLevel = 4, confidence = 0.8, runSlug = "c"))
+
+        val (comparison, _) = executeAndRead(
+            base = base,
+            runARows = runA,
+            runBRows = runB,
+            runCRows = runC,
+            mergeStrategy = Step3MergeStrategy.ANY_EXTREMES
+        )
+
+        val row = comparison.single()
+        assertEquals("4", row["median_level"])
+        assertEquals("5", row["final_level"])
+        assertEquals("any_level_5_over_median", row["merge_rule"])
     }
 }

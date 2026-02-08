@@ -34,6 +34,9 @@
 - 2026-02-08: `LmStudioClient.kt` crossed maintainability limits and caused duplicate-line regressions during fast edits; keep LMStudio flow split by concern (`LmClient`, request builder, response parser, HTTP gateway) and keep single classes under ~500 lines.
 - 2026-02-08: Model tuning drifts quickly when spread across conditionals; keep per-model sampling/reasoning defaults in dedicated constants files plus a registry to avoid hidden behavior changes.
 - 2026-02-08: A single malformed object inside `results` (e.g. missing `:`/extra brace) can break full JSON parse for the whole batch; parser must salvage valid top-level objects and retry only unresolved words.
+- 2026-02-08: GLM 4.7 can fail mid-run with LMStudio "insufficient system resources" guardrail; treat this as capacity limitation and prefer lighter fallback models over repeated retries.
+- 2026-02-08: For local models with weak JSON discipline, asking for a top-level array and keeping parser envelope-tolerant (`array` + `results/items/data`) improves throughput and reduces full-batch parse failures.
+- 2026-02-08: Step 3 needed explicit merge strategy support (`median` vs `any-extremes`) to operationalize multi-model consensus rules without ad-hoc post-processing scripts.
 - 2026-02-08: `scoreBatchResilient` binary-split retry had no recursion depth bound; a worst-case batch of 50 can recurse ~6 levels, but adversarial partial results could go deeper. Cap at 10 and log exceeded words to failed log.
 - 2026-02-08: `Files.readAllLines(path)` uses platform default charset, not UTF-8; Romanian diacritics silently corrupt on non-UTF-8 JVMs. Always pass `Charsets.UTF_8` explicitly.
 - 2026-02-08: Duplicate serialization paths (positional vs header-driven) in `RunCsvRepository` caused subtle column-order bugs when CSV headers evolved; unify to a single `serializeForHeaders` path.

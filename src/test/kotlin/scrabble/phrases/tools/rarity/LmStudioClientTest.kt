@@ -11,6 +11,9 @@ import org.junit.jupiter.api.io.TempDir
 import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TEMPERATURE
 import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TOP_K
 import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TOP_P
+import scrabble.phrases.tools.rarity.lmstudio.EUROLLM_22B_TEMPERATURE
+import scrabble.phrases.tools.rarity.lmstudio.EUROLLM_22B_TOP_K
+import scrabble.phrases.tools.rarity.lmstudio.EUROLLM_22B_TOP_P
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_MIN_P
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_REASONING_EFFORT
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_REPEAT_PENALTY
@@ -27,6 +30,8 @@ class LmStudioClientTest {
 
     @TempDir
     lateinit var tempDir: Path
+
+    private val mapper = ObjectMapper()
 
     private fun ctx(
         runSlug: String = "run_test",
@@ -70,7 +75,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
             val context = ctx(runSlug = "run_a", endpoint = endpoint, maxRetries = 2, maxTokens = 200)
 
@@ -105,7 +110,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
             val failedLogPath = tempDir.resolve("failed.jsonl")
 
@@ -165,7 +170,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
 
             val scored = client.scoreBatchResilient(
@@ -187,11 +192,9 @@ class LmStudioClientTest {
             assertEquals(listOf(1, 2), scored.map { it.wordId }.sorted())
             assertEquals(2, requests.size)
 
-            val req1Content = ObjectMapper()
-                .readTree(requests[0])
+            val req1Content = mapper.readTree(requests[0])
                 .path("messages").path(1).path("content").asText("")
-            val req2Content = ObjectMapper()
-                .readTree(requests[1])
+            val req2Content = mapper.readTree(requests[1])
                 .path("messages").path(1).path("content").asText("")
 
             assertTrue(req1Content.contains("\"word_id\":1"))
@@ -216,7 +219,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -254,7 +257,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -290,7 +293,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -326,7 +329,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -386,7 +389,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(
                     BaseWordRow(1, "apa", "N"),
@@ -426,7 +429,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val scored = client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -466,7 +469,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
             val context = ctx(
                 runSlug = "run_glm_reasoning",
@@ -508,7 +511,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -520,7 +523,7 @@ class LmStudioClientTest {
                 )
             )
 
-            val request = ObjectMapper().readTree(requests.single())
+            val request = mapper.readTree(requests.single())
             assertEquals(256, request.path("max_tokens").asInt())
             assertEquals(GLM_47_FLASH_TEMPERATURE, request.path("temperature").asDouble())
             assertEquals(GLM_47_FLASH_TOP_P, request.path("top_p").asDouble())
@@ -543,7 +546,7 @@ class LmStudioClientTest {
         }
 
         try {
-            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val client = LmStudioClient(mapper, apiKey = null)
             client.scoreBatchResilient(
                 batch = listOf(BaseWordRow(1, "apa", "N")),
                 context = ctx(
@@ -555,13 +558,47 @@ class LmStudioClientTest {
                 )
             )
 
-            val request = ObjectMapper().readTree(requests.single())
+            val request = mapper.readTree(requests.single())
             assertEquals(GPT_OSS_20B_TEMPERATURE, request.path("temperature").asDouble())
             assertEquals(GPT_OSS_20B_TOP_K, request.path("top_k").asInt())
             assertEquals(GPT_OSS_20B_TOP_P, request.path("top_p").asDouble())
             assertEquals(GPT_OSS_20B_MIN_P, request.path("min_p").asDouble())
             assertEquals(GPT_OSS_20B_REPEAT_PENALTY, request.path("repeat_penalty").asDouble())
             assertEquals(GPT_OSS_20B_REASONING_EFFORT, request.path("reasoning_effort").asText())
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun eurollm_profile_uses_simple_sampling_and_no_reasoning_controls() {
+        val requests = mutableListOf<String>()
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+            respond(exchange, 200, successResponseFor("apa", "N", 2, 0.9))
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            client.scoreBatchResilient(
+                batch = listOf(BaseWordRow(1, "apa", "N")),
+                context = ctx(
+                    runSlug = "run_eurollm_profile",
+                    model = MODEL_EUROLLM_22B_MLX_4BIT,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_eurollm_profile.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_eurollm_profile.jsonl")
+                )
+            )
+
+            val request = mapper.readTree(requests.single())
+            assertEquals(EUROLLM_22B_TEMPERATURE, request.path("temperature").asDouble())
+            assertEquals(EUROLLM_22B_TOP_K, request.path("top_k").asInt())
+            assertEquals(EUROLLM_22B_TOP_P, request.path("top_p").asDouble())
+            assertFalse(request.has("reasoning_effort"))
+            assertFalse(request.has("thinking"))
+            assertFalse(request.has("chat_template_kwargs"))
         } finally {
             server.stop(0)
         }

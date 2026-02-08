@@ -23,13 +23,25 @@ class UploadMarkerWriterTest {
     }
 
     private fun comparisonRow(wordId: Int, finalLevel: Int): List<String> {
-        return listOf(
-            wordId.toString(), "word_$wordId", "N",
-            finalLevel.toString(), "0.8",
-            finalLevel.toString(), "0.8",
-            finalLevel.toString(), "0", "false", "",
-            finalLevel.toString()
+        val row = mutableMapOf(
+            "word_id" to wordId.toString(),
+            "word" to "word_$wordId",
+            "type" to "N",
+            "run_a_level" to finalLevel.toString(),
+            "run_a_confidence" to "0.8",
+            "run_b_level" to finalLevel.toString(),
+            "run_b_confidence" to "0.8",
+            "run_c_level" to "",
+            "run_c_confidence" to "",
+            "median_level" to finalLevel.toString(),
+            "spread" to "0",
+            "is_outlier" to "false",
+            "reason" to "",
+            "merge_strategy" to "median",
+            "merge_rule" to "median",
+            "final_level" to finalLevel.toString()
         )
+        return COMPARISON_CSV_HEADERS.map { header -> row[header].orEmpty() }
     }
 
     @Test
