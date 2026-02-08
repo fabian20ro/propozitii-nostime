@@ -167,7 +167,7 @@ Folder: `src/main/kotlin/scrabble/phrases/words/`
 - Morphology/utils tests: `src/test/kotlin/scrabble/phrases/words/`
 - Rarity tooling unit/regression tests: `src/test/kotlin/scrabble/phrases/tools/rarity/`
   - LM response parser: `LmStudioResponseParserTest.kt` (11 tests: code fences, fuzzy diacritics, salvage, confidence normalization, etc.)
-  - Step 3 comparator: `Step3ComparatorTest.kt` (8 tests: agreement, outlier detection, missing runs, 3-run merge rules)
+  - Step 3 comparator: `Step3ComparatorTest.kt` (9 tests: agreement, outlier detection, missing runs, 3-run merge rules, null run-c compatibility)
   - Upload markers: `UploadMarkerWriterTest.kt` (3 tests: marking, empty status, partial marking)
   - Step 2 scorer counters: `Step2ScorerCountersTest.kt` (partial results, full scoring)
   - LmStudioClient integration: `LmStudioClientTest.kt` (capability degradation, parsing, model profiles)
