@@ -1,6 +1,6 @@
 # Architecture Codemap
 
-Freshness: 2026-02-07
+Freshness: 2026-02-08
 
 ## System Topology
 
@@ -66,6 +66,8 @@ Operational safeguards:
 - guarded final rewrite (abort on shrink)
 - strict CSV parsing (malformed rows fail fast)
 - step state trace in `build/rarity/runs/<run>.state.json`
+- run-scoped fallback when `response_format` is unsupported
+- `word_id`-first parsing + in-process retry for unresolved partial LM outputs
 
 ## Deployment Reality
 

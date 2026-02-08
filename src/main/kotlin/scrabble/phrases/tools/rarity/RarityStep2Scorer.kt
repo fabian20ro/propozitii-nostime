@@ -66,6 +66,7 @@ class RarityStep2Scorer(
 
                 val resolvedEndpoint = resolveEndpoint(options)
                 val counters = scorePendingBatches(options, context, files, resolvedEndpoint)
+                val pendingAfterRun = counters.failedCount
 
                 runCsvRepository.mergeAndRewriteAtomic(
                     path = options.outputCsvPath,
@@ -73,8 +74,8 @@ class RarityStep2Scorer(
                     baseline = context.baseline
                 )
 
-                writeState(files.statePath, completedState(options, files, counters, context.pending.size))
-                printSummary(options, files, counters, context.pending.size)
+                writeState(files.statePath, completedState(options, files, counters, pendingAfterRun))
+                printSummary(options, files, counters, pendingAfterRun)
             } catch (e: Exception) {
                 writeState(files.statePath, failedState(options.runSlug, e))
                 throw e
@@ -205,9 +206,12 @@ class RarityStep2Scorer(
         var scoredCount = 0
         var failedCount = 0
         var processed = 0
+        val minAdaptiveSize = (options.batchSize / 5)
+            .coerceAtLeast(5)
+            .coerceAtMost(options.batchSize)
         val adapter = BatchSizeAdapter(
             initialSize = options.batchSize,
-            minSize = 3.coerceAtMost(options.batchSize)
+            minSize = minAdaptiveSize
         )
 
         val remaining = context.pending.toMutableList()
@@ -232,7 +236,7 @@ class RarityStep2Scorer(
                 maxTokens = options.maxTokens
             )
 
-            adapter.recordOutcome(scored.size == batch.size)
+            adapter.recordOutcome(scored.size.toDouble() / batch.size.toDouble())
             metrics?.recordBatchResult(batch.size, scored.size)
 
             if (scored.isNotEmpty()) {

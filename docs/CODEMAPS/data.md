@@ -1,6 +1,6 @@
 # Data Codemap
 
-Freshness: 2026-02-07
+Freshness: 2026-02-08
 
 ## Database Schema
 
@@ -68,11 +68,13 @@ Step 2 artifacts and guards:
 
 Step 2 resilience:
 - `JsonRepair` fixes truncated/malformed LM JSON before parsing
-- `BatchSizeAdapter` shrinks batch size after repeated failures, grows back on success
+- `BatchSizeAdapter` adapts by success ratio (not all-or-nothing), with runtime floor `max(5, initial/5)`
 - `FuzzyWordMatcher` accepts diacritical misspellings from LM (Levenshtein distance <= 2)
 - `Step2Metrics` tracks WPM, ETA, error breakdown by category (TRUNCATED_JSON, MODEL_CRASH, etc.)
-- lenient result extraction: partial batch results accepted, unscored words stay pending for resume
-- dynamic `max_tokens` scales with batch size to reduce truncation
+- parser matches returned rows by `word_id` first (then `word/type` + fuzzy fallback)
+- lenient result extraction: partial batch results accepted, unresolved rows are retried in-process
+- run-scoped `response_format` capability cache avoids repeated HTTP 400 on unsupported endpoints
+- dynamic `max_tokens` scales with batch size as `max(batchSize*26+120, --max-tokens)`
 
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
 

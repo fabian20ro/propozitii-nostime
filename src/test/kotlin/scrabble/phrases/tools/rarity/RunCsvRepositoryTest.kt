@@ -1,6 +1,7 @@
 package scrabble.phrases.tools.rarity
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -35,5 +36,30 @@ class RunCsvRepositoryTest {
 
         val ids = repo.loadRunRows(path).map { it.wordId }
         assertEquals(listOf(1, 2, 3), ids)
+    }
+
+    @Test
+    fun append_respects_existing_marker_columns() {
+        val path = tempDir.resolve("marked.csv")
+        repo.writeRows(
+            path,
+            RUN_CSV_HEADERS + UPLOAD_MARKER_HEADERS,
+            listOf(
+                listOf(
+                    "1", "apa", "N", "2", "common", "0.9", "2026-02-08T00:00:00Z", "m", "r",
+                    "2026-02-08T00:10:00Z", "2", "uploaded", "batch_1"
+                )
+            )
+        )
+
+        repo.appendRunRows(path, listOf(testRunRow(2, word = "brad")))
+
+        val table = repo.readTable(path)
+        assertEquals(2, table.records.size)
+        assertEquals(RUN_CSV_HEADERS + UPLOAD_MARKER_HEADERS, table.headers)
+        assertTrue(table.records.all { it.values.size == table.headers.size })
+
+        val ids = repo.loadRunRows(path).map { it.wordId }
+        assertEquals(listOf(1, 2), ids)
     }
 }

@@ -77,6 +77,23 @@ class BatchSizeAdapterTest {
     }
 
     @Test
+    fun success_ratio_below_threshold_is_treated_as_failure() {
+        val adapter = BatchSizeAdapter(initialSize = 10, minSize = 3, windowSize = 1)
+        adapter.recordOutcome(0.89)
+
+        assertEquals(6, adapter.recommendedSize())
+    }
+
+    @Test
+    fun success_ratio_is_clamped_to_valid_range() {
+        val adapter = BatchSizeAdapter(initialSize = 10, minSize = 3, windowSize = 2)
+        adapter.recordOutcome(-5.0)
+        adapter.recordOutcome(5.0)
+
+        assertEquals(0.5, adapter.successRate())
+    }
+
+    @Test
     fun rejects_invalid_initial_size() {
         assertThrows<IllegalArgumentException> {
             BatchSizeAdapter(initialSize = 2, minSize = 5)

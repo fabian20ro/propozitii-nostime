@@ -29,6 +29,12 @@ class BatchSizeAdapter(
     fun recommendedSize(): Int = currentSize
 
     fun recordOutcome(success: Boolean) {
+        recordOutcome(if (success) 1.0 else 0.0)
+    }
+
+    fun recordOutcome(successRatio: Double) {
+        val normalized = successRatio.coerceIn(0.0, 1.0)
+        val success = normalized >= 0.9
         outcomes.addLast(success)
         if (outcomes.size > windowSize) {
             outcomes.removeFirst()

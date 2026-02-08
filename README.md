@@ -81,18 +81,18 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 ./gradlew rarityStep1Export
 
 # Step 2a: score model A into local CSV (repeatable/resumable)
-# recommended throughput knobs: batch-size=10, max-tokens=350, timeout=120, max-retries=2
-./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 10 --max-tokens 350 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+# recommended throughput knobs: batch-size=100, max-tokens=8000, timeout=120, max-retries=2
+./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # Optional retry subset from failed JSONL (model A)
 ./scripts/rarity_build_retry_input.sh build/rarity/failed_batches/campaign_20260207_a_gptoss20b.failed.jsonl build/rarity/step1_words.csv build/rarity/retry_inputs/campaign_20260207_a_retry.csv
-./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b_retry --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_a_retry.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 10 --max-tokens 350 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b_retry --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_a_retry.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # Early upload from model A (partial mode only: updates only scored IDs)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv"
 
 # Step 2b: score model B later (same machine, sequential run)
-./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 10 --max-tokens 350 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # Step 3: local comparison + outliers CSV
 ./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
@@ -105,6 +105,7 @@ Artifacts:
 - `build/rarity/runs/<run>.jsonl` raw LMStudio request/response log
 - `build/rarity/runs/<run>.csv` normalized per-word run output
 - `build/rarity/runs/<run>.state.json` step2 runtime state (pid/host/start/end/status)
+  - `pending` in state = unresolved words remaining after the run
 - `build/rarity/failed_batches/<run>.failed.jsonl` failures after retries/split
 - `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
 - `build/rarity/step4_upload_report.csv`
@@ -116,6 +117,7 @@ Resume tip:
 - Step2 takes an exclusive lock on `<run>.csv.lock`; a second writer to the same output file fails fast.
 - Step2 guarded rewrite aborts if a rewrite would shrink row cardinality.
 - Step2 now caches endpoint capability: once `response_format` is rejected, it is disabled for the rest of that process run.
+- Step2 now sends `word_id` in LM input and can retry only unresolved items from partial LM outputs (helps large batches).
 
 Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 

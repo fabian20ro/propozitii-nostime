@@ -22,3 +22,9 @@
 - 2026-02-07: `JsonRepair` must run close-structures BEFORE remove-trailing-commas; otherwise a trailing comma at truncation point (`2,`) becomes `2,}` which still has the comma.
 - 2026-02-07: LM diacritical misspellings (e.g. `abreviațiune` -> `abrevițiune`) are not just diacritics swaps but character deletions; pure normalization is insufficient, Levenshtein distance <= 2 on normalized forms is needed.
 - 2026-02-07: When recording metrics in both a parser and its caller, double-counting inflates batch counts; record only at one level (prefer the caller).
+- 2026-02-08: Large Step 2 batches become stable only if LM output is matched by `word_id`; relying on positional parsing makes partial/truncated JSON collapse effective batch size.
+- 2026-02-08: Treating partial parses as success and retrying only unresolved rows in-process preserves throughput better than immediately splitting whole batches.
+- 2026-02-08: Adaptive batch control should use success ratio (not strict all-or-nothing) and a higher floor (`max(5, initial/5)`) to avoid long runs dominated by tiny batches.
+- 2026-02-08: Step 2 append logic must serialize against existing CSV headers; otherwise adding Step 4 marker columns can corrupt resumed writes even with lock/guard protections.
+- 2026-02-08: Current practical Step 2 knobs for this repo are `--batch-size 100` + `--max-tokens 8000`; lower defaults were a major contributor to 12h full-run time.
+- 2026-02-08: Step 2 completion state must report `pending` as unresolved-after-run (`failed`) rather than the initial pending input size, otherwise operators get false completion signals.

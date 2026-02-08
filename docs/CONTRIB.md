@@ -26,6 +26,7 @@ git config core.hooksPath .githooks
 - Agent guide: `AGENTS.md`
 - Onboarding: `docs/ONBOARDING.md`
 - Codemap index: `docs/CODEMAPS/README.md`
+- Rarity campaign runbook: `docs/rarity-runbook.md`
 
 ## Core Commands
 
@@ -37,6 +38,9 @@ git config core.hooksPath .githooks
 | `./gradlew jacocoTestReport` | Generate coverage report |
 | `./gradlew downloadDictionary` | Download + checksum-verify dictionary |
 | `./gradlew loadDictionary` | Load dictionary into target PostgreSQL |
+
+Rarity-specific regression suite:
+- `./gradlew test --tests 'scrabble.phrases.tools.rarity.*'`
 
 ## Environment Variables
 

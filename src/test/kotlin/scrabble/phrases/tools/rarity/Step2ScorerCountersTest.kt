@@ -67,7 +67,60 @@ class Step2ScorerCountersTest {
         assertEquals("completed", state.path("status").asText())
         assertEquals(2, state.path("scored").asInt())
         assertEquals(2, state.path("failed").asInt())
-        assertEquals(4, state.path("pending").asInt())
+        assertEquals(2, state.path("pending").asInt())
+    }
+
+    @Test
+    fun completed_state_reports_zero_pending_when_all_words_scored() {
+        val repo = RunCsvRepository()
+        val baseCsv = tempDir.resolve("step1_words_all_scored.csv")
+        val outputCsv = tempDir.resolve("runs/run_all_scored.csv")
+        val outputDir = tempDir.resolve("build/rarity")
+
+        repo.writeRows(
+            baseCsv,
+            BASE_CSV_HEADERS,
+            listOf(
+                listOf("1", "apa", "N"),
+                listOf("2", "brad", "N"),
+                listOf("3", "cer", "N")
+            )
+        )
+
+        val scorer = RarityStep2Scorer(
+            runCsvRepository = repo,
+            lmClient = FakeLmClient(),
+            lockManager = RunLockManager(),
+            outputDir = outputDir
+        )
+
+        val options = Step2Options(
+            runSlug = "run_all_scored",
+            model = "model_x",
+            baseCsvPath = baseCsv,
+            outputCsvPath = outputCsv,
+            inputCsvPath = null,
+            batchSize = 2,
+            limit = null,
+            maxRetries = 1,
+            timeoutSeconds = 5,
+            maxTokens = 128,
+            skipPreflight = true,
+            force = false,
+            endpointOption = null,
+            baseUrlOption = null,
+            systemPrompt = SYSTEM_PROMPT,
+            userTemplate = USER_PROMPT_TEMPLATE
+        )
+
+        scorer.execute(options)
+
+        val statePath = outputDir.resolve("runs/run_all_scored.state.json")
+        val state = ObjectMapper().readTree(statePath.toFile())
+        assertEquals("completed", state.path("status").asText())
+        assertEquals(3, state.path("scored").asInt())
+        assertEquals(0, state.path("failed").asInt())
+        assertEquals(0, state.path("pending").asInt())
     }
 }
 

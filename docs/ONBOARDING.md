@@ -12,6 +12,7 @@ You are working on a sentence-generation system with a strict split:
 Read first:
 - `README.md`
 - `AGENTS.md`
+- `docs/rarity-runbook.md` (if your change touches rarity Step 2/3/4 behavior)
 
 ## 1. Run Locally (10 min)
 
@@ -76,6 +77,11 @@ Avoid for first change:
 Always before handoff:
 ```bash
 ./gradlew test
+```
+
+If your change touches rarity tooling:
+```bash
+./gradlew test --tests 'scrabble.phrases.tools.rarity.*'
 ```
 
 Then manually verify:

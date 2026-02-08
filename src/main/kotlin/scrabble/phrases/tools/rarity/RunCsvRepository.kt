@@ -73,15 +73,16 @@ class RunCsvRepository(
 
         path.parent?.let { Files.createDirectories(it) }
         val fileExists = Files.exists(path)
+        val appendHeaders = resolveAppendHeaders(path, fileExists)
 
         Files.newBufferedWriter(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND).use { writer ->
             if (!fileExists) {
-                writer.write(RUN_CSV_HEADERS.joinToString(",") { csv.escape(it) })
+                writer.write(appendHeaders.joinToString(",") { csv.escape(it) })
                 writer.newLine()
             }
 
             rows.forEach { row ->
-                writer.write(serializeRunRow(row).joinToString(",") { csv.escape(it) })
+                writer.write(serializeForHeaders(row, appendHeaders).joinToString(",") { csv.escape(it) })
                 writer.newLine()
             }
         }
@@ -166,6 +167,31 @@ class RunCsvRepository(
             row.model,
             row.runSlug
         )
+    }
+
+    private fun serializeForHeaders(row: RunCsvRow, headers: List<String>): List<String> {
+        val base = mapOf(
+            "word_id" to row.wordId.toString(),
+            "word" to row.word,
+            "type" to row.type,
+            "rarity_level" to row.rarityLevel.toString(),
+            "tag" to row.tag,
+            "confidence" to row.confidence.toString(),
+            "scored_at" to row.scoredAt,
+            "model" to row.model,
+            "run_slug" to row.runSlug
+        )
+        return headers.map { header -> base[header].orEmpty() }
+    }
+
+    private fun resolveAppendHeaders(path: Path, fileExists: Boolean): List<String> {
+        if (!fileExists) return RUN_CSV_HEADERS
+
+        val headerLine = Files.newBufferedReader(path).use { reader -> reader.readLine() }
+            ?: return RUN_CSV_HEADERS
+        val headers = csv.parseLine(headerLine, lineNumber = 1)
+        requireColumns(path, headers, RUN_CSV_HEADERS)
+        return headers
     }
 
     private fun assertNotShrunk(path: Path, mergedRows: List<RunCsvRow>, baseline: RunBaseline) {

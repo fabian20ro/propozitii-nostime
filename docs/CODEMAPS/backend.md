@@ -1,6 +1,6 @@
 # Backend Codemap
 
-Freshness: 2026-02-07
+Freshness: 2026-02-08
 
 ## Entry Points
 
@@ -87,7 +87,7 @@ Modular implementation:
 
 Step 2 resilience utilities:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/JsonRepair.kt` -- best-effort repair of truncated/malformed LM JSON (trailing decimals, unclosed structures, trailing commas, line comments)
-- `src/main/kotlin/scrabble/phrases/tools/rarity/BatchSizeAdapter.kt` -- adaptive batch sizing via sliding window; shrinks on failures, grows on sustained success
+- `src/main/kotlin/scrabble/phrases/tools/rarity/BatchSizeAdapter.kt` -- adaptive batch sizing via sliding window; uses per-batch success ratio, shrinks on weak outcomes, grows on sustained success
 - `src/main/kotlin/scrabble/phrases/tools/rarity/FuzzyWordMatcher.kt` -- Romanian diacritics normalization + Levenshtein distance for matching LM-misspelled words
 - `src/main/kotlin/scrabble/phrases/tools/rarity/Step2Metrics.kt` -- observability: error categorization, WPM, ETA, progress formatting, end-of-run summary
 
@@ -103,11 +103,13 @@ Step 2 safety:
 
 Step 2 LM response handling:
 - `JsonRepair` applied before JSON parsing to fix truncated output from token exhaustion
-- lenient result extraction: partial results accepted (unscored words stay pending for resume)
-- fuzzy word matching accepts diacritical misspellings (uses expected word in output)
-- confidence parsed as string or number, clamped to [0.0, 1.0]
+- parser matches by `word_id` first, then `word/type`, then fuzzy fallback
+- lenient result extraction: partial results accepted; unresolved rows are retried in-process before split fallback
+- fuzzy word matching accepts diacritical misspellings
+- confidence parsed as string or number; accepts both `0..1` and `1..100` (normalized to `0..1`)
+- run-scoped capability cache: after one unsupported `response_format` error, remaining requests skip `response_format`
 - model crash backoff: linear delay on "model has crashed" errors
-- dynamic `max_tokens`: scales with batch size to reduce truncation at source
+- dynamic `max_tokens`: scales with batch size as `max(batchSize*26+120, --max-tokens)`
 
 ## Domain Word Model
 

@@ -8,11 +8,11 @@ const val OPENAI_MODELS_PATH: String = "/v1/models"
 const val LMSTUDIO_CHAT_PATH: String = "/api/v1/chat"
 const val LMSTUDIO_MODELS_PATH: String = "/api/v1/models"
 
-const val DEFAULT_BATCH_SIZE: Int = 20
+const val DEFAULT_BATCH_SIZE: Int = 100
 const val DEFAULT_MAX_RETRIES: Int = 3
 const val DEFAULT_TIMEOUT_SECONDS: Long = 300L
 const val DEFAULT_PREFLIGHT_TIMEOUT_SECONDS: Long = 5L
-const val DEFAULT_MAX_TOKENS: Int = 1400
+const val DEFAULT_MAX_TOKENS: Int = 8000
 const val MODEL_CRASH_BACKOFF_MS: Long = 10_000L
 const val DEFAULT_OUTLIER_THRESHOLD: Int = 2
 const val DEFAULT_CONFIDENCE_THRESHOLD: Double = 0.55
@@ -118,7 +118,8 @@ data class ResolvedEndpoint(
 )
 
 data class BatchAttempt(
-    val scores: List<ScoreResult>?,
+    val scores: List<ScoreResult>,
+    val unresolved: List<BaseWordRow>,
     val lastError: String?,
     val connectivityFailure: Boolean
 )
@@ -190,6 +191,7 @@ val USER_PROMPT_TEMPLATE: String =
     {
       "results": [
         {
+          "word_id": 1,
           "word": "string",
           "type": "N|A|V",
           "rarity_level": 1,
@@ -202,6 +204,7 @@ val USER_PROMPT_TEMPLATE: String =
     Cerințe:
     - Un element rezultat pentru fiecare intrare.
     - Păstrează ordinea intrărilor.
+    - Păstrează word_id identic cu input-ul.
     - rarity_level trebuie să fie întreg 1..5.
     - confidence între 0.0 și 1.0.
     - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.

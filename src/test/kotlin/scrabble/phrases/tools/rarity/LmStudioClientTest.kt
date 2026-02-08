@@ -121,6 +121,87 @@ class LmStudioClientTest {
         }
     }
 
+    @Test
+    fun partial_parse_retries_only_unresolved_words() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(
+                    exchange,
+                    200,
+                    successResponse(
+                        """
+                        [
+                          {"word_id":1,"word":"cuvant1","type":"N","rarity_level":2,"tag":"common","confidence":0.8}
+                        ]
+                        """.trimIndent()
+                    )
+                )
+
+                1 -> respond(
+                    exchange,
+                    200,
+                    successResponse(
+                        """
+                        [
+                          {"word_id":2,"word":"cuvant2","type":"N","rarity_level":4,"tag":"rare","confidence":0.7}
+                        ]
+                        """.trimIndent()
+                    )
+                )
+
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            val runLogPath = tempDir.resolve("run_partial.jsonl")
+            val failedLogPath = tempDir.resolve("failed_partial.jsonl")
+            val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+
+            val scored = client.scoreBatchResilient(
+                batch = listOf(
+                    BaseWordRow(1, "cuvant1", "N"),
+                    BaseWordRow(2, "cuvant2", "N")
+                ),
+                runSlug = "run_partial",
+                model = "model_a",
+                endpoint = endpoint,
+                maxRetries = 2,
+                timeoutSeconds = 5,
+                runLogPath = runLogPath,
+                failedLogPath = failedLogPath,
+                systemPrompt = SYSTEM_PROMPT,
+                userTemplate = USER_PROMPT_TEMPLATE,
+                flavor = LmApiFlavor.OPENAI_COMPAT,
+                maxTokens = 200
+            )
+
+            assertEquals(2, scored.size)
+            assertEquals(listOf(1, 2), scored.map { it.wordId }.sorted())
+            assertEquals(2, requests.size)
+
+            val req1Content = ObjectMapper()
+                .readTree(requests[0])
+                .path("messages").path(1).path("content").asText("")
+            val req2Content = ObjectMapper()
+                .readTree(requests[1])
+                .path("messages").path(1).path("content").asText("")
+
+            assertTrue(req1Content.contains("\"word_id\":1"))
+            assertTrue(req1Content.contains("\"word_id\":2"))
+            assertFalse(req2Content.contains("\"word_id\":1"))
+            assertTrue(req2Content.contains("\"word_id\":2"))
+        } finally {
+            server.stop(0)
+        }
+    }
+
     private fun startServer(handler: (HttpExchange) -> Unit): HttpServer {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/v1/chat/completions") { exchange -> handler(exchange) }
@@ -136,12 +217,23 @@ class LmStudioClientTest {
     }
 
     private fun successResponseFor(word: String, type: String, rarity: Int, confidence: Double): String {
+        return successResponse(
+            """[{"word":"$word","type":"$type","rarity_level":$rarity,"tag":"common","confidence":$confidence}]"""
+        )
+    }
+
+    private fun successResponse(resultsArrayJson: String): String {
+        val escaped = resultsArrayJson
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "")
+            .replace("\r", "")
         return """
             {
               "choices": [
                 {
                   "message": {
-                    "content": "{\"results\":[{\"word\":\"$word\",\"type\":\"$type\",\"rarity_level\":$rarity,\"tag\":\"common\",\"confidence\":$confidence}]}"
+                    "content": "{\"results\":$escaped}"
                   }
                 }
               ]

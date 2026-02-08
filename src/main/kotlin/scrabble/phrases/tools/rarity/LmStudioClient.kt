@@ -46,6 +46,20 @@ class LmStudioClient(
     @Volatile
     private var responseFormatSupport: ResponseFormatSupport = ResponseFormatSupport.UNKNOWN
 
+    private data class ParsedBatch(
+        val scores: List<ScoreResult>,
+        val unresolved: List<BaseWordRow>
+    )
+
+    private data class ScoreCandidate(
+        val wordId: Int?,
+        val word: String?,
+        val type: String?,
+        val rarityLevel: Int?,
+        val tag: String,
+        val confidence: Double
+    )
+
     override fun resolveEndpoint(endpointOption: String?, baseUrlOption: String?): ResolvedEndpoint {
         if (!endpointOption.isNullOrBlank()) {
             val normalized = endpointOption.trim()
@@ -129,11 +143,32 @@ class LmStudioClient(
             flavor = flavor,
             maxTokens = maxTokens
         )
-        if (direct.scores != null) return direct.scores
         if (direct.connectivityFailure) {
             throw IllegalStateException(
                 "LMStudio request failed due connectivity/timeout issues at '$endpoint': ${direct.lastError}"
             )
+        }
+
+        if (direct.scores.isNotEmpty() && direct.unresolved.isEmpty()) {
+            return direct.scores
+        }
+
+        if (direct.scores.isNotEmpty() && direct.unresolved.isNotEmpty()) {
+            val retried = scoreBatchResilient(
+                batch = direct.unresolved,
+                runSlug = runSlug,
+                model = model,
+                endpoint = endpoint,
+                maxRetries = maxRetries,
+                timeoutSeconds = timeoutSeconds,
+                runLogPath = runLogPath,
+                failedLogPath = failedLogPath,
+                systemPrompt = systemPrompt,
+                userTemplate = userTemplate,
+                flavor = flavor,
+                maxTokens = maxTokens
+            )
+            return direct.scores + retried
         }
 
         if (batch.size == 1) {
@@ -149,7 +184,7 @@ class LmStudioClient(
                     "last_error" to direct.lastError
                 )
             )
-            return emptyList()
+            return direct.scores
         }
 
         val splitIndex = batch.size / 2
@@ -224,6 +259,8 @@ class LmStudioClient(
                         "run" to runSlug,
                         "attempt" to (attempt + 1),
                         "batch_size" to batch.size,
+                        "parsed_count" to parsed.scores.size,
+                        "unresolved_count" to parsed.unresolved.size,
                         "response_format_enabled" to includeResponseFormat,
                         "request" to mapper.readTree(requestPayload),
                         "response" to mapper.readTree(response.body)
@@ -232,7 +269,12 @@ class LmStudioClient(
                 if (includeResponseFormat) {
                     markResponseFormatSupported()
                 }
-                return BatchAttempt(scores = parsed, lastError = null, connectivityFailure = false)
+                return BatchAttempt(
+                    scores = parsed.scores,
+                    unresolved = parsed.unresolved,
+                    lastError = null,
+                    connectivityFailure = false
+                )
             } catch (e: Exception) {
                 lastError = e.message ?: e::class.simpleName.orEmpty()
                 val connectivityFailure = isConnectivityFailure(e)
@@ -268,7 +310,12 @@ class LmStudioClient(
         }
 
         println("Batch failed after retries (size=${batch.size}): $lastError")
-        return BatchAttempt(scores = null, lastError = lastError, connectivityFailure = sawOnlyConnectivityFailures)
+        return BatchAttempt(
+            scores = emptyList(),
+            unresolved = batch,
+            lastError = lastError,
+            connectivityFailure = sawOnlyConnectivityFailures
+        )
     }
 
     private fun buildLmRequest(
@@ -279,14 +326,22 @@ class LmStudioClient(
         includeResponseFormat: Boolean,
         maxTokens: Int
     ): String {
-        val entriesJson = mapper.writeValueAsString(batch.map { mapOf("word" to it.word, "type" to it.type) })
+        val entriesJson = mapper.writeValueAsString(
+            batch.map {
+                mapOf(
+                    "word_id" to it.wordId,
+                    "word" to it.word,
+                    "type" to it.type
+                )
+            }
+        )
         val userPrompt = if (userTemplate.contains(USER_INPUT_PLACEHOLDER)) {
             userTemplate.replace(USER_INPUT_PLACEHOLDER, entriesJson)
         } else {
             "$userTemplate\n\nIntrări:\n$entriesJson"
         }
 
-        val estimatedTokens = (batch.size * 120) + 50
+        val estimatedTokens = (batch.size * 26) + 120
         val effectiveMaxTokens = maxOf(estimatedTokens, maxTokens)
 
         val payload = linkedMapOf<String, Any>(
@@ -305,7 +360,7 @@ class LmStudioClient(
         return mapper.writeValueAsString(payload)
     }
 
-    private fun parseLmResponse(batch: List<BaseWordRow>, responseBody: String): List<ScoreResult> {
+    private fun parseLmResponse(batch: List<BaseWordRow>, responseBody: String): ParsedBatch {
         val root = mapper.readTree(responseBody)
         val content = extractModelContent(root)
             ?: throw IllegalStateException("LMStudio response missing assistant content")
@@ -327,60 +382,102 @@ class LmStudioClient(
     private fun parseResultsLenient(
         batch: List<BaseWordRow>,
         results: JsonNode
-    ): List<ScoreResult> {
-        val scored = mutableListOf<ScoreResult>()
-        val resultCount = results.size().coerceAtMost(batch.size)
-
-        for (i in 0 until resultCount) {
-            val parsed = parseScoreNodeLenient(batch[i], results[i])
-            if (parsed != null) {
-                scored += parsed
-            }
+    ): ParsedBatch {
+        if (batch.isEmpty()) {
+            return ParsedBatch(scores = emptyList(), unresolved = emptyList())
         }
 
-        if (scored.isEmpty() && batch.isNotEmpty()) {
+        val pendingByWordId = batch.associateBy { it.wordId }.toMutableMap()
+        val pendingByWordType = batch
+            .groupBy { it.word to it.type }
+            .mapValues { (_, rows) -> rows.toMutableList() }
+            .toMutableMap()
+
+        val scored = mutableListOf<ScoreResult>()
+        for (i in 0 until results.size()) {
+            val candidate = parseScoreCandidate(results[i]) ?: continue
+            val matched = matchCandidate(candidate, pendingByWordId, pendingByWordType) ?: continue
+
+            scored += ScoreResult(
+                wordId = matched.wordId,
+                word = matched.word,
+                type = matched.type,
+                rarityLevel = candidate.rarityLevel ?: continue,
+                tag = candidate.tag.ifBlank { "uncertain" }.take(16),
+                confidence = candidate.confidence
+            )
+        }
+
+        val unresolved = pendingByWordId.values.sortedBy { it.wordId }
+
+        if (scored.isEmpty() && unresolved.size == batch.size) {
             throw IllegalStateException(
                 "No valid results parsed from ${results.size()} result nodes for batch of ${batch.size}"
             )
         }
 
-        return scored
+        if (unresolved.isNotEmpty()) {
+            metrics?.recordError(Step2Metrics.ErrorCategory.WORD_MISMATCH)
+        }
+
+        return ParsedBatch(scores = scored, unresolved = unresolved)
     }
 
-    private fun parseScoreNodeLenient(expected: BaseWordRow, node: JsonNode): ScoreResult? {
-        return try {
-            val word = node.path("word").asText("")
-            val type = node.path("type").asText("")
-            val rarity = node.path("rarity_level").asInt(-1)
-            val tag = node.path("tag").asText("uncertain")
-            val rawConfidence = parseConfidence(node.path("confidence"))
+    private fun parseScoreCandidate(node: JsonNode): ScoreCandidate? {
+        val rarity = node.path("rarity_level").asInt(-1)
+        if (rarity !in 1..5) return null
 
-            val wordMatches = word == expected.word ||
-                FuzzyWordMatcher.matches(expected.word, word)
-            val typeMatches = type == expected.type || type.isBlank()
-
-            if (!wordMatches || !typeMatches) return null
-
-            if (word != expected.word) {
-                metrics?.recordFuzzyMatch()
-            }
-
-            if (rarity !in 1..5) return null
-
-            val confidence = rawConfidence.coerceIn(0.0, 1.0)
-            if (confidence.isNaN()) return null
-
-            ScoreResult(
-                wordId = expected.wordId,
-                word = expected.word,
-                type = expected.type,
-                rarityLevel = rarity,
-                tag = tag.take(16),
-                confidence = confidence
-            )
-        } catch (_: Exception) {
-            null
+        val wordId = when {
+            node.path("word_id").isInt -> node.path("word_id").asInt()
+            node.path("word_id").isTextual -> node.path("word_id").asText("").toIntOrNull()
+            else -> null
         }
+
+        val word = node.path("word").asText("").ifBlank { null }
+        val type = node.path("type").asText("").ifBlank { null }
+        val tag = node.path("tag").asText("uncertain")
+        val confidence = normalizeConfidence(parseConfidence(node.path("confidence")))
+
+        return ScoreCandidate(
+            wordId = wordId,
+            word = word,
+            type = type,
+            rarityLevel = rarity,
+            tag = tag,
+            confidence = confidence
+        )
+    }
+
+    private fun matchCandidate(
+        candidate: ScoreCandidate,
+        pendingByWordId: MutableMap<Int, BaseWordRow>,
+        pendingByWordType: MutableMap<Pair<String, String>, MutableList<BaseWordRow>>
+    ): BaseWordRow? {
+        candidate.wordId?.let { id ->
+            val row = pendingByWordId.remove(id) ?: return@let
+            val key = row.word to row.type
+            pendingByWordType.removeById(key, id)
+            return row
+        }
+
+        val word = candidate.word ?: return null
+        val type = candidate.type ?: return null
+        val exactKey = word to type
+
+        val exact = pendingByWordType.removeFirstOrNull(exactKey)
+        if (exact != null) {
+            pendingByWordId.remove(exact.wordId)
+            return exact
+        }
+
+        val fuzzy = pendingByWordType.removeFirstFuzzy(word, type)
+        if (fuzzy != null) {
+            pendingByWordId.remove(fuzzy.wordId)
+            metrics?.recordFuzzyMatch()
+            return fuzzy
+        }
+
+        return null
     }
 
     private fun parseConfidence(node: JsonNode): Double {
@@ -389,6 +486,55 @@ class LmStudioClient(
             node.isTextual -> node.asText("").toDoubleOrNull() ?: Double.NaN
             else -> Double.NaN
         }
+    }
+
+    private fun normalizeConfidence(value: Double): Double {
+        if (value.isNaN()) return 0.5
+        if (value in 0.0..1.0) return value
+        if (value > 1.0 && value <= 100.0) return value / 100.0
+        return 0.5
+    }
+
+    private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeById(
+        key: Pair<String, String>,
+        wordId: Int
+    ) {
+        val rows = this[key] ?: return
+        rows.removeIf { it.wordId == wordId }
+        if (rows.isEmpty()) {
+            remove(key)
+        }
+    }
+
+    private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeFirstOrNull(
+        key: Pair<String, String>
+    ): BaseWordRow? {
+        val rows = this[key] ?: return null
+        if (rows.isEmpty()) {
+            remove(key)
+            return null
+        }
+        val row = rows.removeAt(0)
+        if (rows.isEmpty()) {
+            remove(key)
+        }
+        return row
+    }
+
+    private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeFirstFuzzy(
+        word: String,
+        type: String
+    ): BaseWordRow? {
+        val match = entries.firstOrNull { (key, rows) ->
+            key.second == type && rows.isNotEmpty() && FuzzyWordMatcher.matches(key.first, word)
+        } ?: return null
+
+        val rows = match.value
+        val row = rows.removeAt(0)
+        if (rows.isEmpty()) {
+            remove(match.key)
+        }
+        return row
     }
 
     private fun detectFromBase(baseUrl: String, source: String): ResolvedEndpoint {
