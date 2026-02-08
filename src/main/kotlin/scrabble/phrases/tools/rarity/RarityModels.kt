@@ -8,7 +8,7 @@ const val OPENAI_MODELS_PATH: String = "/v1/models"
 const val LMSTUDIO_CHAT_PATH: String = "/api/v1/chat"
 const val LMSTUDIO_MODELS_PATH: String = "/api/v1/models"
 
-const val DEFAULT_BATCH_SIZE: Int = 100
+const val DEFAULT_BATCH_SIZE: Int = 50
 const val DEFAULT_MAX_RETRIES: Int = 3
 const val DEFAULT_TIMEOUT_SECONDS: Long = 300L
 const val DEFAULT_PREFLIGHT_TIMEOUT_SECONDS: Long = 5L
@@ -171,15 +171,19 @@ val SYSTEM_PROMPT: String =
 
     Reguli:
     - Evaluează doar forma lexicală, fără context propozițional.
-    - Nivelurile 1 și 2 sunt restrictive:
-      - 1 doar pentru cuvinte de bază absolută.
-      - 2 doar pentru cuvinte foarte frecvente în uzul general.
-    - Dacă nu ai semnal clar că un cuvânt e de bază/uzual, nu îl pune în 1/2.
-    - Pentru dicționar general, majoritatea intrărilor nu sunt vocabular de bază; în lipsa semnalelor de frecvență mare, preferă 3 sau 4.
+    - Țintă de calibrare (soft, pe rulări mari): aproximativ 2% nivel 1, 8% nivel 2, 20% nivel 3, 30% nivel 4, 40% nivel 5.
+    - Pentru batch-uri de 50, folosește ca reper aproximativ: 1 cuvânt la nivel 1 și 4 cuvinte la nivel 2.
+    - Nu forța cotele dacă batch-ul este evident tehnic/arhaic; cotele sunt orientative, nu reguli rigide.
+    - Nivelurile 1 și 2:
+      - 1 doar pentru vocabular de bază absolută (copii clasele primare, începători).
+      - 2 pentru vocabular uzual general, înțeles/folosit de majoritatea populației adulte.
+    - Dacă nu ai semnal clar de vocabular uzual general, evită 1/2.
+    - Dacă există semnal moderat de uz general, preferă 2 în loc de 3.
     - Folosește 5 pentru termeni evident foarte rari/arhaici/obscuri.
     - Dacă ești indecis între 3 și 4, preferă 4.
     - Dacă ești indecis între 1 și 2, preferă 2.
-    - Dacă ești indecis între 2 și 3, preferă 3.
+    - Dacă ești indecis între 2 și 3, preferă 2.
+    - Dacă ești indecis între 4 și 5, preferă 4.
     - Nu refuza: pentru orice intrare întoarce o estimare; dacă e incert, folosește tag `uncertain` și confidence mai mic.
     - Nu inventa câmpuri.
     - Răspunde strict JSON valid, fără text extra.
@@ -208,9 +212,13 @@ val USER_PROMPT_TEMPLATE: String =
     - rarity_level trebuie să fie întreg 1..5.
     - confidence între 0.0 și 1.0.
     - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.
-    - 1/2 doar când există indicii clare că termenul este vocabular de bază/uzual general.
+    - 1/2 doar când există indicii de vocabular de bază/uzual general.
+    - Țintă soft pe rulări mari: aproximativ 2% nivel 1 și 8% nivel 2.
+    - Pentru batch-uri de 50, reper orientativ: ~1 nivel 1 și ~4 nivel 2.
     - Dacă nu există semnal clar de frecvență mare, preferă 3 sau 4.
     - Dacă ești la limită între 3 și 4, preferă 4.
+    - Dacă ești la limită între 2 și 3, preferă 2.
+    - Dacă ești la limită între 4 și 5, preferă 4.
     - Fără text înainte/după JSON.
 
     Intrări:

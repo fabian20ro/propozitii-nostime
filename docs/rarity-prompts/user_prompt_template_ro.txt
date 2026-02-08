@@ -19,9 +19,13 @@ Cerințe:
 - rarity_level trebuie să fie întreg 1..5.
 - confidence între 0.0 și 1.0.
 - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.
-- 1/2 doar când există indicii clare că termenul este vocabular de bază/uzual general.
+- 1/2 doar când există indicii de vocabular de bază/uzual general.
+- Țintă soft pe rulări mari: aproximativ 2% nivel 1 și 8% nivel 2.
+- Pentru batch-uri de 50, reper orientativ: ~1 nivel 1 și ~4 nivel 2.
 - Dacă nu există semnal clar de frecvență mare, preferă 3 sau 4.
 - Dacă ești la limită între 3 și 4, preferă 4.
+- Dacă ești la limită între 2 și 3, preferă 2.
+- Dacă ești la limită între 4 și 5, preferă 4.
 - Fără text înainte/după JSON.
 
 Intrări:

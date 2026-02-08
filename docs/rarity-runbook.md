@@ -20,7 +20,7 @@ Do not reuse old run slugs when restarting a new campaign.
 
 ## Recommended Step 2 knobs
 
-- `--batch-size 100` (adaptive: auto-shrinks on failures, grows back on success)
+- `--batch-size 50` (adaptive: auto-shrinks on failures, grows back on success)
 - `--max-tokens 8000` (dynamic: actual value scales up with batch size as `max(batchSize*26+120, maxTokens)`)
 - `--timeout-seconds 120`
 - `--max-retries 2` for full pass
@@ -36,21 +36,21 @@ Batch size is the *initial* size; `BatchSizeAdapter` adjusts it at runtime based
 ./gradlew rarityStep1Export
 
 # 2) Model A full pass (repeat command until pending stabilizes)
-./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # 3) Optional targeted retry for unresolved model A words
 ./scripts/rarity_build_retry_input.sh build/rarity/failed_batches/campaign_20260207_a_gptoss20b.failed.jsonl build/rarity/step1_words.csv build/rarity/retry_inputs/campaign_20260207_a_retry.csv
-./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b_retry --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_a_retry.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b_retry --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_a_retry.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # 4) Early upload from model A (partial upload only)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv"
 
 # 5) Model B full pass
-./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # 6) Optional targeted retry for unresolved model B words
 ./scripts/rarity_build_retry_input.sh build/rarity/failed_batches/campaign_20260207_b_glm47flash.failed.jsonl build/rarity/step1_words.csv build/rarity/retry_inputs/campaign_20260207_b_retry.csv
-./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash_retry --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_b_retry.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 100 --max-tokens 8000 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
+./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash_retry --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_b_retry.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
 
 # 7) Compare + final merge
 ./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
