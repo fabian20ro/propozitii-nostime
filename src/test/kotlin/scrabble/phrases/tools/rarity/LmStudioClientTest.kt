@@ -411,8 +411,50 @@ class LmStudioClientTest {
 
             val request = ObjectMapper().readTree(requests.single())
             assertEquals(256, request.path("max_tokens").asInt())
-            assertEquals(0.0, request.path("temperature").asDouble())
-            assertEquals(0.2, request.path("top_p").asDouble())
+            assertEquals(GLM_47_FLASH_TEMPERATURE, request.path("temperature").asDouble())
+            assertEquals(GLM_47_FLASH_TOP_P, request.path("top_p").asDouble())
+            assertEquals(GLM_47_FLASH_TOP_K, request.path("top_k").asInt())
+            assertEquals("low", request.path("reasoning_effort").asText())
+            assertEquals("disabled", request.path("thinking").path("type").asText())
+            assertFalse(request.path("chat_template_kwargs").path("enable_thinking").asBoolean(true))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun gpt_oss_profile_includes_sampling_and_reasoning_defaults() {
+        val requests = mutableListOf<String>()
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+            respond(exchange, 200, successResponseFor("apa", "N", 2, 0.9))
+        }
+
+        try {
+            val client = LmStudioClient(ObjectMapper(), apiKey = null)
+            client.scoreBatchResilient(
+                batch = listOf(BaseWordRow(1, "apa", "N")),
+                runSlug = "run_gpt_profile",
+                model = MODEL_GPT_OSS_20B,
+                endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                maxRetries = 1,
+                timeoutSeconds = 5,
+                runLogPath = tempDir.resolve("run_gpt_profile.jsonl"),
+                failedLogPath = tempDir.resolve("failed_gpt_profile.jsonl"),
+                systemPrompt = SYSTEM_PROMPT,
+                userTemplate = USER_PROMPT_TEMPLATE,
+                flavor = LmApiFlavor.OPENAI_COMPAT,
+                maxTokens = 8000
+            )
+
+            val request = ObjectMapper().readTree(requests.single())
+            assertEquals(GPT_OSS_20B_TEMPERATURE, request.path("temperature").asDouble())
+            assertEquals(GPT_OSS_20B_TOP_K, request.path("top_k").asInt())
+            assertEquals(GPT_OSS_20B_TOP_P, request.path("top_p").asDouble())
+            assertEquals(GPT_OSS_20B_MIN_P, request.path("min_p").asDouble())
+            assertEquals(GPT_OSS_20B_REPEAT_PENALTY, request.path("repeat_penalty").asDouble())
+            assertEquals(GPT_OSS_20B_REASONING_EFFORT, request.path("reasoning_effort").asText())
         } finally {
             server.stop(0)
         }

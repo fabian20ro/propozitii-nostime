@@ -157,9 +157,9 @@ class LmStudioClient(
     ): BatchAttempt {
         var lastError: String? = null
         var sawOnlyConnectivityFailures = true
-        val profile = requestBuilder.requestProfileFor(model)
+        val config = requestBuilder.modelConfigFor(model)
         var includeResponseFormat = shouldIncludeResponseFormat(flavor)
-        var includeReasoningControls = shouldIncludeReasoningControls(flavor, profile)
+        var includeReasoningControls = shouldIncludeReasoningControls(flavor, config)
 
         repeat(maxRetries) { attempt ->
             var responseBody: String? = null
@@ -170,7 +170,7 @@ class LmStudioClient(
                 userTemplate = userTemplate,
                 includeResponseFormat = includeResponseFormat,
                 includeReasoningControls = includeReasoningControls,
-                profile = profile,
+                config = config,
                 maxTokens = maxTokens
             )
 
@@ -270,12 +270,9 @@ class LmStudioClient(
         return responseFormatSupport != CapabilitySupport.UNSUPPORTED
     }
 
-    private fun shouldIncludeReasoningControls(
-        flavor: LmApiFlavor,
-        profile: ModelRequestProfile
-    ): Boolean {
+    private fun shouldIncludeReasoningControls(flavor: LmApiFlavor, config: LmModelConfig): Boolean {
         if (flavor != LmApiFlavor.OPENAI_COMPAT) return false
-        if (!profile.disableThinking) return false
+        if (!config.hasReasoningControls()) return false
         return reasoningControlsSupport != CapabilitySupport.UNSUPPORTED
     }
 

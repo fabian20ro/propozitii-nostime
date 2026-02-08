@@ -29,6 +29,11 @@ Do not reuse old run slugs when restarting a new campaign.
 These recommendations currently match CLI defaults.
 Batch size is the *initial* size; `BatchSizeAdapter` adjusts it at runtime based on a sliding window of recent outcomes.
 
+Model parameter defaults are in code and can be tuned per model without touching Step 2 logic:
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsGptOss20b.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsGlm47Flash.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsMinistral38b.kt`
+
 ## End-to-end commands
 
 ```bash

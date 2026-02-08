@@ -2,47 +2,13 @@ package scrabble.phrases.tools.rarity
 
 import com.fasterxml.jackson.databind.ObjectMapper
 
-data class ModelRequestProfile(
-    val temperature: Double,
-    val topP: Double?,
-    val disableThinking: Boolean,
-    val maxTokensCap: Int?
-)
-
 class LmStudioRequestBuilder(
-    private val mapper: ObjectMapper = ObjectMapper()
+    private val mapper: ObjectMapper = ObjectMapper(),
+    private val configRegistry: LmModelConfigRegistry = LmModelConfigRegistry()
 ) {
 
-    fun requestProfileFor(model: String): ModelRequestProfile {
-        return when (model.trim().lowercase()) {
-            MODEL_GPT_OSS_20B -> ModelRequestProfile(
-                temperature = 0.0,
-                topP = 0.9,
-                disableThinking = false,
-                maxTokensCap = null
-            )
-
-            MODEL_GLM_47_FLASH -> ModelRequestProfile(
-                temperature = 0.0,
-                topP = 0.2,
-                disableThinking = true,
-                maxTokensCap = 2048
-            )
-
-            MODEL_MINISTRAL_3_8B -> ModelRequestProfile(
-                temperature = 0.0,
-                topP = 0.4,
-                disableThinking = false,
-                maxTokensCap = 3072
-            )
-
-            else -> ModelRequestProfile(
-                temperature = 0.0,
-                topP = 0.5,
-                disableThinking = false,
-                maxTokensCap = null
-            )
-        }
+    fun modelConfigFor(model: String): LmModelConfig {
+        return configRegistry.resolve(model)
     }
 
     fun buildRequest(
@@ -52,7 +18,7 @@ class LmStudioRequestBuilder(
         userTemplate: String,
         includeResponseFormat: Boolean,
         includeReasoningControls: Boolean,
-        profile: ModelRequestProfile,
+        config: LmModelConfig,
         maxTokens: Int
     ): String {
         val entriesJson = mapper.writeValueAsString(
@@ -72,7 +38,7 @@ class LmStudioRequestBuilder(
         }
 
         val estimatedTokens = (batch.size * 40) + 200
-        val profileCap = profile.maxTokensCap ?: Int.MAX_VALUE
+        val profileCap = config.maxTokensCap ?: Int.MAX_VALUE
         val effectiveMaxTokens = estimatedTokens
             .coerceAtLeast(256)
             .coerceAtMost(maxTokens)
@@ -80,7 +46,7 @@ class LmStudioRequestBuilder(
 
         val payload = linkedMapOf<String, Any>(
             "model" to model,
-            "temperature" to profile.temperature,
+            "temperature" to config.temperature,
             "max_tokens" to effectiveMaxTokens,
             "messages" to listOf(
                 mapOf("role" to "system", "content" to systemPrompt),
@@ -88,11 +54,19 @@ class LmStudioRequestBuilder(
             )
         )
 
-        profile.topP?.let { payload["top_p"] = it }
-        if (includeReasoningControls && profile.disableThinking) {
-            payload["reasoning_effort"] = "low"
-            payload["chat_template_kwargs"] = mapOf("enable_thinking" to false)
+        config.topK?.let { payload["top_k"] = it }
+        config.topP?.let { payload["top_p"] = it }
+        config.minP?.let { payload["min_p"] = it }
+        config.repeatPenalty?.let { payload["repeat_penalty"] = it }
+        config.frequencyPenalty?.let { payload["frequency_penalty"] = it }
+        config.presencePenalty?.let { payload["presence_penalty"] = it }
+
+        if (includeReasoningControls) {
+            config.reasoningEffort?.let { payload["reasoning_effort"] = it }
+            config.thinkingType?.let { payload["thinking"] = mapOf("type" to it) }
+            config.enableThinking?.let { payload["chat_template_kwargs"] = mapOf("enable_thinking" to it) }
         }
+
         if (includeResponseFormat) {
             payload["response_format"] = mapOf("type" to "json_object")
         }
@@ -115,6 +89,7 @@ object LmStudioErrorClassifier {
     fun isUnsupportedReasoningControls(e: Exception): Boolean {
         val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
         val mentionsReasoningField = text.contains("reasoning_effort") ||
+            text.contains("thinking") ||
             text.contains("chat_template_kwargs") ||
             text.contains("enable_thinking")
         if (!mentionsReasoningField) return false

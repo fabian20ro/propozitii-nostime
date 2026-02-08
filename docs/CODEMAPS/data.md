@@ -68,6 +68,7 @@ Step 2 artifacts and guards:
 
 Step 2 resilience:
 - `LmStudioClient` orchestrates retries/split/failure logging, while request/parse/HTTP concerns are split into dedicated classes
+- model configs are registry-driven; per-model defaults live in dedicated files and include all generation knobs (`temperature`, `top_k`, `top_p`, `min_p`, penalties, reasoning controls)
 - `JsonRepair` fixes truncated/malformed LM JSON before parsing
 - `BatchSizeAdapter` adapts by success ratio (not all-or-nothing), with runtime floor `max(5, initial/5)`
 - `FuzzyWordMatcher` accepts diacritical misspellings from LM (Levenshtein distance <= 2)

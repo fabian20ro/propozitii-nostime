@@ -82,6 +82,12 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RarityStep4Uploader.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmClient.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioClient.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelConfig.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelConfigRegistry.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsGptOss20b.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsGlm47Flash.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsMinistral38b.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/LmModelDefaultsFallback.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioRequestSupport.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioResponseParser.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/LmStudioHttpGateway.kt`
@@ -114,6 +120,7 @@ Step 2 LM response handling:
 - confidence parsed as string or number; accepts both `0..1` and `1..100` (normalized to `0..1`)
 - run-scoped capability cache: after one unsupported `response_format` error, remaining requests skip `response_format`
 - run-scoped reasoning-controls cache (GLM): if `reasoning_effort`/`chat_template_kwargs` are unsupported, subsequent requests skip them
+- model parameter defaults are centralized per model (`temperature`, `top_k`, `top_p`, `min_p`, penalties, reasoning settings)
 - model crash backoff: linear delay on "model has crashed" errors
 - dynamic `max_tokens`: estimated per batch and capped by `--max-tokens` (plus model-specific cap when defined)
 

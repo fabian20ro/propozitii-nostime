@@ -32,3 +32,4 @@
 - 2026-02-08: GLM/OpenAI-compatible endpoints may reject reasoning-control fields (`reasoning_effort`, `chat_template_kwargs`); cache unsupported capability once and continue without per-batch retries.
 - 2026-02-08: `max_tokens` should be treated as an upper bound, not a floor; using dynamic per-batch estimates reduces long "thinking" outputs and improves Step 2 throughput.
 - 2026-02-08: `LmStudioClient.kt` crossed maintainability limits and caused duplicate-line regressions during fast edits; keep LMStudio flow split by concern (`LmClient`, request builder, response parser, HTTP gateway) and keep single classes under ~500 lines.
+- 2026-02-08: Model tuning drifts quickly when spread across conditionals; keep per-model sampling/reasoning defaults in dedicated constants files plus a registry to avoid hidden behavior changes.
