@@ -53,3 +53,4 @@
 - 2026-02-08: Rebalance prompts must encode hard-count invariants explicitly (`exact TARGET_COUNT`, only two allowed levels, no duplicate `word_id`, no extra text); vague wording leads gpt-oss to drift from target ratios.
 - 2026-02-08: Distribution logging should live in a shared helper (`RarityDistribution`) used by both Step 2 and Step 5; duplicated counters/formatters drift quickly during iteration.
 - 2026-02-08: It is useful to print level distribution at merge/upload boundaries too (Step 3 `final_level`, Step 4 input/uploaded levels) to catch skew before DB writes.
+- 2026-02-09: For Step 5 ratio targets, `floor(batch*ratio)` causes systematic under-allocation (e.g., `60*0.3333 -> 19`); use rounded target counts to keep 1/3 batches at 20.

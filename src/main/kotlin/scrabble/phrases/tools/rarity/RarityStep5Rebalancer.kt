@@ -4,7 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.OffsetDateTime
 import java.util.Locale
-import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 const val DEFAULT_REBALANCE_BATCH_SIZE: Int = 60
@@ -392,7 +392,7 @@ class RarityStep5Rebalancer(
 
     private fun computeTargetCount(batchSize: Int, ratio: Double): Int {
         if (batchSize < 3) return 0
-        val target = floor(batchSize * ratio).toInt().coerceAtLeast(1)
+        val target = (batchSize * ratio).roundToInt().coerceAtLeast(1)
         return target.coerceAtMost(batchSize - 1)
     }
 
