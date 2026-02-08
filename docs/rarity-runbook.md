@@ -39,6 +39,11 @@ Model parameter defaults are in code and can be tuned per model without touching
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsMinistral38b.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsEuroLlm22b.kt`
 
+Current safety baseline for all model profiles:
+- deterministic decoding (`temperature=0`, `top_p=1.0`)
+- capped reasoning controls per model profile
+- `response_format` auto-disable when `json_schema` output quality collapses (high unresolved ratio)
+
 ## End-to-end commands
 
 ```bash
@@ -112,6 +117,7 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 - **Adaptive batching**: batch size shrinks after weak outcomes (floor=`max(5, initial/5)`), grows back after sustained success (cap=initial)
 - **`response_format` capability cache**: after one unsupported response, the run disables `response_format` for all following requests (tracked via `CapabilityState`: JSON_OBJECT -> JSON_SCHEMA -> NONE)
 - **Empty-array guard for JSON schema**: if a model keeps returning `[]` under `json_schema` (0 parsed nodes), Step 2 disables `response_format` for the rest of the run and continues with prompt-only JSON parsing
+- **Partial-schema quality guard**: if a `json_schema` response returns too few valid items for the batch (unresolved >= 20%), Step 2 disables `response_format` for the rest of the run
 - **Per-batch schema cardinality**: when `json_schema` is active, schema now requires exactly one output item per input item (`minItems=maxItems=batch_size`)
 - **reasoning-control capability cache** (GLM profile): after one unsupported `reasoning_effort`/`chat_template_kwargs`, the run disables those controls for all following requests (tracked via `CapabilityState`)
 - **Simple JSON contract**: prompts request a plain top-level array; parser still accepts array plus object envelopes like `results`/`items`/`data`

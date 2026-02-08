@@ -14,9 +14,7 @@ import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TOP_P
 import scrabble.phrases.tools.rarity.lmstudio.EUROLLM_22B_TEMPERATURE
 import scrabble.phrases.tools.rarity.lmstudio.EUROLLM_22B_TOP_K
 import scrabble.phrases.tools.rarity.lmstudio.EUROLLM_22B_TOP_P
-import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_MIN_P
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_REASONING_EFFORT
-import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_REPEAT_PENALTY
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_TEMPERATURE
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_TOP_K
 import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_TOP_P
@@ -499,6 +497,61 @@ class LmStudioClientTest {
     }
 
     @Test
+    fun disables_response_format_after_high_unresolved_ratio_in_json_schema() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                1 -> respond(
+                    exchange,
+                    200,
+                    successResponseRawContent(
+                        """[{"word_id":1,"word":"apa","type":"N","rarity_level":2,"tag":"common","confidence":0.9}]"""
+                    )
+                )
+                2 -> respond(
+                    exchange,
+                    200,
+                    successResponseRawContent(
+                        """[{"word_id":2,"word":"brad","type":"N","rarity_level":3,"tag":"less_common","confidence":0.8}]"""
+                    )
+                )
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val scored = client.scoreBatchResilient(
+                batch = listOf(
+                    BaseWordRow(1, "apa", "N"),
+                    BaseWordRow(2, "brad", "N")
+                ),
+                context = ctx(
+                    runSlug = "run_disable_schema_after_partial",
+                    model = MODEL_GPT_OSS_20B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    maxRetries = 2,
+                    runLogPath = tempDir.resolve("run_disable_schema_after_partial.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_disable_schema_after_partial.jsonl")
+                )
+            )
+
+            assertEquals(2, scored.size)
+            assertEquals(3, requests.size)
+            assertTrue(requests[0].contains("\"type\":\"json_object\""))
+            assertTrue(requests[1].contains("\"type\":\"json_schema\""))
+            assertFalse(requests[2].contains("\"response_format\""))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun disables_reasoning_controls_for_rest_of_run_after_unsupported_error_for_glm() {
         val requests = mutableListOf<String>()
         val callIndex = AtomicInteger(0)
@@ -608,8 +661,8 @@ class LmStudioClientTest {
             assertEquals(GPT_OSS_20B_TEMPERATURE, request.path("temperature").asDouble())
             assertEquals(GPT_OSS_20B_TOP_K, request.path("top_k").asInt())
             assertEquals(GPT_OSS_20B_TOP_P, request.path("top_p").asDouble())
-            assertEquals(GPT_OSS_20B_MIN_P, request.path("min_p").asDouble())
-            assertEquals(GPT_OSS_20B_REPEAT_PENALTY, request.path("repeat_penalty").asDouble())
+            assertFalse(request.has("min_p"))
+            assertFalse(request.has("repeat_penalty"))
             assertEquals(GPT_OSS_20B_REASONING_EFFORT, request.path("reasoning_effort").asText())
         } finally {
             server.stop(0)

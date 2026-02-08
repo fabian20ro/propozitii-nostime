@@ -2,9 +2,9 @@ package scrabble.phrases.tools.rarity.lmstudio
 
 import scrabble.phrases.tools.rarity.MODEL_GLM_47_FLASH
 
-const val GLM_47_FLASH_TEMPERATURE: Double = 0.7
-const val GLM_47_FLASH_TOP_K: Int = 50
-const val GLM_47_FLASH_TOP_P: Double = 0.95
+const val GLM_47_FLASH_TEMPERATURE: Double = 0.0
+const val GLM_47_FLASH_TOP_K: Int = 40
+const val GLM_47_FLASH_TOP_P: Double = 1.0
 const val GLM_47_FLASH_REASONING_EFFORT: String = "low"
 
 val GLM_47_FLASH_CONFIG: LmModelConfig = LmModelConfig(

@@ -9,8 +9,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.time.OffsetDateTime
+import kotlin.math.ceil
 
 private const val MAX_RECURSION_DEPTH = 10
+private const val JSON_SCHEMA_UNRESOLVED_DISABLE_RATIO = 0.2
 
 data class CapabilityState(
     val responseFormatMode: ResponseFormatMode = ResponseFormatMode.JSON_OBJECT,
@@ -135,6 +137,14 @@ class LmStudioClient(
                 }
 
                 val parsed = responseParser.parse(batch, response.body)
+                val disableJsonSchemaAfterPartialParse =
+                    currentResponseFormatMode == ResponseFormatMode.JSON_SCHEMA &&
+                        shouldDisableResponseFormatAfterPartialSchemaParse(batch.size, parsed.unresolved.size)
+
+                if (disableJsonSchemaAfterPartialParse) {
+                    markResponseFormatDisabled()
+                    currentResponseFormatMode = ResponseFormatMode.NONE
+                }
                 appendJsonLine(
                     ctx.runLogPath,
                     mapOf(
@@ -144,6 +154,7 @@ class LmStudioClient(
                         "batch_size" to batch.size,
                         "parsed_count" to parsed.scores.size,
                         "unresolved_count" to parsed.unresolved.size,
+                        "disable_response_format_after_partial_parse" to disableJsonSchemaAfterPartialParse,
                         "response_format_mode" to currentResponseFormatMode.name.lowercase(),
                         "reasoning_controls_enabled" to includeReasoningControls,
                         "request" to toJsonNodeOrString(requestPayload),
@@ -222,6 +233,15 @@ class LmStudioClient(
             lastError = lastError,
             connectivityFailure = sawOnlyConnectivityFailures
         )
+    }
+
+    private fun shouldDisableResponseFormatAfterPartialSchemaParse(
+        batchSize: Int,
+        unresolvedCount: Int
+    ): Boolean {
+        if (batchSize <= 0 || unresolvedCount <= 0) return false
+        val threshold = ceil(batchSize * JSON_SCHEMA_UNRESOLVED_DISABLE_RATIO).toInt().coerceAtLeast(1)
+        return unresolvedCount >= threshold
     }
 
     private fun responseFormatModeFor(flavor: LmApiFlavor): ResponseFormatMode {

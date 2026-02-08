@@ -1,8 +1,8 @@
 package scrabble.phrases.tools.rarity.lmstudio
 
-const val FALLBACK_MODEL_TEMPERATURE: Double = 0.3
+const val FALLBACK_MODEL_TEMPERATURE: Double = 0.0
 const val FALLBACK_MODEL_TOP_K: Int = 40
-const val FALLBACK_MODEL_TOP_P: Double = 0.9
+const val FALLBACK_MODEL_TOP_P: Double = 1.0
 
 val FALLBACK_MODEL_CONFIG: LmModelConfig = LmModelConfig(
     modelId = "fallback",
