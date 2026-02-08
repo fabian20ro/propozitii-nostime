@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.time.OffsetDateTime
+import java.util.Locale
 
 data class Step2Options(
     val runSlug: String,
@@ -42,6 +43,16 @@ private data class Step2Counters(
     val scoredCount: Int,
     val failedCount: Int
 )
+
+internal fun formatRarityDistribution(rarityCounts: IntArray): String {
+    val total = (1..5).sumOf { level -> rarityCounts.getOrElse(level) { 0 } }
+    val parts = (1..5).joinToString(" ") { level ->
+        val count = rarityCounts.getOrElse(level) { 0 }
+        val percent = if (total > 0) (count * 100.0) / total.toDouble() else 0.0
+        "$level:$count(${String.format(Locale.ROOT, "%.1f", percent)}%)"
+    }
+    return "distribution=[$parts]"
+}
 
 class RarityStep2Scorer(
     private val runCsvRepository: RunCsvRepository,
@@ -206,6 +217,12 @@ class RarityStep2Scorer(
         var scoredCount = 0
         var failedCount = 0
         var processed = 0
+        val rarityCounts = IntArray(6)
+        context.existingRows.values.forEach { row ->
+            if (row.rarityLevel in 1..5) {
+                rarityCounts[row.rarityLevel] += 1
+            }
+        }
         val minAdaptiveSize = (options.batchSize / 5)
             .coerceAtLeast(5)
             .coerceAtMost(options.batchSize)
@@ -247,6 +264,11 @@ class RarityStep2Scorer(
                 val rowsToAppend = toRunRows(scored, options.model, options.runSlug)
                 rowsToAppend.forEach { context.existingRows[it.wordId] = it }
                 runCsvRepository.appendRunRows(options.outputCsvPath, rowsToAppend)
+                rowsToAppend.forEach { row ->
+                    if (row.rarityLevel in 1..5) {
+                        rarityCounts[row.rarityLevel] += 1
+                    }
+                }
                 scoredCount += rowsToAppend.size
             }
 
@@ -258,7 +280,8 @@ class RarityStep2Scorer(
                 totalPending = totalPending,
                 scored = scoredCount,
                 failed = failedCount,
-                effectiveBatchSize = adapter.recommendedSize()
+                effectiveBatchSize = adapter.recommendedSize(),
+                distribution = formatRarityDistribution(rarityCounts)
             )
         }
 
@@ -288,16 +311,17 @@ class RarityStep2Scorer(
         totalPending: Int,
         scored: Int,
         failed: Int,
-        effectiveBatchSize: Int
+        effectiveBatchSize: Int,
+        distribution: String
     ) {
         val remaining = (totalPending - processed).coerceAtLeast(0)
         val metricsLine = metrics?.formatProgress(remaining, effectiveBatchSize)
         if (metricsLine != null) {
-            println("Step 2 progress run='$runSlug' $metricsLine")
+            println("Step 2 progress run='$runSlug' $metricsLine $distribution")
         } else {
             println(
                 "Step 2 progress run='$runSlug' processed=$processed/$totalPending " +
-                    "scored=$scored failed=$failed remaining=$remaining"
+                    "scored=$scored failed=$failed remaining=$remaining $distribution"
             )
         }
     }
