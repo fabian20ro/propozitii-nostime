@@ -94,6 +94,7 @@ private data class RebalanceDataset(
 
 private data class RebalanceRuntime(
     val levelsById: MutableMap<Int, Int>,
+    val distribution: RarityDistribution,
     val rebalanceRules: MutableMap<Int, String>,
     val processedWordIds: MutableSet<Int>
 )
@@ -122,6 +123,7 @@ class RarityStep5Rebalancer(
         val logs = prepareLogs(options.runSlug)
         val runtime = RebalanceRuntime(
             levelsById = dataset.levelsById,
+            distribution = RarityDistribution.fromLevels(dataset.levelsById.values),
             rebalanceRules = mutableMapOf(),
             processedWordIds = mutableSetOf()
         )
@@ -132,7 +134,7 @@ class RarityStep5Rebalancer(
                 "lowerRatio=${String.format(Locale.ROOT, "%.4f", options.lowerRatio)} transitions=" +
                 options.transitions.joinToString(",") { "${it.fromLevel}->${it.toLevel}" }
         )
-        println("Step 5 input distribution ${formatDistribution(runtime.levelsById.values)}")
+        println("Step 5 input distribution ${runtime.distribution.format()}")
 
         val summaries = applyTransitions(
             options = options,
@@ -150,7 +152,7 @@ class RarityStep5Rebalancer(
                     "eligible=${summary.eligible} target_assigned=${summary.targetAssigned}"
             )
         }
-        println("Step 5 output distribution ${formatDistribution(runtime.levelsById.values)}")
+        println("Step 5 output distribution ${runtime.distribution.format()}")
         println("Step 5 output CSV: ${options.outputCsvPath.toAbsolutePath()}")
     }
 
@@ -252,8 +254,8 @@ class RarityStep5Rebalancer(
 
                 println(
                     "Step 5 progress run='${options.runSlug}' transition=${transition.fromLevel}->${transition.toLevel} " +
-                        "processed=$processed/${eligibleWords.size} target_assigned=$targetAssigned " +
-                        "${formatDistribution(runtime.levelsById.values)}"
+                    "processed=$processed/${eligibleWords.size} target_assigned=$targetAssigned " +
+                        "${runtime.distribution.format()}"
                 )
             }
 
@@ -335,6 +337,7 @@ class RarityStep5Rebalancer(
             val nextLevel = if (word.wordId in selectedWordIds) transition.toLevel else otherLevel
             val previousLevel = runtime.levelsById[word.wordId]
             runtime.levelsById[word.wordId] = nextLevel
+            runtime.distribution.setLevel(previousLevel, nextLevel)
             runtime.processedWordIds += word.wordId
             if (previousLevel != nextLevel) {
                 runtime.rebalanceRules[word.wordId] =
@@ -391,14 +394,6 @@ class RarityStep5Rebalancer(
         if (batchSize < 3) return 0
         val target = floor(batchSize * ratio).toInt().coerceAtLeast(1)
         return target.coerceAtMost(batchSize - 1)
-    }
-
-    private fun formatDistribution(levels: Collection<Int>): String {
-        val counts = IntArray(6)
-        levels.forEach { level ->
-            if (level in 1..5) counts[level] += 1
-        }
-        return formatRarityDistribution(counts)
     }
 
     private fun prepareLogs(runSlug: String): Step5Logs {

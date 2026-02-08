@@ -25,8 +25,10 @@ class RarityStep4Uploader(
     fun execute(options: Step4Options) {
         val finalLevels = runCsvRepository.loadFinalLevels(options.finalCsvPath)
         val dbLevels = wordStore.fetchAllWordLevels().associateBy { it.wordId }
+        val inputDistribution = RarityDistribution.fromLevels(finalLevels.values)
 
         val plan = buildUploadPlan(options.mode, finalLevels, dbLevels)
+        val uploadedDistribution = RarityDistribution.fromLevels(plan.updates.values)
 
         wordStore.updateRarityLevels(plan.updates)
         runCsvRepository.writeRows(options.reportPath, UPLOAD_REPORT_HEADERS, plan.reportRows)
@@ -40,6 +42,8 @@ class RarityStep4Uploader(
         )
 
         println("Step 4 complete. mode=${options.mode.name.lowercase()} updated=${plan.updates.size}")
+        println("Step 4 input ${inputDistribution.format()}")
+        println("Step 4 uploaded ${uploadedDistribution.format()}")
         println("Upload report: ${options.reportPath.toAbsolutePath()}")
         println(
             "Upload markers: ${markerResult.markerPath.toAbsolutePath()} " +

@@ -28,10 +28,12 @@ class RarityStep3Comparator(
 
         val comparisonRows = mutableListOf<List<String>>()
         val outlierRows = mutableListOf<List<String>>()
+        val finalDistribution = RarityDistribution.empty()
 
         baseRows.forEach { base ->
             val row = buildComparisonRow(base, runA[base.wordId], runB[base.wordId], runC[base.wordId], options)
             comparisonRows += row.toCsv()
+            finalDistribution.increment(row.finalLevel)
             if (row.isOutlier) {
                 outlierRows += row.toOutlierCsv()
             }
@@ -41,6 +43,7 @@ class RarityStep3Comparator(
         runCsvRepository.writeRows(options.outliersCsvPath, OUTLIERS_CSV_HEADERS, outlierRows)
 
         println("Step 3 complete. Outliers=${outlierRows.size}")
+        println("Step 3 final ${finalDistribution.format()}")
         println("Comparison: ${options.outputCsvPath.toAbsolutePath()}")
         println("Outliers: ${options.outliersCsvPath.toAbsolutePath()}")
     }

@@ -51,3 +51,5 @@
 - 2026-02-08: New Step 5 rebalance operates on Step2-style CSVs and must enforce single-pass semantics: each `word_id` can be sent to LM at most once per run, even with multiple transitions.
 - 2026-02-08: Step 5 transition mode `from=to` means split+promote, not no-op: target ratio stays at `to`, while remaining words are reassigned to `to+1`.
 - 2026-02-08: Rebalance prompts must encode hard-count invariants explicitly (`exact TARGET_COUNT`, only two allowed levels, no duplicate `word_id`, no extra text); vague wording leads gpt-oss to drift from target ratios.
+- 2026-02-08: Distribution logging should live in a shared helper (`RarityDistribution`) used by both Step 2 and Step 5; duplicated counters/formatters drift quickly during iteration.
+- 2026-02-08: It is useful to print level distribution at merge/upload boundaries too (Step 3 `final_level`, Step 4 input/uploaded levels) to catch skew before DB writes.
