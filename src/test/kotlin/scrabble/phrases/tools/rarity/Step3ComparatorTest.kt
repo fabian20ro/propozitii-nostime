@@ -230,4 +230,32 @@ class Step3ComparatorTest {
         assertEquals("5", row["final_level"])
         assertEquals("any_level_5_over_median", row["merge_rule"])
     }
+
+    @Test
+    fun null_run_c_path_keeps_two_run_behavior() {
+        val basePath = writeBaseCsv(listOf(Triple(1, "nor", "N")))
+        val runAPath = writeRunCsv("run_a_only", listOf(testRunRow(1, rarityLevel = 2, confidence = 0.8, runSlug = "a")))
+        val runBPath = writeRunCsv("run_b_only", listOf(testRunRow(1, rarityLevel = 4, confidence = 0.8, runSlug = "b")))
+        val outputPath = tempDir.resolve("comparison_null_c.csv")
+        val outliersPath = tempDir.resolve("outliers_null_c.csv")
+
+        RarityStep3Comparator(repo).execute(
+            Step3Options(
+                runACsvPath = runAPath,
+                runBCsvPath = runBPath,
+                runCCsvPath = null,
+                outputCsvPath = outputPath,
+                outliersCsvPath = outliersPath,
+                baseCsvPath = basePath,
+                outlierThreshold = DEFAULT_OUTLIER_THRESHOLD,
+                confidenceThreshold = DEFAULT_CONFIDENCE_THRESHOLD,
+                mergeStrategy = Step3MergeStrategy.MEDIAN
+            )
+        )
+
+        val row = repo.readTable(outputPath).toRowMaps().single()
+        assertEquals("", row["run_c_level"])
+        assertEquals("", row["run_c_confidence"])
+        assertEquals("3", row["final_level"])
+    }
 }
