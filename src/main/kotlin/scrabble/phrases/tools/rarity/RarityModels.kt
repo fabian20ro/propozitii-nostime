@@ -11,6 +11,7 @@ const val MODEL_GPT_OSS_20B: String = "openai/gpt-oss-20b"
 const val MODEL_GLM_47_FLASH: String = "zai-org/glm-4.7-flash"
 const val MODEL_MINISTRAL_3_8B: String = "ministral-3-8b-instruct-2512-mixed-8-6-bit"
 const val MODEL_EUROLLM_22B_MLX_4BIT: String = "mlx-community/EuroLLM-22B-Instruct-2512-mlx-4bit"
+const val MODEL_EUROLLM_22B: String = "eurollm-22b-instruct-2512-mlx"
 
 const val DEFAULT_BATCH_SIZE: Int = 50
 const val DEFAULT_MAX_RETRIES: Int = 3

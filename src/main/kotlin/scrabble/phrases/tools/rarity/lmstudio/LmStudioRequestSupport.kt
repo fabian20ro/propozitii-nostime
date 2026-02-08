@@ -78,13 +78,14 @@ class LmStudioRequestBuilder(
         when (responseFormatMode) {
             ResponseFormatMode.NONE -> Unit
             ResponseFormatMode.JSON_OBJECT -> payload["response_format"] = mapOf("type" to "json_object")
-            ResponseFormatMode.JSON_SCHEMA -> payload["response_format"] = buildJsonSchemaResponseFormat()
+            ResponseFormatMode.JSON_SCHEMA -> payload["response_format"] = buildJsonSchemaResponseFormat(batch.size)
         }
 
         return mapper.writeValueAsString(payload)
     }
 
-    private fun buildJsonSchemaResponseFormat(): Map<String, Any> {
+    private fun buildJsonSchemaResponseFormat(expectedItems: Int): Map<String, Any> {
+        val boundedExpectedItems = expectedItems.coerceAtLeast(1)
         val resultItemSchema = mapOf(
             "type" to "object",
             "properties" to mapOf(
@@ -109,7 +110,9 @@ class LmStudioRequestBuilder(
 
         val responseSchema = mapOf(
             "type" to "array",
-            "items" to resultItemSchema
+            "items" to resultItemSchema,
+            "minItems" to boundedExpectedItems,
+            "maxItems" to boundedExpectedItems
         )
 
         return mapOf(
@@ -150,6 +153,11 @@ object LmStudioErrorClassifier {
             text.contains("unknown") ||
             text.contains("unexpected") ||
             text.contains("invalid")
+    }
+
+    fun isEmptyParsedResults(e: Exception): Boolean {
+        val text = "${e.message.orEmpty()} ${e.cause?.message.orEmpty()}".lowercase()
+        return text.contains("no valid results parsed from 0 result nodes")
     }
 
     fun excerptForLog(content: String?, maxChars: Int = 500): String? {

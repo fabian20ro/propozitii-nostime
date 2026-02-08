@@ -6,7 +6,7 @@ This runbook is for full rebuild campaigns where rarity is regenerated from scra
 
 - Model A (first pass): `openai/gpt-oss-20b`
 - Model B (second pass): `zai-org/glm-4.7-flash`
-- Model C (optional): `mlx-community/EuroLLM-22B-Instruct-2512-mlx-4bit`
+- Model C (optional): `mlx-community/EuroLLM-22B-Instruct-2512-mlx-4bit` (alias supported: `eurollm-22b-instruct-2512-mlx`)
 - Upload mode during iterative runs: `partial` only
 - Coverage gate before final merge upload: `>= 99.5%`
 
@@ -111,6 +111,8 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 - **Fuzzy matching**: Romanian diacritical misspellings from LM are accepted (Levenshtein distance <= 2 on normalized forms)
 - **Adaptive batching**: batch size shrinks after weak outcomes (floor=`max(5, initial/5)`), grows back after sustained success (cap=initial)
 - **`response_format` capability cache**: after one unsupported response, the run disables `response_format` for all following requests (tracked via `CapabilityState`: JSON_OBJECT -> JSON_SCHEMA -> NONE)
+- **Empty-array guard for JSON schema**: if a model keeps returning `[]` under `json_schema` (0 parsed nodes), Step 2 disables `response_format` for the rest of the run and continues with prompt-only JSON parsing
+- **Per-batch schema cardinality**: when `json_schema` is active, schema now requires exactly one output item per input item (`minItems=maxItems=batch_size`)
 - **reasoning-control capability cache** (GLM profile): after one unsupported `reasoning_effort`/`chat_template_kwargs`, the run disables those controls for all following requests (tracked via `CapabilityState`)
 - **Simple JSON contract**: prompts request a plain top-level array; parser still accepts array plus object envelopes like `results`/`items`/`data`
 - **Model crash backoff**: linear delay (10s * attempt) when LMStudio reports model crash

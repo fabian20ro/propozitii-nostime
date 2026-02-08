@@ -96,6 +96,12 @@ class LmStudioClientTest {
             assertTrue(requests[0].contains("\"type\":\"json_object\""))
             assertTrue(requests[1].contains("\"response_format\""))
             assertTrue(requests[1].contains("\"type\":\"json_schema\""))
+            val schema = mapper.readTree(requests[1])
+                .path("response_format")
+                .path("json_schema")
+                .path("schema")
+            assertEquals(1, schema.path("minItems").asInt())
+            assertEquals(1, schema.path("maxItems").asInt())
             assertTrue(requests[2].contains("\"response_format\""))
             assertTrue(requests[2].contains("\"type\":\"json_schema\""))
         } finally {
@@ -453,6 +459,46 @@ class LmStudioClientTest {
     }
 
     @Test
+    fun disables_response_format_after_empty_json_schema_results() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                1 -> respond(exchange, 200, successResponseRawContent("[]"))
+                2 -> respond(exchange, 200, successResponseFor("apa", "N", 2, 0.9))
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val scored = client.scoreBatchResilient(
+                batch = listOf(BaseWordRow(1, "apa", "N")),
+                context = ctx(
+                    runSlug = "run_empty_schema_results",
+                    model = MODEL_EUROLLM_22B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    maxRetries = 3,
+                    runLogPath = tempDir.resolve("run_empty_schema_results.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_empty_schema_results.jsonl")
+                )
+            )
+
+            assertEquals(1, scored.size)
+            assertEquals(3, requests.size)
+            assertTrue(requests[0].contains("\"type\":\"json_object\""))
+            assertTrue(requests[1].contains("\"type\":\"json_schema\""))
+            assertFalse(requests[2].contains("\"response_format\""))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun disables_reasoning_controls_for_rest_of_run_after_unsupported_error_for_glm() {
         val requests = mutableListOf<String>()
         val callIndex = AtomicInteger(0)
@@ -589,6 +635,40 @@ class LmStudioClientTest {
                     endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
                     runLogPath = tempDir.resolve("run_eurollm_profile.jsonl"),
                     failedLogPath = tempDir.resolve("failed_eurollm_profile.jsonl")
+                )
+            )
+
+            val request = mapper.readTree(requests.single())
+            assertEquals(EUROLLM_22B_TEMPERATURE, request.path("temperature").asDouble())
+            assertEquals(EUROLLM_22B_TOP_K, request.path("top_k").asInt())
+            assertEquals(EUROLLM_22B_TOP_P, request.path("top_p").asDouble())
+            assertFalse(request.has("reasoning_effort"))
+            assertFalse(request.has("thinking"))
+            assertFalse(request.has("chat_template_kwargs"))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun eurollm_short_model_id_uses_eurollm_profile_defaults() {
+        val requests = mutableListOf<String>()
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+            respond(exchange, 200, successResponseFor("apa", "N", 2, 0.9))
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            client.scoreBatchResilient(
+                batch = listOf(BaseWordRow(1, "apa", "N")),
+                context = ctx(
+                    runSlug = "run_eurollm_short_id_profile",
+                    model = MODEL_EUROLLM_22B,
+                    endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions",
+                    runLogPath = tempDir.resolve("run_eurollm_short_id_profile.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_eurollm_short_id_profile.jsonl")
                 )
             )
 

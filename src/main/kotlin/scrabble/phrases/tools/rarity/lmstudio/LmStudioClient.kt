@@ -165,6 +165,8 @@ class LmStudioClient(
                     LmStudioErrorClassifier.shouldSwitchToJsonSchema(e)
                 val unsupportedReasoningControls = includeReasoningControls &&
                     LmStudioErrorClassifier.isUnsupportedReasoningControls(e)
+                val emptyParsedResults = currentResponseFormatMode == ResponseFormatMode.JSON_SCHEMA &&
+                    LmStudioErrorClassifier.isEmptyParsedResults(e)
                 val modelCrash = isModelCrash(e)
 
                 if (!connectivityFailure) {
@@ -184,6 +186,7 @@ class LmStudioClient(
                         "unsupported_response_format" to unsupportedResponseFormat,
                         "switch_to_json_schema" to shouldSwitchToJsonSchema,
                         "unsupported_reasoning_controls" to unsupportedReasoningControls,
+                        "empty_parsed_results" to emptyParsedResults,
                         "response_format_mode" to currentResponseFormatMode.name.lowercase(),
                         "reasoning_controls_enabled" to includeReasoningControls,
                         "model_crash" to modelCrash,
@@ -196,6 +199,9 @@ class LmStudioClient(
                     markResponseFormatJsonSchema()
                     currentResponseFormatMode = ResponseFormatMode.JSON_SCHEMA
                 } else if (unsupportedResponseFormat) {
+                    markResponseFormatDisabled()
+                    currentResponseFormatMode = ResponseFormatMode.NONE
+                } else if (emptyParsedResults) {
                     markResponseFormatDisabled()
                     currentResponseFormatMode = ResponseFormatMode.NONE
                 }

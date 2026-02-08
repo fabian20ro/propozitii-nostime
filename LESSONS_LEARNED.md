@@ -44,3 +44,4 @@
 - 2026-02-08: `LmClient.scoreBatchResilient` had 12 parameters that grew with each feature; consolidating into `ScoringContext` data class made the interface stable and test doubles simpler.
 - 2026-02-08: Scattered `@Volatile` fields + `synchronized` blocks for capability degradation were error-prone; extracting `CapabilityState` data class with immutable `copy()` updates is both clearer and equally thread-safe for single-threaded scorer loops.
 - 2026-02-08: Nested if/else chains in parser fallback logic (`parseContentJson`) are hard to audit for coverage; converting to linear early-return style made each fallback path independently testable.
+- 2026-02-08: Some local models satisfy `json_schema` by emitting `[]`; requiring per-batch `minItems/maxItems` and disabling `response_format` after repeated empty parses prevents whole-run stalls.
