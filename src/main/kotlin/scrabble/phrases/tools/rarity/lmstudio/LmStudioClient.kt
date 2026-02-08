@@ -1,6 +1,7 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import scrabble.phrases.tools.rarity.*
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.http.HttpTimeoutException

@@ -1,4 +1,6 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
+
+import scrabble.phrases.tools.rarity.MODEL_GLM_47_FLASH
 
 const val GLM_47_FLASH_TEMPERATURE: Double = 0.7
 const val GLM_47_FLASH_TOP_K: Int = 50

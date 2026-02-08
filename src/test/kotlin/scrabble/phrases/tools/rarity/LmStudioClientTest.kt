@@ -8,6 +8,16 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TEMPERATURE
+import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TOP_K
+import scrabble.phrases.tools.rarity.lmstudio.GLM_47_FLASH_TOP_P
+import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_MIN_P
+import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_REASONING_EFFORT
+import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_REPEAT_PENALTY
+import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_TEMPERATURE
+import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_TOP_K
+import scrabble.phrases.tools.rarity.lmstudio.GPT_OSS_20B_TOP_P
+import scrabble.phrases.tools.rarity.lmstudio.LmStudioClient
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path

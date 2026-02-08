@@ -1,4 +1,6 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
+
+import scrabble.phrases.tools.rarity.MODEL_MINISTRAL_3_8B
 
 const val MINISTRAL_3_8B_TEMPERATURE: Double = 0.3
 const val MINISTRAL_3_8B_TOP_K: Int = 40

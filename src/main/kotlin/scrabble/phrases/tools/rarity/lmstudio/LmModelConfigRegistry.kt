@@ -1,4 +1,8 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
+
+import scrabble.phrases.tools.rarity.MODEL_GLM_47_FLASH
+import scrabble.phrases.tools.rarity.MODEL_GPT_OSS_20B
+import scrabble.phrases.tools.rarity.MODEL_MINISTRAL_3_8B
 
 class LmModelConfigRegistry(
     private val defaultsByModelId: Map<String, LmModelConfig> = mapOf(

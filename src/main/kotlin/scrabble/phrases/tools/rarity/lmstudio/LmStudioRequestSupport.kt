@@ -1,6 +1,8 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import scrabble.phrases.tools.rarity.BaseWordRow
+import scrabble.phrases.tools.rarity.USER_INPUT_PLACEHOLDER
 
 class LmStudioRequestBuilder(
     private val mapper: ObjectMapper = ObjectMapper(),

@@ -1,4 +1,6 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
+
+import scrabble.phrases.tools.rarity.MODEL_GPT_OSS_20B
 
 const val GPT_OSS_20B_TEMPERATURE: Double = 0.8
 const val GPT_OSS_20B_TOP_K: Int = 40

@@ -1,4 +1,4 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
 
 data class LmModelConfig(
     val modelId: String,

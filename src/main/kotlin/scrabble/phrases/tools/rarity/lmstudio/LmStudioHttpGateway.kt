@@ -1,5 +1,6 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
 
+import scrabble.phrases.tools.rarity.*
 import java.net.HttpURLConnection
 import java.net.Proxy
 import java.net.URI

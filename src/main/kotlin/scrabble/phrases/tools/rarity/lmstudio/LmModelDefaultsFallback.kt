@@ -1,4 +1,4 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
 
 const val FALLBACK_MODEL_TEMPERATURE: Double = 0.3
 const val FALLBACK_MODEL_TOP_K: Int = 40

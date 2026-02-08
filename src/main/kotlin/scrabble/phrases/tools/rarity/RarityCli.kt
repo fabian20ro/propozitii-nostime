@@ -1,5 +1,6 @@
 package scrabble.phrases.tools.rarity
 
+import scrabble.phrases.tools.rarity.lmstudio.LmStudioClient
 import java.nio.file.Path
 import java.nio.file.Paths
 

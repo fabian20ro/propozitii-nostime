@@ -1,7 +1,8 @@
-package scrabble.phrases.tools.rarity
+package scrabble.phrases.tools.rarity.lmstudio
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import scrabble.phrases.tools.rarity.*
 
 data class ParsedBatch(
     val scores: List<ScoreResult>,
