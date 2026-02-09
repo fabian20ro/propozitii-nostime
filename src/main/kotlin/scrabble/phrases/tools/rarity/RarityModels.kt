@@ -198,6 +198,9 @@ val SYSTEM_PROMPT: String =
     3 = vocabular mediu (cunoscut, dar nu de bază)
     4 = vocabular rar (specializat/regional/livresc)
     5 = foarte rar / arhaic / regional puternic / obscur
+    Interpretare numerică obligatorie:
+    - nivel mai mic = cuvânt mai comun
+    - nivel mai mare = cuvânt mai rar
 
     Reguli:
     - Evaluează doar forma lexicală, fără context propozițional.
@@ -236,6 +239,7 @@ val USER_PROMPT_TEMPLATE: String =
     - Păstrează ordinea intrărilor.
     - Păstrează word_id identic cu input-ul.
     - rarity_level trebuie să fie întreg 1..5.
+    - Ordinea nivelurilor este strictă: nivel mai mic = cuvânt mai comun; nivel mai mare = cuvânt mai rar.
     - confidence între 0.0 și 1.0.
     - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.
     - 1/2 doar când există indicii de vocabular de bază/uzual general.

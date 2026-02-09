@@ -54,3 +54,5 @@
 - 2026-02-08: Distribution logging should live in a shared helper (`RarityDistribution`) used by both Step 2 and Step 5; duplicated counters/formatters drift quickly during iteration.
 - 2026-02-08: It is useful to print level distribution at merge/upload boundaries too (Step 3 `final_level`, Step 4 input/uploaded levels) to catch skew before DB writes.
 - 2026-02-09: For Step 5 ratio targets, `floor(batch*ratio)` causes systematic under-allocation (e.g., `60*0.3333 -> 19`); use rounded target counts to keep 1/3 batches at 20.
+- 2026-02-09: Step 5 should support exact equal split for keep+promote transitions (`from=to`, `lower-ratio=0.5`), e.g. batch 60 -> 30 stay + 30 promoted.
+- 2026-02-09: Prompt clarity improves stability: explicitly state in all rarity prompts that lower numeric levels mean more common words and higher numeric levels mean rarer words.

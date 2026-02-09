@@ -8,6 +8,10 @@ Scară:
 4 = vocabular rar (specializat/regional/livresc)
 5 = foarte rar / arhaic / regional puternic / obscur
 
+Interpretare numerică obligatorie:
+- nivel mai mic = cuvânt mai comun
+- nivel mai mare = cuvânt mai rar
+
 Reguli:
 - Evaluează doar forma lexicală, fără context propozițional.
 - Țintă de calibrare (soft, pe rulări mari): aproximativ 2% nivel 1, 8% nivel 2, 20% nivel 3, 30% nivel 4, 40% nivel 5.

@@ -120,7 +120,7 @@ class RarityCli(
             inputCsvPath = Paths.get(inputCsv),
             outputCsvPath = requiredPath(options, "output-csv"),
             batchSize = intOption(options, "batch-size", DEFAULT_REBALANCE_BATCH_SIZE, min = 3),
-            lowerRatio = options["lower-ratio"]?.toDoubleOrNull()?.coerceIn(0.01, 0.49) ?: DEFAULT_REBALANCE_LOWER_RATIO,
+            lowerRatio = options["lower-ratio"]?.toDoubleOrNull()?.coerceIn(0.01, 0.50) ?: DEFAULT_REBALANCE_LOWER_RATIO,
             maxRetries = intOption(options, "max-retries", DEFAULT_MAX_RETRIES, min = 1),
             timeoutSeconds = longOption(options, "timeout-seconds", DEFAULT_TIMEOUT_SECONDS, min = 5),
             maxTokens = intOption(options, "max-tokens", DEFAULT_MAX_TOKENS, min = 64),

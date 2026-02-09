@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-08
+Freshness: 2026-02-09
 
 ## File Map
 
@@ -13,10 +13,12 @@ Freshness: 2026-02-08
 `index.html` renders:
 - theme toggle button
 - rarity slider (`1..5`, persisted in localStorage)
-- 6 sentence cards (`haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`)
+- 6 sentence cards (`haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`), each with a copy-to-clipboard button
 - refresh button
 - status/error message area
 - dexonline drawer (bottom sheet with iframe)
+
+Each card uses a `.card-header` wrapper (flex row) containing the `<h2>` title and a `.copy-btn` button with `data-target` pointing to the sentence div ID.
 
 ## Data Flow
 
@@ -58,6 +60,18 @@ If backend adds/removes sentence types, update both:
 - `FIELD_MAP` in `app.js`
 - corresponding card markup in `index.html`
 
+## Copy-to-Clipboard
+
+`extractPlainText(el)` recursively traverses DOM: text nodes → concatenate, `<BR>` → `\n`, elements → recurse children. Handles verse `<br/>` tags and `<a>` link wrappers to produce clean plain text.
+
+`copyCardText(button)` reads `data-target`, extracts text, guards against loading/error states, calls `navigator.clipboard.writeText()`.
+
+`showCopyFeedback(button)` swaps clipboard icon → checkmark via `.copied` CSS class for 1.5s.
+
+Event delegation: single listener on `.grid` container handles all 6 copy buttons.
+
+Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons during loading; CSS renders disabled buttons invisible (`opacity: 0; pointer-events: none`).
+
 ## Dexonline Drawer Behavior
 
 `initDexonlineDrawer()` features:
@@ -77,7 +91,7 @@ If backend adds/removes sentence types, update both:
 
 ### Add new sentence card
 
-1. Add card section in `index.html`.
+1. Add card section in `index.html` with `.card-header` wrapper, `<h2>`, and `.copy-btn` (with `data-target` matching the sentence div ID).
 2. Add new field in `FIELD_MAP`.
 3. Ensure backend `/api/all` includes matching key.
 

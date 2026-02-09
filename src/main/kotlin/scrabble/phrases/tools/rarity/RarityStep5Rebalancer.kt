@@ -19,6 +19,7 @@ val REBALANCE_SYSTEM_PROMPT: String =
     """
     Ești un clasificator lexical strict pentru limba română.
     Task-ul tău este doar repartizarea unui batch între două niveluri fixe.
+    Semantica numerică este obligatorie: nivel numeric mai mic = cuvânt mai comun, nivel numeric mai mare = cuvânt mai rar.
     Respectă exact cerințele numerice din promptul utilizatorului.
     Nu adăuga explicații, nu refuza intrări.
     Răspunde strict JSON valid.
@@ -40,10 +41,11 @@ val REBALANCE_USER_PROMPT_TEMPLATE: String =
     Reguli obligatorii:
     - Un rezultat pentru fiecare intrare (același număr total).
     - Păstrează ordinea intrărilor și word_id-urile identice.
+    - Semantica nivelurilor este strictă: nivel numeric mai mic = cuvânt mai comun; nivel numeric mai mare = cuvânt mai rar.
     - Exact {{TARGET_COUNT}} intrări trebuie să aibă rarity_level={{TO_LEVEL}}.
     - TOATE celelalte intrări au rarity_level={{OTHER_LEVEL}}.
     - Nu folosi altă valoare pentru rarity_level.
-    - Alege pentru {{TO_LEVEL}} cele mai comune/uzuale cuvinte din batch.
+    - Alege pentru {{TO_LEVEL}} cuvintele cele mai potrivite pentru nivelul țintă din batch.
     - Fără duplicate de word_id.
     - Fără text înainte/după JSON.
 

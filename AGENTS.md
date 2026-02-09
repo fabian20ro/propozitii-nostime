@@ -89,7 +89,7 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - sentence: `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder`
    - verse: `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker`
 4. Extend `/api/all` response contract if the frontend should display it.
-5. Update frontend `FIELD_MAP` and add a card in `frontend/index.html`.
+5. Update frontend `FIELD_MAP` and add a card in `frontend/index.html` (include `.card-header` wrapper, `<h2>`, and `.copy-btn` with `data-target`).
 6. Add/adjust integration assertions in `src/test/kotlin/scrabble/phrases/PhraseResourceTest.kt`.
 
 ## How To Change Dictionary/Data Rules

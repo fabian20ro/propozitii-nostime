@@ -225,4 +225,59 @@ class Step5RebalancerTest {
         assertEquals(20, level1Count)
         assertEquals(40, level2Count)
     }
+
+    @Test
+    fun rebalance_supports_equal_split_for_keep_promote_mode() {
+        val inputCsv = tempDir.resolve("step2_run_60_level4.csv")
+        val outputCsv = tempDir.resolve("step5_run_60_level4_split.csv")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..60).map { id -> testRunRow(id = id, rarityLevel = 4, word = "w$id") }
+        )
+
+        val lm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 4,
+                tag = "uncertain",
+                confidence = 0.5
+            )
+        }
+
+        val step5 = RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = lm,
+            outputDir = tempDir.resolve("build/rarity")
+        )
+
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_60_equal",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = inputCsv,
+                outputCsvPath = outputCsv,
+                batchSize = 60,
+                lowerRatio = 0.5,
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 2L,
+                transitions = listOf(LevelTransition(fromLevel = 4, toLevel = 4)),
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        val rows = repo.readTable(outputCsv).toRowMaps()
+        val level4Count = rows.count { it["final_level"] == "4" }
+        val level5Count = rows.count { it["final_level"] == "5" }
+        assertEquals(30, level4Count)
+        assertEquals(30, level5Count)
+    }
 }

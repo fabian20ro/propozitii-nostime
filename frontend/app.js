@@ -443,17 +443,20 @@ function showCopyFeedback(button) {
     setTimeout(() => button.classList.remove('copied'), 1500);
 }
 
-function copyCardText(button) {
+async function copyCardText(button) {
     const targetId = button.dataset.target;
     const el = document.getElementById(targetId);
     if (!el) return;
 
     const text = extractPlainText(el).trim();
-    if (!text || el.querySelector('.loading') || text === 'Eroare' || text === 'Timeout') return;
+    if (!text || text === 'Se încarcă...' || text === 'Eroare' || text === 'Timeout') return;
 
-    navigator.clipboard.writeText(text)
-        .then(() => showCopyFeedback(button))
-        .catch(() => { /* clipboard denied — silent fail, no disruption */ });
+    try {
+        await navigator.clipboard.writeText(text);
+        showCopyFeedback(button);
+    } catch {
+        // Clipboard permission denied - silent fail
+    }
 }
 
 document.querySelector('.grid').addEventListener('click', function (e) {

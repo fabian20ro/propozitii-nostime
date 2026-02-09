@@ -105,6 +105,8 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_3_to_2 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 3 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/rebalance_system_prompt_ro.txt --user-template-file docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
 # Example B: keep+promote split (from=2,to=2 => 1/3 remain 2, 2/3 move to 3)
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 2 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
+# Example C: equal split (from=4,to=4 => 30 remain 4, 30 move to 5 for batch-size 60)
+./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_4_equal_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 4 --to-level 4 --batch-size 60 --lower-ratio 0.5 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
 
 # Step 4: upload final CSV to Supabase (default mode=partial, only IDs present in final CSV)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
@@ -133,6 +135,7 @@ Resume tip:
 
 Step5 integration tips:
 - Input can be provided as `--step2-csv` (preferred) or `--input-csv` alias.
+- `--lower-ratio` supports `0.01..0.5` (including exact equal split at `0.5`).
 - Rebalance output can feed directly into:
   - `step3` as a run CSV (if source was a Step2 run CSV),
   - or `step4` upload (uses `final_level` when present).
