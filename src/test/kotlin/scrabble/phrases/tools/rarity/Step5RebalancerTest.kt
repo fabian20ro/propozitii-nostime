@@ -505,4 +505,59 @@ class Step5RebalancerTest {
             assertEquals(15, sourceLevel3)
         }
     }
+
+    @Test
+    fun rebalance_uses_cumulative_target_compensation_across_batches() {
+        val inputCsv = tempDir.resolve("step2_run_125.csv")
+        val outputCsv = tempDir.resolve("step5_run_125.csv")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..125).map { id -> testRunRow(id = id, rarityLevel = 2, word = "w$id") }
+        )
+
+        val lm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 3,
+                tag = "uncertain",
+                confidence = 0.5
+            )
+        }
+
+        val step5 = RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = lm,
+            outputDir = tempDir.resolve("build/rarity")
+        )
+
+        val ratio = 0.252
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_cumulative_ratio",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = inputCsv,
+                outputCsvPath = outputCsv,
+                batchSize = 20,
+                lowerRatio = ratio,
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 7L,
+                transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 1)),
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        val rows = repo.readTable(outputCsv).toRowMaps()
+        val level1Count = rows.count { it["final_level"] == "1" }
+        val expected = kotlin.math.round(125 * ratio).toInt()
+        assertEquals(expected, level1Count)
+    }
 }

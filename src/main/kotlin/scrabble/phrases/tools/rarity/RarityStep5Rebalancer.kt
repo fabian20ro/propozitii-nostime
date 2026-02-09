@@ -243,6 +243,7 @@ class RarityStep5Rebalancer(
 
             var processed = 0
             var targetAssigned = 0
+            val expectedTargetTotal = (eligibleCount * options.lowerRatio).roundToInt()
             while (true) {
                 val batch = selectStratifiedBatch(
                     sourceLevels = sourceLevels,
@@ -252,8 +253,14 @@ class RarityStep5Rebalancer(
                     random = random
                 )
                 if (batch.isEmpty()) break
+                val targetCount = computeAdaptiveTargetCount(
+                    processedBeforeBatch = processed,
+                    assignedBeforeBatch = targetAssigned,
+                    batchSize = batch.size,
+                    ratio = options.lowerRatio,
+                    expectedTotal = expectedTargetTotal
+                )
                 processed += batch.size
-                val targetCount = computeTargetCount(batch.size, options.lowerRatio)
                 if (targetCount <= 0) {
                     batch.forEach { runtime.processedWordIds += it.wordId }
                     continue
@@ -274,7 +281,8 @@ class RarityStep5Rebalancer(
 
                 println(
                     "Step 5 progress run='${options.runSlug}' transition=${transition.describeSources()}->${transition.toLevel} " +
-                    "processed=$processed/$eligibleCount target_assigned=$targetAssigned batch_mix=$batchMix " +
+                    "processed=$processed/$eligibleCount target_assigned=$targetAssigned/$expectedTargetTotal " +
+                    "batch_target=$targetCount batch_mix=$batchMix " +
                         "${runtime.distribution.format()}"
                 )
             }
@@ -487,10 +495,18 @@ class RarityStep5Rebalancer(
         }
     }
 
-    private fun computeTargetCount(batchSize: Int, ratio: Double): Int {
-        if (batchSize < 3) return 0
-        val target = (batchSize * ratio).roundToInt().coerceAtLeast(1)
-        return target.coerceAtMost(batchSize - 1)
+    private fun computeAdaptiveTargetCount(
+        processedBeforeBatch: Int,
+        assignedBeforeBatch: Int,
+        batchSize: Int,
+        ratio: Double,
+        expectedTotal: Int
+    ): Int {
+        if (batchSize <= 0) return 0
+        val processedAfterBatch = processedBeforeBatch + batchSize
+        val desiredCumulative = (processedAfterBatch * ratio).roundToInt().coerceIn(0, expectedTotal)
+        val delta = desiredCumulative - assignedBeforeBatch
+        return delta.coerceIn(0, batchSize)
     }
 
     private fun prepareLogs(runSlug: String): Step5Logs {
