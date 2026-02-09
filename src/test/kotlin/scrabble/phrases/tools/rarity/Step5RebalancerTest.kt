@@ -21,15 +21,27 @@ class Step5RebalancerTest {
 
         val custom = parseStep5Transitions("4:3,2:1")
         assertEquals(listOf(LevelTransition(2, 1), LevelTransition(4, 3)), custom)
+
+        val pair = parseStep5Transitions("2-3:2")
+        assertEquals(listOf(LevelTransition(fromLevel = 2, toLevel = 2, fromLevelUpper = 3)), pair)
     }
 
     @Test
-    fun parseTransitions_rejects_invalid_and_duplicate_from_level() {
+    fun parseTransitions_rejects_invalid_and_overlapping_sources() {
         assertThrows(IllegalArgumentException::class.java) {
             parseStep5Transitions("5:5")
         }
         assertThrows(IllegalArgumentException::class.java) {
             parseStep5Transitions("2:1,2:2")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            parseStep5Transitions("2-4:2")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            parseStep5Transitions("2-3:1")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            parseStep5Transitions("2-3:2,3:2")
         }
     }
 
@@ -279,5 +291,218 @@ class Step5RebalancerTest {
         val level5Count = rows.count { it["final_level"] == "5" }
         assertEquals(30, level4Count)
         assertEquals(30, level5Count)
+    }
+
+    @Test
+    fun rebalance_pair_transition_supports_arbitrary_ratio_split() {
+        val inputCsv = tempDir.resolve("step2_run_60_levels_2_3.csv")
+        val outputCsv = tempDir.resolve("step5_run_60_levels_2_3.csv")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..30).map { id -> testRunRow(id = id, rarityLevel = 2, word = "w$id") } +
+                (31..60).map { id -> testRunRow(id = id, rarityLevel = 3, word = "w$id") }
+        )
+
+        val lm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 4,
+                tag = "uncertain",
+                confidence = 0.5
+            )
+        }
+
+        val step5 = RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = lm,
+            outputDir = tempDir.resolve("build/rarity")
+        )
+
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_pair_25_75",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = inputCsv,
+                outputCsvPath = outputCsv,
+                batchSize = 60,
+                lowerRatio = 0.25,
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 3L,
+                transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 2, fromLevelUpper = 3)),
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        val rows = repo.readTable(outputCsv).toRowMaps()
+        val level2Count = rows.count { it["final_level"] == "2" }
+        val level3Count = rows.count { it["final_level"] == "3" }
+        assertEquals(15, level2Count)
+        assertEquals(45, level3Count)
+    }
+
+    @Test
+    fun rebalance_pair_transition_can_be_reapplied_in_loop_runs() {
+        val inputCsv = tempDir.resolve("step2_run_loop_levels_2_3.csv")
+        val intermediateCsv = tempDir.resolve("step5_loop_1.csv")
+        val outputCsv = tempDir.resolve("step5_loop_2.csv")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..50).map { id -> testRunRow(id = id, rarityLevel = 2, word = "w$id") } +
+                (51..100).map { id -> testRunRow(id = id, rarityLevel = 3, word = "w$id") }
+        )
+
+        val lm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 3,
+                tag = "uncertain",
+                confidence = 0.5
+            )
+        }
+
+        val step5 = RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = lm,
+            outputDir = tempDir.resolve("build/rarity")
+        )
+
+        val transition = listOf(LevelTransition(fromLevel = 2, toLevel = 2, fromLevelUpper = 3))
+
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_loop_1",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = inputCsv,
+                outputCsvPath = intermediateCsv,
+                batchSize = 100,
+                lowerRatio = 0.25,
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 4L,
+                transitions = transition,
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_loop_2",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = intermediateCsv,
+                outputCsvPath = outputCsv,
+                batchSize = 100,
+                lowerRatio = 0.25,
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 5L,
+                transitions = transition,
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        val rows = repo.readTable(outputCsv).toRowMaps()
+        val level2Count = rows.count { it["final_level"] == "2" }
+        val level3Count = rows.count { it["final_level"] == "3" }
+        assertEquals(25, level2Count)
+        assertEquals(75, level3Count)
+    }
+
+    @Test
+    fun rebalance_pair_transition_preserves_initial_source_mix_per_batch() {
+        val inputCsv = tempDir.resolve("step2_run_mix_25_75.csv")
+        val outputCsv = tempDir.resolve("step5_mix_25_75.csv")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..25).map { id -> testRunRow(id = id, rarityLevel = 2, word = "w$id") } +
+                (26..100).map { id -> testRunRow(id = id, rarityLevel = 3, word = "w$id") }
+        )
+
+        val seenBatchIds = mutableListOf<List<Int>>()
+        val lm = object : LmClient {
+            override fun resolveEndpoint(endpointOption: String?, baseUrlOption: String?): ResolvedEndpoint {
+                return ResolvedEndpoint(
+                    endpoint = "http://127.0.0.1:1234/v1/chat/completions",
+                    modelsEndpoint = "http://127.0.0.1:1234/v1/models",
+                    flavor = LmApiFlavor.OPENAI_COMPAT,
+                    source = "test"
+                )
+            }
+
+            override fun preflight(resolvedEndpoint: ResolvedEndpoint, model: String) {
+                // no-op
+            }
+
+            override fun scoreBatchResilient(batch: List<BaseWordRow>, context: ScoringContext): List<ScoreResult> {
+                seenBatchIds += batch.map { it.wordId }
+                return batch.map { row ->
+                    ScoreResult(
+                        wordId = row.wordId,
+                        word = row.word,
+                        type = row.type,
+                        rarityLevel = 3,
+                        tag = "uncertain",
+                        confidence = 0.5
+                    )
+                }
+            }
+        }
+
+        val step5 = RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = lm,
+            outputDir = tempDir.resolve("build/rarity")
+        )
+
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_mix_25_75",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = inputCsv,
+                outputCsvPath = outputCsv,
+                batchSize = 20,
+                lowerRatio = 1.0 / 3.0,
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 6L,
+                transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 2, fromLevelUpper = 3)),
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        assertEquals(5, seenBatchIds.size)
+        seenBatchIds.forEach { batchIds ->
+            val sourceLevel2 = batchIds.count { it <= 25 }
+            val sourceLevel3 = batchIds.count { it >= 26 }
+            assertEquals(5, sourceLevel2)
+            assertEquals(15, sourceLevel3)
+        }
     }
 }

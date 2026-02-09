@@ -107,6 +107,10 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 2 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
 # Example C: equal split (from=4,to=4 => 30 remain 4, 30 move to 5 for batch-size 60)
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_4_equal_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 4 --to-level 4 --batch-size 60 --lower-ratio 0.5 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
+# Example D: pair split on consecutive levels (2+3 pooled, 25% to level 2, 75% to level 3)
+./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_3_pair_25_75 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced_pair.csv --from-level 2 --from-level-high 3 --to-level 2 --batch-size 60 --lower-ratio 0.25 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
+# Equivalent shorthand:
+# --transitions \"2-3:2\"
 
 # Step 4: upload final CSV to Supabase (default mode=partial, only IDs present in final CSV)
 ./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
@@ -135,11 +139,15 @@ Resume tip:
 
 Step5 integration tips:
 - Input can be provided as `--step2-csv` (preferred) or `--input-csv` alias.
-- `--lower-ratio` supports `0.01..0.5` (including exact equal split at `0.5`).
+- `--lower-ratio` supports `0.01..0.99`.
+- Pair mode is available via `--from-level <n> --from-level-high <n+1> --to-level <n|n+1>`.
+- Transition string supports pair tokens too (example: `--transitions "2-3:2"`).
+- Pair mode batches are sampled using the initial source mix (for example, 25/75 source buckets keep ~25/75 sampling per batch).
 - Rebalance output can feed directly into:
   - `step3` as a run CSV (if source was a Step2 run CSV),
   - or `step4` upload (uses `final_level` when present).
 - Each `word_id` is processed by Step5 at most once per run.
+- Step5 outputs are loop-friendly (you can chain Step5 runs).
 
 Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 

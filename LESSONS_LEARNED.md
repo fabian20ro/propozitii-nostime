@@ -56,3 +56,5 @@
 - 2026-02-09: For Step 5 ratio targets, `floor(batch*ratio)` causes systematic under-allocation (e.g., `60*0.3333 -> 19`); use rounded target counts to keep 1/3 batches at 20.
 - 2026-02-09: Step 5 should support exact equal split for keep+promote transitions (`from=to`, `lower-ratio=0.5`), e.g. batch 60 -> 30 stay + 30 promoted.
 - 2026-02-09: Prompt clarity improves stability: explicitly state in all rarity prompts that lower numeric levels mean more common words and higher numeric levels mean rarer words.
+- 2026-02-09: Step 5 needs both single-source and pair-source transitions (`2:1` and `2-3:2`) to rebalance distribution predictably; prevent overlapping source levels in one run to keep semantics deterministic.
+- 2026-02-09: Pair-source Step 5 rebalancing is more stable when each batch keeps the initial source-bucket mix (stratified sampling), rather than random pooling across both levels.

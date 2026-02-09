@@ -96,14 +96,23 @@ class RarityCli(
 
     private fun runStep5(options: Map<String, String>) {
         val fromLevel = options["from-level"]?.toIntOrNull()
+        val fromLevelHigh = options["from-level-high"]?.toIntOrNull()
         val toLevel = options["to-level"]?.toIntOrNull()
+        require(fromLevelHigh == null || (fromLevel != null && toLevel != null)) {
+            "Step 5 option --from-level-high requires --from-level and --to-level."
+        }
         val transitions = when {
             fromLevel != null || toLevel != null -> {
                 require(fromLevel != null && toLevel != null) {
                     "Step 5 requires both --from-level and --to-level when one is provided."
                 }
-                requireValidStep5Transition(fromLevel, toLevel)
-                listOf(LevelTransition(fromLevel = fromLevel, toLevel = toLevel))
+                if (fromLevelHigh != null) {
+                    requireValidStep5PairTransition(fromLevel, fromLevelHigh, toLevel)
+                    listOf(LevelTransition(fromLevel = fromLevel, toLevel = toLevel, fromLevelUpper = fromLevelHigh))
+                } else {
+                    requireValidStep5Transition(fromLevel, toLevel)
+                    listOf(LevelTransition(fromLevel = fromLevel, toLevel = toLevel))
+                }
             }
             else -> parseStep5Transitions(options["transitions"])
         }
@@ -120,7 +129,7 @@ class RarityCli(
             inputCsvPath = Paths.get(inputCsv),
             outputCsvPath = requiredPath(options, "output-csv"),
             batchSize = intOption(options, "batch-size", DEFAULT_REBALANCE_BATCH_SIZE, min = 3),
-            lowerRatio = options["lower-ratio"]?.toDoubleOrNull()?.coerceIn(0.01, 0.50) ?: DEFAULT_REBALANCE_LOWER_RATIO,
+            lowerRatio = options["lower-ratio"]?.toDoubleOrNull()?.coerceIn(0.01, 0.99) ?: DEFAULT_REBALANCE_LOWER_RATIO,
             maxRetries = intOption(options, "max-retries", DEFAULT_MAX_RETRIES, min = 1),
             timeoutSeconds = longOption(options, "timeout-seconds", DEFAULT_TIMEOUT_SECONDS, min = 5),
             maxTokens = intOption(options, "max-tokens", DEFAULT_MAX_TOKENS, min = 64),

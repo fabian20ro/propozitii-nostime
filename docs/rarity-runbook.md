@@ -81,15 +81,25 @@ Current safety baseline for all model profiles:
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 2 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
 # mode C: from=4,to=4 => equal split (batch 60 -> 30 remain 4, 30 move to 5)
 ./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_4_equal_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 4 --to-level 4 --batch-size 60 --lower-ratio 0.5 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
+# mode D: pair split across two consecutive buckets (2 and 3), 25% -> 2, 75% -> 3
+./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_3_pair_25_75 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced_pair.csv --from-level 2 --from-level-high 3 --to-level 2 --batch-size 60 --lower-ratio 0.25 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
+# equivalent transitions syntax:
+# --transitions "2-3:2"
 ```
 
 Step5 notes:
 - Input is explicitly a Step2-like CSV via `--step2-csv` (expects `word_id,word,type` plus level column).
 - Alias `--input-csv` is accepted to plug step5 after other local pipeline outputs.
-- `--lower-ratio` accepts `0.01..0.5`; use `0.5` for equal split between target level and companion level.
+- `--lower-ratio` accepts `0.01..0.99`; for two-level transitions this maps to `target_level` share vs companion share.
+- `--from-level-high` enables pair mode with consecutive buckets (`from-level` + `from-level-high`), for example `2+3`.
+- Transition string supports both single-source and pair-source tokens:
+  - single: `3:2` (source level 3 only)
+  - pair: `2-3:2` (source levels 2 and 3 together, target is one of them)
+- In pair mode, each batch is sampled stratified by the initial source mix (for example, initial 25/75 keeps ~25/75 source sampling per batch).
 - Level source precedence is `final_level`, then `rarity_level`, then `median_level`.
 - Each `word_id` is processed at most once per step5 run, even if later transitions would match.
 - Multi-transition mode is available via `--transitions "2:1,3:2,4:3"`.
+- Step 5 is loop-safe: you can feed the previous Step 5 output back into a new Step 5 run.
 
 Pipeline integration patterns:
 - Per-model normalization before merge:

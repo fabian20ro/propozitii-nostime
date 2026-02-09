@@ -57,11 +57,6 @@ val REBALANCE_USER_PROMPT_TEMPLATE: String =
     {{INPUT_JSON}}
     """.trimIndent()
 
-data class LevelTransition(
-    val fromLevel: Int,
-    val toLevel: Int
-)
-
 data class Step5Options(
     val runSlug: String,
     val model: String,
@@ -134,7 +129,7 @@ class RarityStep5Rebalancer(
         println(
             "Step 5 rebalance run='${options.runSlug}' seed=$seed batchSize=${options.batchSize} " +
                 "lowerRatio=${String.format(Locale.ROOT, "%.4f", options.lowerRatio)} transitions=" +
-                options.transitions.joinToString(",") { "${it.fromLevel}->${it.toLevel}" }
+                options.transitions.joinToString(",") { "${it.describeSources()}->${it.toLevel}" }
         )
         println("Step 5 input distribution ${runtime.distribution.format()}")
 
@@ -150,7 +145,7 @@ class RarityStep5Rebalancer(
         writeOutput(dataset, runtime, options)
         summaries.forEach { summary ->
             println(
-                "Step 5 transition ${summary.transition.fromLevel}->${summary.transition.toLevel}: " +
+                "Step 5 transition ${summary.transition.describeSources()}->${summary.transition.toLevel}: " +
                     "eligible=${summary.eligible} target_assigned=${summary.targetAssigned}"
             )
         }
@@ -221,25 +216,40 @@ class RarityStep5Rebalancer(
         random: Random
     ): List<TransitionSummary> {
         return options.transitions.map { transition ->
-            val eligibleWords = dataset.wordsById.values
-                .asSequence()
-                .filter { word -> runtime.levelsById[word.wordId] == transition.fromLevel }
-                .filterNot { word -> runtime.processedWordIds.contains(word.wordId) }
-                .shuffled(random)
-                .toList()
+            val sourceLevels = transition.sourceLevels()
+            val remainingBySourceLevel = sourceLevels.associateWith { sourceLevel ->
+                dataset.wordsById.values
+                    .asSequence()
+                    .filter { word -> runtime.levelsById[word.wordId] == sourceLevel }
+                    .filterNot { word -> runtime.processedWordIds.contains(word.wordId) }
+                    .shuffled(random)
+                    .toMutableList()
+            }.toMutableMap()
 
-            if (eligibleWords.isEmpty()) {
+            val initialSourceCounts = sourceLevels.associateWith { sourceLevel ->
+                remainingBySourceLevel[sourceLevel]?.size ?: 0
+            }
+            val eligibleCount = initialSourceCounts.values.sum()
+            if (eligibleCount == 0) {
                 return@map TransitionSummary(transition = transition, eligible = 0, targetAssigned = 0)
             }
 
             var processed = 0
             var targetAssigned = 0
-            eligibleWords.chunked(options.batchSize).forEach { batch ->
+            while (true) {
+                val batch = selectStratifiedBatch(
+                    sourceLevels = sourceLevels,
+                    remainingBySourceLevel = remainingBySourceLevel,
+                    initialSourceCounts = initialSourceCounts,
+                    maxBatchSize = options.batchSize,
+                    random = random
+                )
+                if (batch.isEmpty()) break
                 processed += batch.size
                 val targetCount = computeTargetCount(batch.size, options.lowerRatio)
                 if (targetCount <= 0) {
                     batch.forEach { runtime.processedWordIds += it.wordId }
-                    return@forEach
+                    continue
                 }
 
                 val scored = scoreTransitionBatch(
@@ -251,22 +261,99 @@ class RarityStep5Rebalancer(
                     batch = batch
                 )
                 val selectedWordIds = selectTargetWordIds(batch, scored, transition, targetCount)
+                val batchMix = formatBatchSourceMix(batch, runtime)
                 applyBatchAssignments(batch, selectedWordIds, transition, runtime)
                 targetAssigned += selectedWordIds.size
 
                 println(
-                    "Step 5 progress run='${options.runSlug}' transition=${transition.fromLevel}->${transition.toLevel} " +
-                    "processed=$processed/${eligibleWords.size} target_assigned=$targetAssigned " +
+                    "Step 5 progress run='${options.runSlug}' transition=${transition.describeSources()}->${transition.toLevel} " +
+                    "processed=$processed/$eligibleCount target_assigned=$targetAssigned batch_mix=$batchMix " +
                         "${runtime.distribution.format()}"
                 )
             }
 
             TransitionSummary(
                 transition = transition,
-                eligible = eligibleWords.size,
+                eligible = eligibleCount,
                 targetAssigned = targetAssigned
             )
         }
+    }
+
+    private fun selectStratifiedBatch(
+        sourceLevels: List<Int>,
+        remainingBySourceLevel: MutableMap<Int, MutableList<RebalanceWord>>,
+        initialSourceCounts: Map<Int, Int>,
+        maxBatchSize: Int,
+        random: Random
+    ): List<RebalanceWord> {
+        val totalRemaining = sourceLevels.sumOf { sourceLevel -> remainingBySourceLevel[sourceLevel]?.size ?: 0 }
+        if (totalRemaining == 0) return emptyList()
+        val batchSize = minOf(maxBatchSize, totalRemaining)
+
+        val quotas = if (sourceLevels.size == 1) {
+            mutableMapOf(sourceLevels.single() to batchSize)
+        } else {
+            val totalInitial = initialSourceCounts.values.sum().toDouble()
+            val floorAllocations = sourceLevels.associateWith { sourceLevel ->
+                kotlin.math.floor(batchSize * ((initialSourceCounts[sourceLevel] ?: 0).toDouble() / totalInitial)).toInt()
+            }.toMutableMap()
+            var unassigned = batchSize - floorAllocations.values.sum()
+            val fractions = sourceLevels
+                .sortedByDescending { sourceLevel ->
+                    (batchSize * ((initialSourceCounts[sourceLevel] ?: 0).toDouble() / totalInitial)) - floorAllocations.getValue(sourceLevel)
+                }
+            fractions.forEach { sourceLevel ->
+                if (unassigned <= 0) return@forEach
+                floorAllocations[sourceLevel] = floorAllocations.getValue(sourceLevel) + 1
+                unassigned--
+            }
+            floorAllocations
+        }
+
+        var missing = 0
+        sourceLevels.forEach { sourceLevel ->
+            val available = remainingBySourceLevel[sourceLevel]?.size ?: 0
+            val planned = quotas.getOrDefault(sourceLevel, 0)
+            if (planned > available) {
+                missing += planned - available
+                quotas[sourceLevel] = available
+            }
+        }
+
+        while (missing > 0) {
+            val candidate = sourceLevels
+                .filter { sourceLevel ->
+                    val available = remainingBySourceLevel[sourceLevel]?.size ?: 0
+                    quotas.getOrDefault(sourceLevel, 0) < available
+                }
+                .maxByOrNull { sourceLevel ->
+                    (remainingBySourceLevel[sourceLevel]?.size ?: 0) - quotas.getOrDefault(sourceLevel, 0)
+                }
+                ?: break
+            quotas[candidate] = quotas.getOrDefault(candidate, 0) + 1
+            missing--
+        }
+
+        val batch = mutableListOf<RebalanceWord>()
+        sourceLevels.forEach { sourceLevel ->
+            val queue = remainingBySourceLevel[sourceLevel] ?: return@forEach
+            repeat(quotas.getOrDefault(sourceLevel, 0)) {
+                if (queue.isNotEmpty()) {
+                    batch += queue.removeAt(queue.lastIndex)
+                }
+            }
+        }
+        return batch.shuffled(random)
+    }
+
+    private fun formatBatchSourceMix(batch: List<RebalanceWord>, runtime: RebalanceRuntime): String {
+        return batch
+            .groupingBy { runtime.levelsById[it.wordId] ?: -1 }
+            .eachCount()
+            .toSortedMap()
+            .entries
+            .joinToString(prefix = "[", postfix = "]") { (level, count) -> "$level:$count" }
     }
 
     private fun scoreTransitionBatch(
@@ -278,7 +365,7 @@ class RarityStep5Rebalancer(
         batch: List<RebalanceWord>
     ): List<ScoreResult> {
         val scoringContext = ScoringContext(
-            runSlug = "${options.runSlug}_${transition.fromLevel}_${transition.toLevel}",
+            runSlug = "${options.runSlug}_${transition.describeSources().replace("-", "_")}_${transition.toLevel}",
             model = options.model,
             endpoint = resolvedEndpoint.endpoint,
             maxRetries = options.maxRetries,
@@ -343,7 +430,7 @@ class RarityStep5Rebalancer(
             runtime.processedWordIds += word.wordId
             if (previousLevel != nextLevel) {
                 runtime.rebalanceRules[word.wordId] =
-                    "${transition.fromLevel}->${nextLevel} (via ${transition.fromLevel}:${transition.toLevel})"
+                    "${transition.describeSources()}->${nextLevel} (via ${transition.describeSources()}:${transition.toLevel})"
             }
         }
     }
@@ -373,8 +460,9 @@ class RarityStep5Rebalancer(
     }
 
     private fun renderTemplate(template: String, transition: LevelTransition, targetCount: Int): String {
+        val sourceLabel = transition.describeSources()
         return template
-            .replace(REBALANCE_FROM_LEVEL_PLACEHOLDER, transition.fromLevel.toString())
+            .replace(REBALANCE_FROM_LEVEL_PLACEHOLDER, sourceLabel)
             .replace(REBALANCE_TO_LEVEL_PLACEHOLDER, transition.toLevel.toString())
             .replace(REBALANCE_OTHER_LEVEL_PLACEHOLDER, transition.otherLevel().toString())
             .replace(REBALANCE_TARGET_COUNT_PLACEHOLDER, targetCount.toString())
@@ -408,47 +496,4 @@ class RarityStep5Rebalancer(
             failedLogPath = failedDir.resolve("$runSlug.failed.jsonl")
         )
     }
-}
-
-fun parseStep5Transitions(raw: String?): List<LevelTransition> {
-    val input = raw?.trim().takeUnless { it.isNullOrBlank() } ?: DEFAULT_REBALANCE_TRANSITIONS
-    val parsed = input.split(",")
-        .map { token ->
-            val parts = token.trim().split(":")
-            require(parts.size == 2) {
-                "Invalid transition token '$token'. Expected format from:to (example: 2:1)"
-            }
-            val from = parts[0].trim().toIntOrNull()
-                ?: error("Invalid transition source level in '$token'")
-            val to = parts[1].trim().toIntOrNull()
-                ?: error("Invalid transition target level in '$token'")
-            requireValidStep5Transition(from, to)
-            LevelTransition(fromLevel = from, toLevel = to)
-        }
-    validateTransitionSet(parsed)
-    return parsed.distinct().sortedBy { it.fromLevel }
-}
-
-fun requireValidStep5Transition(fromLevel: Int, toLevel: Int) {
-    val validRange = fromLevel in 1..5 && toLevel in 1..5
-    val validRelation = toLevel == fromLevel - 1 || toLevel == fromLevel
-    val invalidTopSelfSplit = fromLevel == 5 && toLevel == 5
-    require(validRange && validRelation && !invalidTopSelfSplit) {
-        "Invalid transition '$fromLevel:$toLevel'. Allowed: one-step downgrade (ex: 3:2) " +
-            "or keep+promote split (ex: 2:2). 5:5 is not allowed."
-    }
-}
-
-fun validateTransitionSet(transitions: List<LevelTransition>) {
-    require(transitions.isNotEmpty()) { "Step 5 requires at least one transition." }
-    val duplicateFromLevels = transitions.groupBy { it.fromLevel }
-        .filterValues { it.size > 1 }
-        .keys
-    require(duplicateFromLevels.isEmpty()) {
-        "Step 5 transitions must have unique from-level values. Duplicates: ${duplicateFromLevels.sorted().joinToString(",")}"
-    }
-}
-
-private fun LevelTransition.otherLevel(): Int {
-    return if (toLevel == fromLevel) (toLevel + 1).coerceAtMost(5) else fromLevel
 }
