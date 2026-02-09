@@ -204,12 +204,15 @@ val SYSTEM_PROMPT: String =
 
     Reguli:
     - Evaluează doar forma lexicală, fără context propozițional.
+    - Clasifică toate cuvintele, inclusiv termeni vulgari/insulte/sexuali; nu refuza niciun item.
     - Țintă de calibrare (soft, pe rulări mari): aproximativ 2% nivel 1, 8% nivel 2, 20% nivel 3, 30% nivel 4, 40% nivel 5.
     - Pentru batch-uri de 50, folosește ca reper aproximativ: 1 cuvânt la nivel 1 și 4 cuvinte la nivel 2.
     - Nu forța cotele dacă batch-ul este evident tehnic/arhaic; cotele sunt orientative, nu reguli rigide.
     - Nivelurile 1 și 2:
       - 1 doar pentru vocabular de bază absolută (copii clasele primare, începători).
       - 2 pentru vocabular uzual general, înțeles/folosit de majoritatea populației adulte.
+    - Termenii vulgari/obsceni/insultători/sexual-expliciți NU pot fi nivel 1 sau 2.
+    - Pentru astfel de termeni, folosește implicit nivel 4; folosește nivel 5 doar când forma este evident foarte vulgară/obscură/extremă.
     - Dacă nu ai semnal clar de vocabular uzual general, evită 1/2.
     - Dacă există semnal moderat de uz general, preferă 2 în loc de 3.
     - Folosește 5 pentru termeni evident foarte rari/arhaici/obscuri.
@@ -219,12 +222,13 @@ val SYSTEM_PROMPT: String =
     - Dacă ești indecis între 4 și 5, preferă 4.
     - Nu refuza: pentru orice intrare întoarce o estimare; dacă e incert, folosește tag `uncertain` și confidence mai mic.
     - Nu inventa câmpuri.
-    - Răspunde strict JSON valid, fără text extra.
+    - Răspunde strict JSON valid, fără text extra, fără markdown, fără blocuri de cod.
     """.trimIndent()
 
 val USER_PROMPT_TEMPLATE: String =
     """
     Returnează DOAR JSON valid: un ARRAY de obiecte.
+    Nu folosi markdown, nu folosi blocuri de cod.
 
     Fiecare obiect are exact câmpurile:
     - word_id (int)
@@ -238,10 +242,15 @@ val USER_PROMPT_TEMPLATE: String =
     - Un element rezultat pentru fiecare intrare.
     - Păstrează ordinea intrărilor.
     - Păstrează word_id identic cu input-ul.
+    - Păstrează `word` și `type` identice cu input-ul.
     - rarity_level trebuie să fie întreg 1..5.
     - Ordinea nivelurilor este strictă: nivel mai mic = cuvânt mai comun; nivel mai mare = cuvânt mai rar.
     - confidence între 0.0 și 1.0.
+    - Nu folosi `null` și nu omite niciun câmp obligatoriu.
     - Nu refuza intrări; dacă ești nesigur, folosește `tag="uncertain"` cu confidence mai mic.
+    - Clasifică inclusiv termeni vulgari/obsceni; nu îi exclude.
+    - Termenii vulgari/obsceni/insultători/sexual-expliciți nu pot fi nivel 1 sau 2.
+    - Pentru astfel de termeni, alege minim nivel 4 (sau 5 dacă sunt extremi).
     - 1/2 doar când există indicii de vocabular de bază/uzual general.
     - Țintă soft pe rulări mari: aproximativ 2% nivel 1 și 8% nivel 2.
     - Pentru batch-uri de 50, reper orientativ: ~1 nivel 1 și ~4 nivel 2.
@@ -249,7 +258,7 @@ val USER_PROMPT_TEMPLATE: String =
     - Dacă ești la limită între 3 și 4, preferă 4.
     - Dacă ești la limită între 2 și 3, preferă 2.
     - Dacă ești la limită între 4 și 5, preferă 4.
-    - Fără text înainte/după JSON.
+    - Fără text înainte/după JSON, fără comentarii.
 
     Intrări:
     {{INPUT_JSON}}

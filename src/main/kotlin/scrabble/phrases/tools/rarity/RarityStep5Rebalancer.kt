@@ -21,14 +21,16 @@ val REBALANCE_SYSTEM_PROMPT: String =
     Task-ul tău este doar repartizarea unui batch între două niveluri fixe.
     Semantica numerică este obligatorie: nivel numeric mai mic = cuvânt mai comun, nivel numeric mai mare = cuvânt mai rar.
     Respectă exact cerințele numerice din promptul utilizatorului.
-    Nu adăuga explicații, nu refuza intrări.
-    Răspunde strict JSON valid.
+    Clasifică inclusiv termeni vulgari/obsceni; nu refuza intrări.
+    Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, preferă nivelul numeric mai mare dintre cele două niveluri permise în batch.
+    Nu adăuga explicații.
+    Răspunde strict JSON valid, fără markdown, fără blocuri de cod.
     """.trimIndent()
 
 val REBALANCE_USER_PROMPT_TEMPLATE: String =
     """
     Returnează DOAR JSON valid: un ARRAY de obiecte.
-    Niciun alt text.
+    Niciun alt text. Fără markdown, fără blocuri de cod.
 
     Pentru fiecare intrare, output-ul trebuie să conțină EXACT aceste câmpuri:
     - word_id (int)
@@ -41,12 +43,17 @@ val REBALANCE_USER_PROMPT_TEMPLATE: String =
     Reguli obligatorii:
     - Un rezultat pentru fiecare intrare (același număr total).
     - Păstrează ordinea intrărilor și word_id-urile identice.
+    - Păstrează `word` și `type` identice cu input-ul.
     - Semantica nivelurilor este strictă: nivel numeric mai mic = cuvânt mai comun; nivel numeric mai mare = cuvânt mai rar.
+    - TO_LEVEL este nivelul țintă care trebuie alocat la EXACT {{TARGET_COUNT}} intrări (indiferent dacă TO_LEVEL este mai mic sau mai mare decât OTHER_LEVEL).
     - Exact {{TARGET_COUNT}} intrări trebuie să aibă rarity_level={{TO_LEVEL}}.
     - TOATE celelalte intrări au rarity_level={{OTHER_LEVEL}}.
     - Nu folosi altă valoare pentru rarity_level.
     - Alege pentru {{TO_LEVEL}} cuvintele cele mai potrivite pentru nivelul țintă din batch.
+    - Clasifică inclusiv termeni vulgari/obsceni; nu omite niciun item.
+    - Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, preferă nivelul numeric mai mare dintre {{TO_LEVEL}} și {{OTHER_LEVEL}}.
     - Fără duplicate de word_id.
+    - Nu folosi `null` și nu omite niciun câmp obligatoriu.
     - Fără text înainte/după JSON.
 
     Verificare internă obligatorie înainte de răspuns:

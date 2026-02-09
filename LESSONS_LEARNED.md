@@ -58,3 +58,5 @@
 - 2026-02-09: Prompt clarity improves stability: explicitly state in all rarity prompts that lower numeric levels mean more common words and higher numeric levels mean rarer words.
 - 2026-02-09: Step 5 needs both single-source and pair-source transitions (`2:1` and `2-3:2`) to rebalance distribution predictably; prevent overlapping source levels in one run to keep semantics deterministic.
 - 2026-02-09: Pair-source Step 5 rebalancing is more stable when each batch keeps the initial source-bucket mix (stratified sampling), rather than random pooling across both levels.
+- 2026-02-09: For local `gpt-oss` runs, prompt compliance improves when JSON-only constraints are explicit (`no markdown/code fences`, `no null/missing fields`) and refusal is explicitly disallowed even for vulgar/offensive words.
+- 2026-02-09: Child-safety objective needs explicit prompt policy: vulgar/obscene terms should be biased to higher rarity levels (never 1/2; usually 4, 5 only for extreme cases).
