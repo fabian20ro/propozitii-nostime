@@ -125,6 +125,7 @@ Artifacts:
 - `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
 - `build/rarity/rebalance/runs/<run>.jsonl` step5 raw LM requests/responses
 - `build/rarity/rebalance/failed_batches/<run>.failed.jsonl` step5 unresolved errors
+- `build/rarity/rebalance/switched_words/<run>.switched.jsonl` step5 words that changed bucket (`previous_level != new_level`)
 - `build/rarity/step4_upload_report.csv`
 - marker columns are written back into `--final-csv` (`uploaded_at`, `uploaded_level`, `upload_status`, `upload_batch_id`)
   - if input CSV is read-only, marker output goes to `<final-csv>.upload_markers.csv`

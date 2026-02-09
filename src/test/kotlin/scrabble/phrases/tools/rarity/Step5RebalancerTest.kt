@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 
 class Step5RebalancerTest {
@@ -116,6 +117,14 @@ class Step5RebalancerTest {
         assertTrue(rowsById[21]!!["rebalance_rule"]!!.startsWith("2->1"))
         assertEquals("step5_test", rowsById[21]!!["rebalance_run"])
         assertTrue(rowsById[31]!!["rebalance_rule"].isNullOrBlank())
+
+        val switchedLog = tempDir.resolve("build/rarity/rebalance/switched_words/step5_test.switched.jsonl")
+        assertTrue(Files.exists(switchedLog))
+        val switchedLines = Files.readAllLines(switchedLog)
+        assertEquals(2, switchedLines.size)
+        assertTrue(switchedLines.all { it.contains("\"previous_level\":2") && it.contains("\"new_level\":1") })
+        assertTrue(switchedLines.any { it.contains("\"word_id\":21") })
+        assertTrue(switchedLines.any { it.contains("\"word_id\":22") })
     }
 
     @Test

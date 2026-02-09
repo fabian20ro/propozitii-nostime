@@ -100,6 +100,7 @@ Step5 notes:
 - Each `word_id` is processed at most once per step5 run, even if later transitions would match.
 - Multi-transition mode is available via `--transitions "2:1,3:2,4:3"`.
 - Step 5 is loop-safe: you can feed the previous Step 5 output back into a new Step 5 run.
+- Step 5 logs switched words only to `build/rarity/rebalance/switched_words/<run>.switched.jsonl` (`previous_level != new_level`).
 
 Pipeline integration patterns:
 - Per-model normalization before merge:

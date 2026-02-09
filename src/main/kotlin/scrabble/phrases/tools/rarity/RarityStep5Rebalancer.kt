@@ -1,7 +1,9 @@
 package scrabble.phrases.tools.rarity
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.OffsetDateTime
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -106,18 +108,29 @@ private data class RebalanceRuntime(
 private data class TransitionSummary(
     val transition: LevelTransition,
     val eligible: Int,
-    val targetAssigned: Int
+    val targetAssigned: Int,
+    val switchedCount: Int
 )
 
 private data class Step5Logs(
     val runLogPath: Path,
-    val failedLogPath: Path
+    val failedLogPath: Path,
+    val switchedWordsLogPath: Path
+)
+
+private data class SwitchedWordEvent(
+    val wordId: Int,
+    val word: String,
+    val type: String,
+    val previousLevel: Int,
+    val nextLevel: Int
 )
 
 class RarityStep5Rebalancer(
     private val runCsvRepository: RunCsvRepository,
     private val lmClient: LmClient,
-    private val outputDir: Path = ensureRarityOutputDir()
+    private val outputDir: Path = ensureRarityOutputDir(),
+    private val mapper: ObjectMapper = ObjectMapper()
 ) {
 
     fun execute(options: Step5Options) {
@@ -139,6 +152,7 @@ class RarityStep5Rebalancer(
                 options.transitions.joinToString(",") { "${it.describeSources()}->${it.toLevel}" }
         )
         println("Step 5 input distribution ${runtime.distribution.format()}")
+        println("Step 5 switched words log: ${logs.switchedWordsLogPath.toAbsolutePath()}")
 
         val summaries = applyTransitions(
             options = options,
@@ -150,12 +164,14 @@ class RarityStep5Rebalancer(
         )
 
         writeOutput(dataset, runtime, options)
+        val totalSwitched = summaries.sumOf { it.switchedCount }
         summaries.forEach { summary ->
             println(
                 "Step 5 transition ${summary.transition.describeSources()}->${summary.transition.toLevel}: " +
-                    "eligible=${summary.eligible} target_assigned=${summary.targetAssigned}"
+                    "eligible=${summary.eligible} target_assigned=${summary.targetAssigned} switched=${summary.switchedCount}"
             )
         }
+        println("Step 5 total switched words: $totalSwitched")
         println("Step 5 output distribution ${runtime.distribution.format()}")
         println("Step 5 output CSV: ${options.outputCsvPath.toAbsolutePath()}")
     }
@@ -238,11 +254,12 @@ class RarityStep5Rebalancer(
             }
             val eligibleCount = initialSourceCounts.values.sum()
             if (eligibleCount == 0) {
-                return@map TransitionSummary(transition = transition, eligible = 0, targetAssigned = 0)
+                return@map TransitionSummary(transition = transition, eligible = 0, targetAssigned = 0, switchedCount = 0)
             }
 
             var processed = 0
             var targetAssigned = 0
+            var switchedCount = 0
             val expectedTargetTotal = (eligibleCount * options.lowerRatio).roundToInt()
             while (true) {
                 val batch = selectStratifiedBatch(
@@ -276,8 +293,21 @@ class RarityStep5Rebalancer(
                 )
                 val selectedWordIds = selectTargetWordIds(batch, scored, transition, targetCount)
                 val batchMix = formatBatchSourceMix(batch, runtime)
-                applyBatchAssignments(batch, selectedWordIds, transition, runtime)
+                val switchedEvents = applyBatchAssignments(
+                    batch = batch,
+                    selectedWordIds = selectedWordIds,
+                    transition = transition,
+                    runtime = runtime,
+                    options = options,
+                    logs = logs
+                )
                 targetAssigned += selectedWordIds.size
+                switchedCount += switchedEvents.size
+                printSwitchedEvents(
+                    options = options,
+                    transition = transition,
+                    switchedEvents = switchedEvents
+                )
 
                 println(
                     "Step 5 progress run='${options.runSlug}' transition=${transition.describeSources()}->${transition.toLevel} " +
@@ -290,7 +320,8 @@ class RarityStep5Rebalancer(
             TransitionSummary(
                 transition = transition,
                 eligible = eligibleCount,
-                targetAssigned = targetAssigned
+                targetAssigned = targetAssigned,
+                switchedCount = switchedCount
             )
         }
     }
@@ -434,8 +465,11 @@ class RarityStep5Rebalancer(
         batch: List<RebalanceWord>,
         selectedWordIds: Set<Int>,
         transition: LevelTransition,
-        runtime: RebalanceRuntime
-    ) {
+        runtime: RebalanceRuntime,
+        options: Step5Options,
+        logs: Step5Logs
+    ): List<SwitchedWordEvent> {
+        val switchedEvents = mutableListOf<SwitchedWordEvent>()
         val otherLevel = transition.otherLevel()
         batch.forEach { word ->
             val nextLevel = if (word.wordId in selectedWordIds) transition.toLevel else otherLevel
@@ -446,7 +480,69 @@ class RarityStep5Rebalancer(
             if (previousLevel != nextLevel) {
                 runtime.rebalanceRules[word.wordId] =
                     "${transition.describeSources()}->${nextLevel} (via ${transition.describeSources()}:${transition.toLevel})"
+                val switched = SwitchedWordEvent(
+                    wordId = word.wordId,
+                    word = word.word,
+                    type = word.type,
+                    previousLevel = previousLevel ?: -1,
+                    nextLevel = nextLevel
+                )
+                switchedEvents += switched
+                logSwitchedWord(
+                    logs = logs,
+                    options = options,
+                    transition = transition,
+                    switched = switched
+                )
             }
+        }
+        return switchedEvents
+    }
+
+    private fun logSwitchedWord(
+        logs: Step5Logs,
+        options: Step5Options,
+        transition: LevelTransition,
+        switched: SwitchedWordEvent
+    ) {
+        val payload = linkedMapOf<String, Any>(
+            "timestamp" to OffsetDateTime.now().toString(),
+            "run_slug" to options.runSlug,
+            "model" to options.model,
+            "word_id" to switched.wordId,
+            "word" to switched.word,
+            "type" to switched.type,
+            "previous_level" to switched.previousLevel,
+            "new_level" to switched.nextLevel,
+            "transition" to "${transition.describeSources()}->${transition.toLevel}"
+        )
+        appendJsonLine(logs.switchedWordsLogPath, payload)
+    }
+
+    private fun printSwitchedEvents(
+        options: Step5Options,
+        transition: LevelTransition,
+        switchedEvents: List<SwitchedWordEvent>
+    ) {
+        if (switchedEvents.isEmpty()) return
+        val promoted = switchedEvents.filter { it.nextLevel > it.previousLevel }
+        val downgraded = switchedEvents.filter { it.nextLevel < it.previousLevel }
+        println(
+            "Step 5 switched run='${options.runSlug}' transition=${transition.describeSources()}->${transition.toLevel} " +
+                "changed=${switchedEvents.size}"
+        )
+        printSwitchedGroup("promoted", promoted)
+        printSwitchedGroup("downgraded", downgraded)
+    }
+
+    private fun printSwitchedGroup(label: String, events: List<SwitchedWordEvent>) {
+        if (events.isEmpty()) return
+        events.chunked(5).forEachIndexed { index, chunk ->
+            val prefix = if (index == 0) "  $label: " else "  "
+            val content = chunk.joinToString(" | ") { event ->
+                "${event.word}(${event.previousLevel}->${event.nextLevel})"
+            }
+            println(prefix + content)
         }
     }
 
@@ -512,11 +608,22 @@ class RarityStep5Rebalancer(
     private fun prepareLogs(runSlug: String): Step5Logs {
         val runsDir = outputDir.resolve("rebalance").resolve("runs")
         val failedDir = outputDir.resolve("rebalance").resolve("failed_batches")
+        val switchedDir = outputDir.resolve("rebalance").resolve("switched_words")
         Files.createDirectories(runsDir)
         Files.createDirectories(failedDir)
+        Files.createDirectories(switchedDir)
         return Step5Logs(
             runLogPath = runsDir.resolve("$runSlug.jsonl"),
-            failedLogPath = failedDir.resolve("$runSlug.failed.jsonl")
+            failedLogPath = failedDir.resolve("$runSlug.failed.jsonl"),
+            switchedWordsLogPath = switchedDir.resolve("$runSlug.switched.jsonl")
         )
+    }
+
+    private fun appendJsonLine(path: Path, payload: Any) {
+        path.parent?.let { Files.createDirectories(it) }
+        Files.newBufferedWriter(path, Charsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND).use { writer ->
+            writer.write(mapper.writeValueAsString(payload))
+            writer.newLine()
+        }
     }
 }
