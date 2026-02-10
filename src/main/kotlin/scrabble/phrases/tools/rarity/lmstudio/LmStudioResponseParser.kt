@@ -66,19 +66,7 @@ class LmStudioResponseParser(
 
         for (i in 0 until results.size()) {
             val node = results[i]
-            val id = when {
-                node.isInt -> node.asInt()
-                node.isTextual -> node.asText("").toIntOrNull()
-                node.isObject -> {
-                    val wordIdNode = node.path("word_id")
-                    when {
-                        wordIdNode.isInt -> wordIdNode.asInt()
-                        wordIdNode.isTextual -> wordIdNode.asText("").toIntOrNull()
-                        else -> null
-                    }
-                }
-                else -> null
-            } ?: continue
+            val id = nodeToInt(node) ?: nodeToInt(node.path("word_id")) ?: continue
             if (id in batchById) selectedIds += id
         }
 
@@ -410,6 +398,12 @@ class LmStudioResponseParser(
         }
 
         return slices
+    }
+
+    private fun nodeToInt(node: JsonNode): Int? = when {
+        node.isInt -> node.asInt()
+        node.isTextual -> node.asText("").toIntOrNull()
+        else -> null
     }
 
     private fun parseConfidence(node: JsonNode): Double {

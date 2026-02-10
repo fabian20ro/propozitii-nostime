@@ -61,7 +61,7 @@ These caches support fast random-offset queries and avoid repeated group scans.
 - Step 3: local compare -> `build/rarity/step3_comparison.csv`
 - Step 4: upload final levels -> `words.rarity_level`
 - Step 5 (optional): LM rebalance on Step2/Step3 CSV -> rebalanced local CSV (`final_level`)
-- Step 2 internals are split by concern: `LmStudioClient` (orchestration), `LmStudioRequestSupport` (payload assembly), `LmStudioResponseParser` (lenient parse/matching), `LmStudioHttpGateway` (transport/endpoints), plus model-config registry/constants for per-model defaults
+- Step 2 internals are split by concern: `LmStudioClient` (orchestration), `LmStudioRequestSupport` (payload assembly + `LmStudioErrorClassifier`), `LmStudioResponseParser` (lenient parse/matching), `LmStudioHttpGateway` (transport/endpoints), plus model-config registry/constants for per-model defaults
 
 Operational safeguards:
 - exclusive file lock per run CSV (`<run>.csv.lock`)
@@ -74,6 +74,7 @@ Operational safeguards:
 - run-scoped fallback when model-specific reasoning controls are unsupported
 - `word_id`-first parsing + in-process retry for unresolved partial LM outputs
 - Step 3 supports a third run CSV (`--run-c-csv`) and configurable merge strategy (`--merge-strategy median|any-extremes`)
+- Step 3 `median()` uses `Math.round()` (half-up rounding), not Kotlin `roundToInt()` (banker's rounding)
 
 ## Deployment Reality
 

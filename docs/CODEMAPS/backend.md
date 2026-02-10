@@ -1,6 +1,6 @@
 # Backend Codemap
 
-Freshness: 2026-02-08
+Freshness: 2026-02-11
 
 ## Entry Points
 
@@ -98,11 +98,13 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RunLockManager.kt`
 
 Step 2 resilience utilities:
-- `src/main/kotlin/scrabble/phrases/tools/rarity/JsonRepair.kt` -- best-effort repair of truncated/malformed LM JSON (trailing decimals, unclosed structures, trailing commas, line comments)
+- `src/main/kotlin/scrabble/phrases/tools/rarity/JsonRepair.kt` -- best-effort repair of truncated/malformed LM JSON (trailing decimals, unclosed structures, trailing commas, line comments); trailing-comma removal is JSON-string-aware via `walkJsonChars` to avoid corrupting commas inside quoted values
 - `src/main/kotlin/scrabble/phrases/tools/rarity/JsonStringWalker.kt` -- shared inline `walkJsonChars` for tracking in-string/escaped state across JSON characters; used by `JsonRepair` and `LmStudioResponseParser`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/BatchSizeAdapter.kt` -- adaptive batch sizing via sliding window; uses per-batch success ratio, shrinks on weak outcomes, grows on sustained success
 - `src/main/kotlin/scrabble/phrases/tools/rarity/FuzzyWordMatcher.kt` -- Romanian diacritics normalization + Levenshtein distance for matching LM-misspelled words
-- `src/main/kotlin/scrabble/phrases/tools/rarity/Step2Metrics.kt` -- observability: error categorization, WPM, ETA, progress formatting, end-of-run summary
+- `src/main/kotlin/scrabble/phrases/tools/rarity/Step2Metrics.kt` -- observability: error categorization, WPM, ETA, progress formatting, end-of-run summary; single-threaded design (atomic counters for individual fields, used in Step 2 scoring loop)
+- `src/main/kotlin/scrabble/phrases/tools/rarity/CsvCodec.kt` -- CSV read/write with strict validation; `writeTableAtomic` uses temp-file + rename with narrowed exception handling (`AtomicMoveNotSupportedException`, `UnsupportedOperationException` only)
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RaritySupport.kt` -- shared utilities: CLI arg parsing, run slug sanitization, `median()` (half-up via `Math.round()`), prompt file loading
 
 Step behavior:
 - Step 1/4 touch DB.
