@@ -159,4 +159,55 @@ class LmStudioResponseParserTest {
 
         assertTrue(result.scores.first().tag.length <= 16)
     }
+
+    @Test
+    fun selection_mode_parses_top_level_array_of_ints() {
+        val content = """[1,2]"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 2,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(0, result.unresolved.size)
+        assertEquals(listOf(1, 2), result.scores.map { it.wordId }.sorted())
+        assertTrue(result.scores.all { it.rarityLevel == 2 })
+    }
+
+    @Test
+    fun selection_mode_parses_results_array_of_objects_with_word_id() {
+        val content = """{"results":[{"word_id":1},{"word_id":"2"}]}"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 3,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(listOf(1, 2), result.scores.map { it.wordId }.sorted())
+        assertTrue(result.scores.all { it.rarityLevel == 3 })
+    }
+
+    @Test
+    fun selection_mode_requires_exact_count() {
+        val content = """[1]"""
+        val response = chatResponseRawJson(content)
+
+        assertThrows<IllegalStateException> {
+            parser.parse(
+                batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+                response,
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 2,
+                expectedItems = 2
+            )
+        }
+    }
 }

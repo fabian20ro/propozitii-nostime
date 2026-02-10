@@ -427,8 +427,10 @@ class RarityStep5Rebalancer(
             ),
             flavor = resolvedEndpoint.flavor,
             maxTokens = options.maxTokens,
-            allowPartialResults = true,
-            expectedJsonItems = commonCount
+            allowPartialResults = false,
+            expectedJsonItems = commonCount,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = commonLevel
         )
 
         val baseRows = batch.map { BaseWordRow(wordId = it.wordId, word = it.word, type = it.type) }
@@ -442,41 +444,19 @@ class RarityStep5Rebalancer(
         commonCount: Int
     ): Set<Int> {
         val batchIds = batch.map { it.wordId }.toSet()
-        val scoredById = scored.associateBy { it.wordId }
-
         val selected = scored
             .asSequence()
+            .filter { it.wordId in batchIds }
             .filter { it.rarityLevel == commonLevel }
             .map { it.wordId }
-            .filter { it in batchIds }
             .distinct()
-            .sortedWith(compareByDescending<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
-            .take(commonCount)
-            .toMutableSet()
-
-        if (selected.isEmpty()) {
-            scored.asSequence()
-                .map { it.wordId }
-                .filter { it in batchIds }
-                .distinct()
-                .sortedWith(compareByDescending<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
-                .take(commonCount)
-                .forEach { selected += it }
-        }
-
-        if (selected.size >= commonCount) {
-            return selected
-        }
-
-        val fallback = batch
-            .asSequence()
-            .map { it.wordId }
-            .filterNot { it in selected }
-            .sortedWith(compareByDescending<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
-            .take(commonCount - selected.size)
             .toList()
-        selected += fallback
-        return selected
+
+        require(selected.size == commonCount) {
+            "Expected exactly $commonCount selected word_ids, got ${selected.size}. " +
+                "This indicates a prompt/parse compliance issue and must be retried."
+        }
+        return selected.toSet()
     }
 
     private fun applyBatchAssignments(

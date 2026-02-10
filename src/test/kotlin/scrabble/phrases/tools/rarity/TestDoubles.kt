@@ -50,7 +50,28 @@ class FakeLmClient(
         context: ScoringContext
     ): List<ScoreResult> {
         scoreCalls++
-        return batch.map(resolver)
+        return when (context.outputMode) {
+            ScoringOutputMode.SCORE_RESULTS -> batch.map(resolver)
+            ScoringOutputMode.SELECTED_WORD_IDS -> {
+                val expected = context.expectedJsonItems
+                    ?: error("FakeLmClient requires expectedJsonItems for SELECTED_WORD_IDS mode")
+                val rarityLevel = context.forcedRarityLevel
+                    ?: error("FakeLmClient requires forcedRarityLevel for SELECTED_WORD_IDS mode")
+                // Deterministic "select most common": pick the smallest ids.
+                batch.sortedBy { it.wordId }
+                    .take(expected)
+                    .map {
+                        ScoreResult(
+                            wordId = it.wordId,
+                            word = it.word,
+                            type = it.type,
+                            rarityLevel = rarityLevel,
+                            tag = "common",
+                            confidence = 0.9
+                        )
+                    }
+            }
+        }
     }
 }
 

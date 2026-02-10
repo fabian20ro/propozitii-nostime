@@ -10,6 +10,11 @@ enum class ResponseFormatMode {
     JSON_SCHEMA
 }
 
+enum class JsonSchemaKind {
+    SCORE_RESULTS,
+    SELECTED_WORD_IDS
+}
+
 class LmStudioRequestBuilder(
     private val mapper: ObjectMapper = ObjectMapper(),
     private val configRegistry: LmModelConfigRegistry = LmModelConfigRegistry()
@@ -28,7 +33,8 @@ class LmStudioRequestBuilder(
         includeReasoningControls: Boolean,
         config: LmModelConfig,
         maxTokens: Int,
-        expectedItems: Int? = null
+        expectedItems: Int? = null,
+        schemaKind: JsonSchemaKind = JsonSchemaKind.SCORE_RESULTS
     ): String {
         val entriesJson = mapper.writeValueAsString(
             batch.map {
@@ -79,13 +85,19 @@ class LmStudioRequestBuilder(
         when (responseFormatMode) {
             ResponseFormatMode.NONE -> Unit
             ResponseFormatMode.JSON_OBJECT -> payload["response_format"] = mapOf("type" to "json_object")
-            ResponseFormatMode.JSON_SCHEMA -> payload["response_format"] = buildJsonSchemaResponseFormat(expectedItems ?: batch.size)
+            ResponseFormatMode.JSON_SCHEMA -> {
+                val effectiveExpected = expectedItems ?: batch.size
+                payload["response_format"] = when (schemaKind) {
+                    JsonSchemaKind.SCORE_RESULTS -> buildScoreResultsJsonSchemaResponseFormat(effectiveExpected)
+                    JsonSchemaKind.SELECTED_WORD_IDS -> buildSelectedWordIdsJsonSchemaResponseFormat(effectiveExpected)
+                }
+            }
         }
 
         return mapper.writeValueAsString(payload)
     }
 
-    private fun buildJsonSchemaResponseFormat(expectedItems: Int): Map<String, Any> {
+    private fun buildScoreResultsJsonSchemaResponseFormat(expectedItems: Int): Map<String, Any> {
         val boundedExpectedItems = expectedItems.coerceAtLeast(1)
         val resultItemSchema = mapOf(
             "type" to "object",
@@ -120,6 +132,24 @@ class LmStudioRequestBuilder(
             "type" to "json_schema",
             "json_schema" to mapOf(
                 "name" to "rarity_batch_array",
+                "schema" to responseSchema
+            )
+        )
+    }
+
+    private fun buildSelectedWordIdsJsonSchemaResponseFormat(expectedItems: Int): Map<String, Any> {
+        val boundedExpectedItems = expectedItems.coerceAtLeast(1)
+        val responseSchema = mapOf(
+            "type" to "array",
+            "items" to mapOf("type" to "integer"),
+            "minItems" to boundedExpectedItems,
+            "maxItems" to boundedExpectedItems
+        )
+
+        return mapOf(
+            "type" to "json_schema",
+            "json_schema" to mapOf(
+                "name" to "selected_word_ids",
                 "schema" to responseSchema
             )
         )

@@ -106,6 +106,10 @@ class LmStudioClient(
         val config = requestBuilder.modelConfigFor(ctx.model)
         var currentResponseFormatMode = responseFormatModeFor(ctx.flavor)
         var includeReasoningControls = shouldIncludeReasoningControls(ctx.flavor, config)
+        val schemaKind = when (ctx.outputMode) {
+            ScoringOutputMode.SCORE_RESULTS -> JsonSchemaKind.SCORE_RESULTS
+            ScoringOutputMode.SELECTED_WORD_IDS -> JsonSchemaKind.SELECTED_WORD_IDS
+        }
 
         repeat(ctx.maxRetries) { attempt ->
             var responseBody: String? = null
@@ -118,7 +122,8 @@ class LmStudioClient(
                 includeReasoningControls = includeReasoningControls,
                 config = config,
                 maxTokens = ctx.maxTokens,
-                expectedItems = ctx.expectedJsonItems
+                expectedItems = ctx.expectedJsonItems,
+                schemaKind = schemaKind
             )
 
             try {
@@ -128,7 +133,13 @@ class LmStudioClient(
                     throw IllegalStateException("HTTP ${response.statusCode}: ${response.body}")
                 }
 
-                val parsed = responseParser.parse(batch, response.body)
+                val parsed = responseParser.parse(
+                    batch = batch,
+                    responseBody = response.body,
+                    outputMode = ctx.outputMode,
+                    forcedRarityLevel = ctx.forcedRarityLevel,
+                    expectedItems = ctx.expectedJsonItems
+                )
                 val disableJsonSchemaAfterPartialParse =
                     currentResponseFormatMode == ResponseFormatMode.JSON_SCHEMA &&
                         shouldDisableResponseFormatAfterPartialSchemaParse(batch.size, parsed.unresolved.size)

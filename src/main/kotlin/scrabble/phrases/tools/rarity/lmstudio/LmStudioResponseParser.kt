@@ -23,7 +23,13 @@ class LmStudioResponseParser(
     private val metrics: Step2Metrics? = null
 ) {
 
-    fun parse(batch: List<BaseWordRow>, responseBody: String): ParsedBatch {
+    fun parse(
+        batch: List<BaseWordRow>,
+        responseBody: String,
+        outputMode: ScoringOutputMode = ScoringOutputMode.SCORE_RESULTS,
+        forcedRarityLevel: Int? = null,
+        expectedItems: Int? = null
+    ): ParsedBatch {
         val root = mapper.readTree(responseBody)
         val content = extractModelContent(root)
             ?: throw IllegalStateException("LMStudio response missing assistant content")
@@ -35,7 +41,67 @@ class LmStudioResponseParser(
 
         val contentJson = parseContentJson(repairedContent)
         val results = extractResultsArray(contentJson)
-        return parseResultsLenient(batch, results)
+        return when (outputMode) {
+            ScoringOutputMode.SCORE_RESULTS -> parseResultsLenient(batch, results)
+            ScoringOutputMode.SELECTED_WORD_IDS ->
+                parseSelectedWordIds(batch, results, forcedRarityLevel = forcedRarityLevel, expectedItems = expectedItems)
+        }
+    }
+
+    private fun parseSelectedWordIds(
+        batch: List<BaseWordRow>,
+        results: JsonNode,
+        forcedRarityLevel: Int?,
+        expectedItems: Int?
+    ): ParsedBatch {
+        val rarityLevel = forcedRarityLevel?.takeIf { it in 1..5 }
+            ?: throw IllegalArgumentException("forcedRarityLevel is required for outputMode=SELECTED_WORD_IDS")
+        val expected = expectedItems?.takeIf { it > 0 }
+            ?: throw IllegalArgumentException("expectedItems is required for outputMode=SELECTED_WORD_IDS")
+
+        if (batch.isEmpty()) return ParsedBatch(scores = emptyList(), unresolved = emptyList())
+
+        val batchById = batch.associateBy { it.wordId }
+        val selectedIds = mutableListOf<Int>()
+
+        for (i in 0 until results.size()) {
+            val node = results[i]
+            val id = when {
+                node.isInt -> node.asInt()
+                node.isTextual -> node.asText("").toIntOrNull()
+                node.isObject -> {
+                    val wordIdNode = node.path("word_id")
+                    when {
+                        wordIdNode.isInt -> wordIdNode.asInt()
+                        wordIdNode.isTextual -> wordIdNode.asText("").toIntOrNull()
+                        else -> null
+                    }
+                }
+                else -> null
+            } ?: continue
+            if (id in batchById) selectedIds += id
+        }
+
+        val distinct = selectedIds.distinct()
+        if (distinct.size != expected) {
+            throw IllegalStateException(
+                "Expected exactly $expected selected ids, got ${distinct.size} for batch of ${batch.size}"
+            )
+        }
+
+        val scores = distinct.map { id ->
+            val row = batchById[id] ?: error("Internal error: selected id $id not in batch")
+            ScoreResult(
+                wordId = row.wordId,
+                word = row.word,
+                type = row.type,
+                rarityLevel = rarityLevel,
+                tag = "common",
+                confidence = 0.9
+            )
+        }
+
+        return ParsedBatch(scores = scores, unresolved = emptyList())
     }
 
     private fun parseResultsLenient(

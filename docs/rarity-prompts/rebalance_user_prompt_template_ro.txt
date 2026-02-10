@@ -1,44 +1,32 @@
-Returnează DOAR JSON valid: un ARRAY de obiecte.
+Returnează DOAR JSON valid: un ARRAY de integer (word_id).
 Niciun alt text. Fără markdown, fără blocuri de cod.
 
 Task unic:
-- Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte.
-- Returnează DOAR aceste {{COMMON_COUNT}} cuvinte.
+- Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte (cele mai des folosite în vorbirea de zi cu zi).
+- Returnează DOAR word_id-urile acelor {{COMMON_COUNT}} cuvinte, ca array de int-uri.
 - Cuvintele nereturnate vor fi puse automat de sistem în celălalt bucket.
-- Nu întoarce rezultate pentru toate intrările.
-
-Exemplu conceptual:
-- Dacă ai 60 de cuvinte și COMMON_COUNT=15, întorci doar 15 obiecte (cele selectate), nu 60.
 
 Pentru fiecare obiect returnat, folosește EXACT aceste câmpuri:
 - word_id (int)
 - word (string)
 - type ("N" | "A" | "V")
 - rarity_level (int, OBLIGATORIU {{COMMON_LEVEL}})
-- tag ("common|less_common|rare|technical|regional|archaic|uncertain")
-- confidence (număr 0.0..1.0)
+
+IMPORTANT:
+- NU alege în ordinea din input (nu întoarce "primele N"). Tratează inputul ca o mulțime.
+- Selectează iterativ: de fiecare dată alege cel mai comun cuvânt dintre cele rămase ne-alese, până ajungi la {{COMMON_COUNT}}.
+- Diacriticele românești (ă â î ș ț) sunt normale în română; NU penaliza cuvintele cu diacritice și NU favoriza cuvintele fără diacritice.
+- Nu selecta termeni vulgari/obsceni/insultători/sexual-expliciți ca „cei mai comuni” (mai bine lasă-i neselectați).
 
 Reguli obligatorii:
-- Returnează doar subsetul de {{COMMON_COUNT}} item-uri.
-- Pentru item-urile returnate, păstrează `word_id`, `word`, `type` identice cu input-ul.
-- Toate obiectele returnate trebuie să aibă rarity_level={{COMMON_LEVEL}}.
-- Nu folosi altă valoare pentru rarity_level.
-- Alege strict cele mai comune {{COMMON_COUNT}} cuvinte din batch.
-- Diacriticele (ă â î ș ț) sunt standard în română; NU penaliza cuvintele care au diacritice și NU favoriza cuvintele fără diacritice.
-  Exemple de cuvinte foarte comune cu diacritice: „și”, „în”, „că”, „să”, „țară”.
-- Toate intrările vor fi cu diacritice. Daca nu apar diacritice, presupune ca e cuvantul fara diacritice!
-- Când ești indecis între două cuvinte, aplică prioritate astfel:
-  1) uz mai frecvent în româna contemporană generală
-  2) non-tehnic, non-regional, non-arhaic
-- Clasifică inclusiv termeni vulgari/obsceni; nu omite niciun item.
-- Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi include printre cele mai comune.
-- Fără duplicate de word_id.
-- Nu folosi `null` și nu omite niciun câmp obligatoriu.
-- Fără text înainte/după JSON.
+- Array-ul returnat trebuie să aibă exact {{COMMON_COUNT}} elemente.
+- Fără duplicate.
+- Toate word_id-urile trebuie să existe în input.
+- Fără null.
 
-Verificare internă obligatorie înainte de răspuns:
-- total_obiecte_returnate == {{COMMON_COUNT}}
-- count(rarity_level={{COMMON_LEVEL}}) == {{COMMON_COUNT}}
+Verificare internă înainte de răspuns:
+- count(ids_returnate) == {{COMMON_COUNT}}
+- all distinct
 
-Intrări:
+Intrari:
 {{INPUT_JSON}}

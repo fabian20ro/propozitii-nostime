@@ -468,14 +468,16 @@ class Step5RebalancerTest {
 
             override fun scoreBatchResilient(batch: List<BaseWordRow>, context: ScoringContext): List<ScoreResult> {
                 seenBatchIds += batch.map { it.wordId }
-                return batch.map { row ->
+                val expected = context.expectedJsonItems ?: error("expectedJsonItems required")
+                val rarityLevel = context.forcedRarityLevel ?: error("forcedRarityLevel required")
+                return batch.sortedBy { it.wordId }.take(expected).map { row ->
                     ScoreResult(
                         wordId = row.wordId,
                         word = row.word,
                         type = row.type,
-                        rarityLevel = 3,
-                        tag = "uncertain",
-                        confidence = 0.5
+                        rarityLevel = rarityLevel,
+                        tag = "common",
+                        confidence = 0.9
                     )
                 }
             }
