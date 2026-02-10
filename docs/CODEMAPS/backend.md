@@ -90,12 +90,12 @@ Modular implementation:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsMinistral38b.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsEuroLlm22b.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmModelDefaultsFallback.kt`
-- `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioRequestSupport.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioRequestSupport.kt` (includes `LmStudioErrorClassifier` object for error classification heuristics)
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioResponseParser.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/lmstudio/LmStudioHttpGateway.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/RunCsvRepository.kt`
 - `src/main/kotlin/scrabble/phrases/tools/rarity/UploadMarkerWriter.kt`
-- `src/main/kotlin/scrabble/phrases/tools/rarity/RunLockManager.kt`
+- `src/main/kotlin/scrabble/phrases/tools/rarity/RunLockManager.kt` (side-effect-free `acquire`: no resource cleanup hidden in `require()` lambdas)
 
 Step 2 resilience utilities:
 - `src/main/kotlin/scrabble/phrases/tools/rarity/JsonRepair.kt` -- best-effort repair of truncated/malformed LM JSON (trailing decimals, unclosed structures, trailing commas, line comments); trailing-comma removal is JSON-string-aware via `walkJsonChars` to avoid corrupting commas inside quoted values
@@ -112,9 +112,10 @@ Step behavior:
 - Step 4 default mode is `partial`; legacy global fallback writes require `--mode full-fallback`.
 
 Step 2 safety:
-- exclusive file lock on output CSV
-- guarded atomic rewrite (merge latest disk + memory, then shrink checks)
+- exclusive file lock on output CSV (side-effect-free acquire; no hidden cleanup in error paths)
+- guarded atomic rewrite (merge latest disk + memory, then shrink/minId/maxId checks)
 - strict CSV parse (malformed rows fail; no silent skip)
+- atomic CSV writes use narrowed exception catch (`AtomicMoveNotSupportedException` + `UnsupportedOperationException`)
 - recursion depth guard (max 10) on batch split/retry to prevent unbounded recursion
 
 Step 2 interface design:
