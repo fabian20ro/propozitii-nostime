@@ -126,7 +126,8 @@ private data class TransitionSummary(
 private data class Step5Logs(
     val runLogPath: Path,
     val failedLogPath: Path,
-    val switchedWordsLogPath: Path
+    val switchedWordsLogPath: Path,
+    val checkpointPath: Path
 )
 
 private data class SwitchedWordEvent(
@@ -134,7 +135,14 @@ private data class SwitchedWordEvent(
     val word: String,
     val type: String,
     val previousLevel: Int,
-    val nextLevel: Int
+    val nextLevel: Int,
+    val rule: String
+)
+
+private data class Step5ResumeStats(
+    val resumedBatches: Int,
+    val resumedProcessedWords: Int,
+    val resumedSwitchedWords: Int
 )
 
 class RarityStep5Rebalancer(
@@ -155,6 +163,7 @@ class RarityStep5Rebalancer(
             rebalanceRules = mutableMapOf(),
             processedWordIds = mutableSetOf()
         )
+        val resumeStats = restoreFromCheckpoint(dataset, runtime, logs)
 
         val seed = options.seed ?: System.currentTimeMillis()
         println(
@@ -162,6 +171,12 @@ class RarityStep5Rebalancer(
                 "lowerRatio=${String.format(Locale.ROOT, "%.4f", options.lowerRatio)} transitions=" +
                 options.transitions.joinToString(",") { "${it.describeSources()}->${it.toLevel}" }
         )
+        if (resumeStats.resumedBatches > 0) {
+            println(
+                "Step 5 resume checkpoint run='${options.runSlug}' batches=${resumeStats.resumedBatches} " +
+                    "processed=${resumeStats.resumedProcessedWords} switched=${resumeStats.resumedSwitchedWords}"
+            )
+        }
         println("Step 5 input distribution ${runtime.distribution.format()}")
         println("Step 5 switched words log: ${logs.switchedWordsLogPath.toAbsolutePath()}")
 
@@ -311,6 +326,12 @@ class RarityStep5Rebalancer(
                     runtime = runtime,
                     options = options,
                     logs = logs
+                )
+                appendBatchCheckpoint(
+                    logs = logs,
+                    transition = transition,
+                    processedWordIds = batch.map { it.wordId },
+                    switchedEvents = switchedEvents
                 )
                 targetAssigned += selectedWordIds.size
                 switchedCount += switchedEvents.size
@@ -489,14 +510,15 @@ class RarityStep5Rebalancer(
             runtime.distribution.setLevel(previousLevel, nextLevel)
             runtime.processedWordIds += word.wordId
             if (previousLevel != nextLevel) {
-                runtime.rebalanceRules[word.wordId] =
-                    "${transition.describeSources()}->${nextLevel} (via ${transition.describeSources()}:${transition.toLevel})"
+                val rule = "${transition.describeSources()}->${nextLevel} (via ${transition.describeSources()}:${transition.toLevel})"
+                runtime.rebalanceRules[word.wordId] = rule
                 val switched = SwitchedWordEvent(
                     wordId = word.wordId,
                     word = word.word,
                     type = word.type,
                     previousLevel = previousLevel ?: -1,
-                    nextLevel = nextLevel
+                    nextLevel = nextLevel,
+                    rule = rule
                 )
                 switchedEvents += switched
                 logSwitchedWord(
@@ -555,6 +577,90 @@ class RarityStep5Rebalancer(
             }
             println(prefix + content)
         }
+    }
+
+    private fun appendBatchCheckpoint(
+        logs: Step5Logs,
+        transition: LevelTransition,
+        processedWordIds: List<Int>,
+        switchedEvents: List<SwitchedWordEvent>
+    ) {
+        val payload = linkedMapOf<String, Any>(
+            "timestamp" to OffsetDateTime.now().toString(),
+            "transition" to "${transition.describeSources()}->${transition.toLevel}",
+            "processed_word_ids" to processedWordIds,
+            "switched" to switchedEvents.map { event ->
+                linkedMapOf(
+                    "word_id" to event.wordId,
+                    "new_level" to event.nextLevel,
+                    "rule" to event.rule
+                )
+            }
+        )
+        appendJsonLine(logs.checkpointPath, payload)
+    }
+
+    private fun restoreFromCheckpoint(
+        dataset: RebalanceDataset,
+        runtime: RebalanceRuntime,
+        logs: Step5Logs
+    ): Step5ResumeStats {
+        if (!Files.exists(logs.checkpointPath)) {
+            return Step5ResumeStats(resumedBatches = 0, resumedProcessedWords = 0, resumedSwitchedWords = 0)
+        }
+
+        var resumedBatches = 0
+        var resumedProcessedWords = 0
+        var resumedSwitchedWords = 0
+        val appliedSwitchedWordIds = mutableSetOf<Int>()
+
+        Files.newBufferedReader(logs.checkpointPath, Charsets.UTF_8).useLines { lines ->
+            lines.forEach { line ->
+                if (line.isBlank()) return@forEach
+                val node = mapper.readTree(line)
+                resumedBatches++
+
+                val processedIds = node.path("processed_word_ids")
+                if (processedIds.isArray) {
+                    processedIds.forEach { idNode ->
+                        val wordId = idNode.asInt(-1)
+                        if (wordId > 0 && dataset.wordsById.containsKey(wordId)) {
+                            if (runtime.processedWordIds.add(wordId)) {
+                                resumedProcessedWords++
+                            }
+                        }
+                    }
+                }
+
+                val switched = node.path("switched")
+                if (switched.isArray) {
+                    switched.forEach { switchedNode ->
+                        val wordId = switchedNode.path("word_id").asInt(-1)
+                        val newLevel = switchedNode.path("new_level").asInt(-1)
+                        val rule = switchedNode.path("rule").asText("")
+                        if (wordId <= 0 || newLevel !in 1..5 || !dataset.wordsById.containsKey(wordId)) {
+                            return@forEach
+                        }
+                        if (!appliedSwitchedWordIds.add(wordId)) {
+                            return@forEach
+                        }
+                        val previousLevel = runtime.levelsById[wordId]
+                        runtime.levelsById[wordId] = newLevel
+                        runtime.distribution.setLevel(previousLevel, newLevel)
+                        if (rule.isNotBlank()) {
+                            runtime.rebalanceRules[wordId] = rule
+                        }
+                        resumedSwitchedWords++
+                    }
+                }
+            }
+        }
+
+        return Step5ResumeStats(
+            resumedBatches = resumedBatches,
+            resumedProcessedWords = resumedProcessedWords,
+            resumedSwitchedWords = resumedSwitchedWords
+        )
     }
 
     private fun writeOutput(dataset: RebalanceDataset, runtime: RebalanceRuntime, options: Step5Options) {
@@ -620,13 +726,16 @@ class RarityStep5Rebalancer(
         val runsDir = outputDir.resolve("rebalance").resolve("runs")
         val failedDir = outputDir.resolve("rebalance").resolve("failed_batches")
         val switchedDir = outputDir.resolve("rebalance").resolve("switched_words")
+        val checkpointDir = outputDir.resolve("rebalance").resolve("checkpoints")
         Files.createDirectories(runsDir)
         Files.createDirectories(failedDir)
         Files.createDirectories(switchedDir)
+        Files.createDirectories(checkpointDir)
         return Step5Logs(
             runLogPath = runsDir.resolve("$runSlug.jsonl"),
             failedLogPath = failedDir.resolve("$runSlug.failed.jsonl"),
-            switchedWordsLogPath = switchedDir.resolve("$runSlug.switched.jsonl")
+            switchedWordsLogPath = switchedDir.resolve("$runSlug.switched.jsonl"),
+            checkpointPath = checkpointDir.resolve("$runSlug.checkpoint.jsonl")
         )
     }
 

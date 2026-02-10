@@ -101,6 +101,7 @@ Step5 notes:
 - Multi-transition mode is available via `--transitions "2:1,3:2,4:3"`.
 - Step 5 is loop-safe: you can feed the previous Step 5 output back into a new Step 5 run.
 - Step 5 logs switched words only to `build/rarity/rebalance/switched_words/<run>.switched.jsonl` (`previous_level != new_level`).
+- Step 5 writes per-batch resume checkpoints to `build/rarity/rebalance/checkpoints/<run>.checkpoint.jsonl`; rerun the same command with the same `--run` to resume after interruption.
 
 Pipeline integration patterns:
 - Per-model normalization before merge:

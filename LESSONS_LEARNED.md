@@ -61,3 +61,4 @@
 - 2026-02-09: For local `gpt-oss` runs, prompt compliance improves when JSON-only constraints are explicit (`no markdown/code fences`, `no null/missing fields`) and refusal is explicitly disallowed even for vulgar/offensive words.
 - 2026-02-09: Child-safety objective needs explicit prompt policy: vulgar/obscene terms should be biased to higher rarity levels (never 1/2; usually 4, 5 only for extreme cases).
 - 2026-02-09: Step 5 operational debugging is clearer with a dedicated switched-words JSONL log that records only changed bucket assignments (`previous_level != new_level`).
+- 2026-02-10: Step 5 resumability should checkpoint after each completed batch (not only at step end) so long chains can resume exactly from the last LM response batch.

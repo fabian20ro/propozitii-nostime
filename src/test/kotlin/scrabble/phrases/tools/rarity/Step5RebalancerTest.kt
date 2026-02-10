@@ -569,4 +569,76 @@ class Step5RebalancerTest {
         val expected = kotlin.math.round(125 * ratio).toInt()
         assertEquals(expected, level1Count)
     }
+
+    @Test
+    fun rebalance_resumes_from_checkpoint_per_batch() {
+        val inputCsv = tempDir.resolve("step2_run_resume.csv")
+        val outputCsv = tempDir.resolve("step5_resume.csv")
+        val outputDir = tempDir.resolve("build/rarity")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..12).map { id -> testRunRow(id = id, rarityLevel = 2, word = "w$id") }
+        )
+
+        val firstLm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 2,
+                tag = "uncertain",
+                confidence = 0.5
+            )
+        }
+
+        val options = Step5Options(
+            runSlug = "step5_resume_batches",
+            model = MODEL_GPT_OSS_20B,
+            inputCsvPath = inputCsv,
+            outputCsvPath = outputCsv,
+            batchSize = 3,
+            lowerRatio = 1.0 / 3.0,
+            maxRetries = 1,
+            timeoutSeconds = 20,
+            maxTokens = 600,
+            skipPreflight = true,
+            endpointOption = null,
+            baseUrlOption = null,
+            seed = 8L,
+            transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 1)),
+            systemPrompt = REBALANCE_SYSTEM_PROMPT,
+            userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+        )
+
+        RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = firstLm,
+            outputDir = outputDir
+        ).execute(options)
+
+        assertEquals(4, firstLm.scoreCalls)
+        val checkpointPath = outputDir.resolve("rebalance/checkpoints/step5_resume_batches.checkpoint.jsonl")
+        assertTrue(Files.exists(checkpointPath))
+        assertEquals(4, Files.readAllLines(checkpointPath).size)
+
+        val secondLm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 2,
+                tag = "uncertain",
+                confidence = 0.5
+            )
+        }
+
+        RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = secondLm,
+            outputDir = outputDir
+        ).execute(options)
+
+        assertEquals(0, secondLm.scoreCalls)
+    }
 }

@@ -126,6 +126,7 @@ Artifacts:
 - `build/rarity/rebalance/runs/<run>.jsonl` step5 raw LM requests/responses
 - `build/rarity/rebalance/failed_batches/<run>.failed.jsonl` step5 unresolved errors
 - `build/rarity/rebalance/switched_words/<run>.switched.jsonl` step5 words that changed bucket (`previous_level != new_level`)
+- `build/rarity/rebalance/checkpoints/<run>.checkpoint.jsonl` step5 per-batch resume checkpoints
 - `build/rarity/step4_upload_report.csv`
 - marker columns are written back into `--final-csv` (`uploaded_at`, `uploaded_level`, `upload_status`, `upload_batch_id`)
   - if input CSV is read-only, marker output goes to `<final-csv>.upload_markers.csv`
@@ -149,6 +150,7 @@ Step5 integration tips:
   - or `step4` upload (uses `final_level` when present).
 - Each `word_id` is processed by Step5 at most once per run.
 - Step5 outputs are loop-friendly (you can chain Step5 runs).
+- Step5 is resumable at batch granularity: rerunning the same command with the same `--run` resumes from the last completed batch using checkpoint JSONL.
 
 Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
 
