@@ -10,6 +10,9 @@ class Step2ScorerResumeTest {
     @TempDir
     lateinit var tempDir: Path
 
+    private val testSystemPrompt: String = "test-system"
+    private val testUserTemplate: String = "test-user {{INPUT_JSON}}"
+
     @Test
     fun restart_same_run_keeps_previous_ids_and_only_adds_new() {
         val repo = RunCsvRepository()
@@ -63,8 +66,8 @@ class Step2ScorerResumeTest {
             force = false,
             endpointOption = null,
             baseUrlOption = null,
-            systemPrompt = SYSTEM_PROMPT,
-            userTemplate = USER_PROMPT_TEMPLATE
+            systemPrompt = testSystemPrompt,
+            userTemplate = testUserTemplate
         )
 
         scorer.execute(options)

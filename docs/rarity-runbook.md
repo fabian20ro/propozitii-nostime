@@ -46,6 +46,10 @@ Current safety baseline for all model profiles:
 
 ## End-to-end commands
 
+Prompt files:
+- Step 2 and Step 5 load prompts from `docs/rarity-prompts/*.txt` by default.
+- `--system-prompt-file` and `--user-template-file` are optional overrides (useful for experiments).
+
 ```bash
 # 1) Export source words
 ./gradlew rarityStep1Export

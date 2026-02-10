@@ -49,8 +49,8 @@ class LmStudioClientTest {
             timeoutSeconds = timeoutSeconds,
             runLogPath = runLogPath,
             failedLogPath = failedLogPath,
-            systemPrompt = SYSTEM_PROMPT,
-            userTemplate = USER_PROMPT_TEMPLATE,
+            systemPrompt = "test-system",
+            userTemplate = "test-user {{INPUT_JSON}}",
             flavor = LmApiFlavor.OPENAI_COMPAT,
             maxTokens = maxTokens
         )

@@ -80,6 +80,10 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 # Step 1: export source words from Supabase
 ./gradlew rarityStep1Export
 
+# Prompts:
+# - Step 2 / Step 5 load defaults from `docs/rarity-prompts/*.txt`.
+# - `--system-prompt-file` / `--user-template-file` are optional overrides.
+
 # Step 2a: score model A into local CSV (repeatable/resumable)
 # recommended throughput knobs: batch-size=50, max-tokens=8000, timeout=120, max-retries=2
 ./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"

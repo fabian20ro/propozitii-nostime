@@ -14,6 +14,8 @@ class Step5RebalancerTest {
     lateinit var tempDir: Path
 
     private val repo = RunCsvRepository()
+    private val testSystemPrompt: String = "test-system"
+    private val testUserTemplate: String = "test-user {{INPUT_JSON}}"
 
     @Test
     fun parseTransitions_defaults_and_custom() {
@@ -98,8 +100,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 42L,
                 transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 1)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -180,8 +182,8 @@ class Step5RebalancerTest {
                     LevelTransition(fromLevel = 2, toLevel = 2), // picks 1/3 at level 2, promotes rest to 3
                     LevelTransition(fromLevel = 3, toLevel = 2) // should not re-process promoted words
                 ),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -235,8 +237,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 1L,
                 transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 1)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -290,8 +292,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 2L,
                 transitions = listOf(LevelTransition(fromLevel = 4, toLevel = 4)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -346,8 +348,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 3L,
                 transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 2, fromLevelUpper = 3)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -405,8 +407,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 4L,
                 transitions = transition,
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -426,8 +428,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 5L,
                 transitions = transition,
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -501,8 +503,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 6L,
                 transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 2, fromLevelUpper = 3)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -559,8 +561,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 10L,
                 transitions = listOf(LevelTransition(fromLevel = 3, toLevel = 3, fromLevelUpper = 4)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -616,8 +618,8 @@ class Step5RebalancerTest {
                 baseUrlOption = null,
                 seed = 7L,
                 transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 1)),
-                systemPrompt = REBALANCE_SYSTEM_PROMPT,
-                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+                systemPrompt = testSystemPrompt,
+                userTemplate = testUserTemplate
             )
         )
 
@@ -664,8 +666,8 @@ class Step5RebalancerTest {
             baseUrlOption = null,
             seed = 8L,
             transitions = listOf(LevelTransition(fromLevel = 2, toLevel = 1)),
-            systemPrompt = REBALANCE_SYSTEM_PROMPT,
-            userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            systemPrompt = testSystemPrompt,
+            userTemplate = testUserTemplate
         )
 
         RarityStep5Rebalancer(

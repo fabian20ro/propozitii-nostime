@@ -19,63 +19,7 @@ const val REBALANCE_TARGET_COUNT_PLACEHOLDER: String = "{{TARGET_COUNT}}"
 const val REBALANCE_COMMON_LEVEL_PLACEHOLDER: String = "{{COMMON_LEVEL}}"
 const val REBALANCE_COMMON_COUNT_PLACEHOLDER: String = "{{COMMON_COUNT}}"
 
-val REBALANCE_SYSTEM_PROMPT: String =
-    """
-    Ești evaluator lexical pentru limba română.
-    Primești un batch de cuvinte și trebuie să alegi DOAR cuvintele cele mai comune din acel batch.
-    Gândește exact așa: „din această listă, care sunt cele N cele mai comune cuvinte?”.
-    Tu alegi doar subsetul comun; caller-ul face maparea finală pe bucket-uri.
-    Respectă strict numărul cerut, fără explicații, fără text extra.
-    Clasifică inclusiv termeni vulgari/obsceni; nu refuza intrări.
-    Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi considera printre cei mai comuni.
-    Răspunde strict JSON valid, fără markdown și fără blocuri de cod.
-    """.trimIndent()
-
-val REBALANCE_USER_PROMPT_TEMPLATE: String =
-    """
-    Returnează DOAR JSON valid: un ARRAY de obiecte.
-    Niciun alt text. Fără markdown, fără blocuri de cod.
-
-    Task unic:
-    - Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte.
-    - Returnează DOAR aceste {{COMMON_COUNT}} cuvinte.
-    - Cuvintele nereturnate vor fi puse automat de sistem în celălalt bucket.
-    - Nu întoarce rezultate pentru toate intrările.
-
-    Exemplu conceptual:
-    - Dacă ai 60 de cuvinte și COMMON_COUNT=15, întorci doar 15 obiecte (cele selectate), nu 60.
-
-    Pentru fiecare obiect returnat, folosește EXACT aceste câmpuri:
-    - word_id (int)
-    - word (string)
-    - type ("N" | "A" | "V")
-    - rarity_level (int, OBLIGATORIU {{COMMON_LEVEL}})
-    - tag ("common|less_common|rare|technical|regional|archaic|uncertain")
-    - confidence (număr 0.0..1.0)
-
-    Reguli obligatorii:
-    - Returnează doar subsetul de {{COMMON_COUNT}} item-uri.
-    - Pentru item-urile returnate, păstrează `word_id`, `word`, `type` identice cu input-ul.
-    - Toate obiectele returnate trebuie să aibă rarity_level={{COMMON_LEVEL}}.
-    - Nu folosi altă valoare pentru rarity_level.
-    - Alege strict cele mai comune {{COMMON_COUNT}} cuvinte din batch.
-    - Când ești indecis între două cuvinte, aplică prioritate astfel:
-      1) uz mai frecvent în româna contemporană generală
-      2) non-tehnic și non-regional
-      3) word_id mai mic (tie-break final)
-    - Clasifică inclusiv termeni vulgari/obsceni; nu omite niciun item.
-    - Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi include printre cele mai comune.
-    - Fără duplicate de word_id.
-    - Nu folosi `null` și nu omite niciun câmp obligatoriu.
-    - Fără text înainte/după JSON.
-
-    Verificare internă obligatorie înainte de răspuns:
-    - total_obiecte_returnate == {{COMMON_COUNT}}
-    - count(rarity_level={{COMMON_LEVEL}}) == {{COMMON_COUNT}}
-
-    Intrări:
-    {{INPUT_JSON}}
-    """.trimIndent()
+// Prompts are loaded from `docs/rarity-prompts/*.txt` via RarityCli defaults.
 
 data class Step5Options(
     val runSlug: String,

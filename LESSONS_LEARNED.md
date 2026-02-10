@@ -63,3 +63,4 @@
 - 2026-02-09: Step 5 operational debugging is clearer with a dedicated switched-words JSONL log that records only changed bucket assignments (`previous_level != new_level`).
 - 2026-02-10: Step 5 resumability should checkpoint after each completed batch (not only at step end) so long chains can resume exactly from the last LM response batch.
 - 2026-02-10: For Step 5 pair transitions, prompting the model to return only the target subset (sparse output) is more robust than full-batch relabeling; keep exact-target enforcement in code and auto-assign non-returned items to the companion level.
+- 2026-02-11: Rarity prompts must have a single source of truth in `docs/rarity-prompts/*.txt`; Step 2/5 load prompt content from files by default (CLI can override), and `.kt` should never embed full prompt strings.

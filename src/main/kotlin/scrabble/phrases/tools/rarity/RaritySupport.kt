@@ -73,11 +73,12 @@ fun median(values: List<Int>): Int {
     }
 }
 
-fun loadPrompt(filePath: String?, fallback: String): String {
-    if (filePath.isNullOrBlank()) return fallback
-    val path = Paths.get(filePath)
+fun loadPrompt(filePath: String?, defaultFilePath: String): String {
+    val path = if (!filePath.isNullOrBlank()) Paths.get(filePath) else Paths.get(defaultFilePath)
     require(Files.exists(path)) { "Prompt file does not exist: ${path.toAbsolutePath()}" }
-    return Files.readString(path).trim().ifBlank { fallback }
+    val content = Files.readString(path).trim()
+    require(content.isNotBlank()) { "Prompt file is empty: ${path.toAbsolutePath()}" }
+    return content
 }
 
 fun ensureRarityOutputDir(): Path {

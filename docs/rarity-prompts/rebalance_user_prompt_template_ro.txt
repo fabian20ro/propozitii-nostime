@@ -24,10 +24,12 @@ Reguli obligatorii:
 - Toate obiectele returnate trebuie să aibă rarity_level={{COMMON_LEVEL}}.
 - Nu folosi altă valoare pentru rarity_level.
 - Alege strict cele mai comune {{COMMON_COUNT}} cuvinte din batch.
+- Diacriticele (ă â î ș ț) sunt standard în română; NU penaliza cuvintele care au diacritice și NU favoriza cuvintele fără diacritice.
+  Exemple de cuvinte foarte comune cu diacritice: „și”, „în”, „că”, „să”, „țară”.
+- Toate intrările vor fi cu diacritice. Daca nu apar diacritice, presupune ca e cuvantul fara diacritice!
 - Când ești indecis între două cuvinte, aplică prioritate astfel:
   1) uz mai frecvent în româna contemporană generală
-  2) non-tehnic și non-regional
-  3) word_id mai mic (tie-break final)
+  2) non-tehnic, non-regional, non-arhaic
 - Clasifică inclusiv termeni vulgari/obsceni; nu omite niciun item.
 - Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi include printre cele mai comune.
 - Fără duplicate de word_id.

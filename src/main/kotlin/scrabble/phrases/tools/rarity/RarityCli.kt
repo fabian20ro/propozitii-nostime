@@ -11,6 +11,13 @@ class RarityCli(
     private val lockManager: RunLockManager = RunLockManager(),
     private val outputDir: Path = ensureRarityOutputDir()
 ) {
+    private companion object {
+        const val DEFAULT_STEP2_SYSTEM_PROMPT_FILE: String = "docs/rarity-prompts/system_prompt_ro.txt"
+        const val DEFAULT_STEP2_USER_TEMPLATE_FILE: String = "docs/rarity-prompts/user_prompt_template_ro.txt"
+        const val DEFAULT_STEP5_SYSTEM_PROMPT_FILE: String = "docs/rarity-prompts/rebalance_system_prompt_ro.txt"
+        const val DEFAULT_STEP5_USER_TEMPLATE_FILE: String = "docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
+    }
+
 
     fun run(args: Array<String>) {
         val (step, rawArgs) = resolveStep(args)
@@ -50,8 +57,8 @@ class RarityCli(
             force = booleanOption(options, "force", default = false),
             endpointOption = options["endpoint"] ?: System.getenv("LMSTUDIO_API_URL"),
             baseUrlOption = options["base-url"] ?: System.getenv("LMSTUDIO_BASE_URL"),
-            systemPrompt = loadPrompt(options["system-prompt-file"], SYSTEM_PROMPT),
-            userTemplate = loadPrompt(options["user-template-file"], USER_PROMPT_TEMPLATE)
+            systemPrompt = loadPrompt(options["system-prompt-file"], DEFAULT_STEP2_SYSTEM_PROMPT_FILE),
+            userTemplate = loadPrompt(options["user-template-file"], DEFAULT_STEP2_USER_TEMPLATE_FILE)
         )
 
         RarityStep2Scorer(
@@ -138,8 +145,8 @@ class RarityCli(
             baseUrlOption = options["base-url"] ?: System.getenv("LMSTUDIO_BASE_URL"),
             seed = options["seed"]?.toLongOrNull(),
             transitions = transitions,
-            systemPrompt = loadPrompt(options["system-prompt-file"], REBALANCE_SYSTEM_PROMPT),
-            userTemplate = loadPrompt(options["user-template-file"], REBALANCE_USER_PROMPT_TEMPLATE)
+            systemPrompt = loadPrompt(options["system-prompt-file"], DEFAULT_STEP5_SYSTEM_PROMPT_FILE),
+            userTemplate = loadPrompt(options["user-template-file"], DEFAULT_STEP5_USER_TEMPLATE_FILE)
         )
 
         RarityStep5Rebalancer(

@@ -13,6 +13,8 @@ class Step2ScorerCountersTest {
     lateinit var tempDir: Path
 
     private val repo = RunCsvRepository()
+    private val testSystemPrompt = "test-system"
+    private val testUserTemplate = "test-user {{INPUT_JSON}}"
 
     private fun options(
         runSlug: String,
@@ -34,8 +36,8 @@ class Step2ScorerCountersTest {
             force = false,
             endpointOption = null,
             baseUrlOption = null,
-            systemPrompt = SYSTEM_PROMPT,
-            userTemplate = USER_PROMPT_TEMPLATE
+            systemPrompt = testSystemPrompt,
+            userTemplate = testUserTemplate
         )
     }
 
