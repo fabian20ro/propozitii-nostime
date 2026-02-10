@@ -1,6 +1,6 @@
 # Data Codemap
 
-Freshness: 2026-02-08
+Freshness: 2026-02-11
 
 ## Database Schema
 
@@ -55,6 +55,7 @@ Implementation package: `src/main/kotlin/scrabble/phrases/tools/rarity/`
 - Step 1: export words from `words` table to local `step1_words.csv`
 - Step 2: score with LMStudio into local run CSVs (resumable by `word_id`)
 - Step 3: compare 2 or 3 run CSVs locally, compute median/outliers/final level
+  - `median()` uses `Math.round()` (half-up), not Kotlin `roundToInt()` (banker's rounding)
   - merge strategy is configurable (`median` or `any-extremes`)
 - Step 4: upload final CSV levels into `words.rarity_level`
   - default mode: `partial` (updates only IDs present in final CSV)
@@ -74,7 +75,7 @@ Step 2 resilience:
 - `LmStudioClient` orchestrates retries/split/failure logging (max recursion depth 10), while request/parse/HTTP concerns are split into dedicated classes
 - `LmClient` interface uses `ScoringContext` parameter object; `CapabilityState` tracks run-scoped degradation
 - model configs are registry-driven; per-model defaults live in dedicated files and include all generation knobs (`temperature`, `top_k`, `top_p`, `min_p`, penalties, reasoning controls)
-- `JsonRepair` fixes truncated/malformed LM JSON before parsing
+- `JsonRepair` fixes truncated/malformed LM JSON before parsing; trailing-comma removal is JSON-string-aware via `walkJsonChars`
 - `BatchSizeAdapter` adapts by success ratio (not all-or-nothing), with runtime floor `max(5, initial/5)`
 - `FuzzyWordMatcher` accepts diacritical misspellings from LM (Levenshtein distance <= 2)
 - `Step2Metrics` tracks WPM, ETA, error breakdown by category (TRUNCATED_JSON, MODEL_CRASH, etc.)

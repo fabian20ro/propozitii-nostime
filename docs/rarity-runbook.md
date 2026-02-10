@@ -148,7 +148,7 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 ## Step 2 resilience features
 
 - **Recursion depth guard**: batch split/retry is capped at depth 10 to prevent unbounded recursion; exceeded words are logged to failed log
-- **JSON repair**: truncated/malformed LM output is auto-repaired before parsing (trailing decimals, unclosed structures, comments, trailing commas)
+- **JSON repair**: truncated/malformed LM output is auto-repaired before parsing (trailing decimals, unclosed structures, comments, trailing commas); trailing-comma removal is JSON-string-aware to avoid corrupting commas inside quoted values
 - **Partial extraction + retry on unresolved**: parsed rows are kept, and unresolved rows are retried separately in-process
 - **Malformed item salvage**: if one object in the returned JSON array is invalid, valid sibling objects are still kept and only unresolved words are retried
 - **`word_id` matching first**: parser pairs results by `word_id` before fallback matching on `word/type`
@@ -165,6 +165,7 @@ cat build/rarity/runs/campaign_20260207_a_gptoss20b.state.json
 
 ## Step 3 merge strategy
 
+- `median()` uses half-up rounding (`Math.round()`), not banker's rounding (`roundToInt()`). This matters for 2-run comparisons where models disagree by 1 level (e.g., runs scoring 2 and 3 produce median 3, not 2).
 - Default `--merge-strategy median`: keeps legacy behavior (`final_level = median_level`).
 - Optional `--merge-strategy any-extremes` (useful with 3 runs):
   - if any model predicts `1` -> final `1`
