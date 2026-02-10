@@ -89,6 +89,18 @@ class JsonRepairTest {
         assertEquals("""{"a": 1}""", JsonRepair.removeTrailingCommas(input))
     }
 
+    @Test
+    fun preserves_comma_inside_quoted_string_before_brace() {
+        val input = """{"msg": "value,"}"""
+        assertEquals(input, JsonRepair.removeTrailingCommas(input))
+    }
+
+    @Test
+    fun preserves_comma_inside_quoted_string_before_bracket() {
+        val input = """["a,"]"""
+        assertEquals(input, JsonRepair.removeTrailingCommas(input))
+    }
+
     // --- closeUnclosedStructures ---
 
     @Test

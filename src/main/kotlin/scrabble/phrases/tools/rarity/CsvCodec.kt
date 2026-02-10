@@ -1,6 +1,7 @@
 package scrabble.phrases.tools.rarity
 
 import java.io.BufferedWriter
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -66,7 +67,9 @@ class CsvCodec {
                 StandardCopyOption.REPLACE_EXISTING,
                 StandardCopyOption.ATOMIC_MOVE
             )
-        } catch (_: Exception) {
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: UnsupportedOperationException) {
             Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING)
         }
     }

@@ -1,7 +1,9 @@
 package scrabble.phrases.tools.rarity
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -41,5 +43,46 @@ class CsvCodecTest {
         assertThrows(CsvFormatException::class.java) {
             csv.readTable(path)
         }
+    }
+
+    @Test
+    fun atomic_write_roundtrip() {
+        val path = tempDir.resolve("atomic.csv")
+        val headers = listOf("id", "name")
+        val rows = listOf(
+            listOf("1", "first"),
+            listOf("2", "second")
+        )
+
+        csv.writeTableAtomic(path, headers, rows)
+        val read = csv.readTable(path)
+
+        assertEquals(headers, read.headers)
+        assertEquals(rows, read.records.map { it.values })
+        assertFalse(Files.exists(path.resolveSibling("${path.fileName}.tmp")))
+    }
+
+    @Test
+    fun empty_file_throws() {
+        val path = tempDir.resolve("empty.csv")
+        Files.writeString(path, "")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            csv.readTable(path)
+        }
+    }
+
+    @Test
+    fun column_count_mismatch_reports_line_number() {
+        val path = tempDir.resolve("mismatch.csv")
+        Files.writeString(
+            path,
+            "\"a\",\"b\",\"c\"\n\"1\",\"2\",\"3\"\n\"4\",\"5\"\n"
+        )
+
+        val ex = assertThrows(CsvFormatException::class.java) {
+            csv.readTable(path)
+        }
+        assertTrue(ex.message!!.contains("line 3"))
     }
 }

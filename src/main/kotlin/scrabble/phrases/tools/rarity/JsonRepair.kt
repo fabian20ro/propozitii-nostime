@@ -63,16 +63,58 @@ object JsonRepair {
         return result.toString()
     }
 
-    private val TRAILING_COMMA_BRACKET = Regex(",\\s*]")
-    private val TRAILING_COMMA_BRACE = Regex(",\\s*}")
-
     /**
      * Removes trailing commas before `]` or `}`, ignoring whitespace between them.
+     * Uses [walkJsonChars] to skip commas inside quoted strings.
      */
     internal fun removeTrailingCommas(input: String): String {
-        return input
-            .replace(TRAILING_COMMA_BRACKET, "]")
-            .replace(TRAILING_COMMA_BRACE, "}")
+        val result = StringBuilder(input.length)
+        var pendingCommaIndex = -1
+
+        walkJsonChars(input) { i, ch, inString ->
+            if (inString) {
+                if (pendingCommaIndex >= 0) {
+                    result.append(input, pendingCommaIndex, i)
+                    pendingCommaIndex = -1
+                }
+                result.append(ch)
+                return@walkJsonChars i + 1
+            }
+
+            when {
+                ch == ',' -> {
+                    if (pendingCommaIndex >= 0) {
+                        result.append(input, pendingCommaIndex, i)
+                    }
+                    pendingCommaIndex = i
+                }
+                ch == ']' || ch == '}' -> {
+                    if (pendingCommaIndex >= 0) {
+                        pendingCommaIndex = -1
+                    }
+                    result.append(ch)
+                }
+                ch.isWhitespace() -> {
+                    if (pendingCommaIndex < 0) {
+                        result.append(ch)
+                    }
+                }
+                else -> {
+                    if (pendingCommaIndex >= 0) {
+                        result.append(input, pendingCommaIndex, i)
+                        pendingCommaIndex = -1
+                    }
+                    result.append(ch)
+                }
+            }
+            i + 1
+        }
+
+        if (pendingCommaIndex >= 0) {
+            result.append(input, pendingCommaIndex, input.length)
+        }
+
+        return result.toString()
     }
 
     /**

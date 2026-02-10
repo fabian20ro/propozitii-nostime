@@ -7,7 +7,8 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Tracks scoring metrics for Step 2 observability.
  *
- * Thread-safe via atomic counters. Provides real-time progress formatting
+ * Uses atomic counters for individual fields. Designed for single-threaded
+ * use in the Step 2 scoring loop. Provides real-time progress formatting
  * with words-per-minute, ETA, and error breakdown by category.
  */
 class Step2Metrics {

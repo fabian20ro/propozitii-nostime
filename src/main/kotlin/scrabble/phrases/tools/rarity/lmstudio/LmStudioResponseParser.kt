@@ -127,7 +127,7 @@ class LmStudioResponseParser(
                 wordId = matched.wordId,
                 word = matched.word,
                 type = matched.type,
-                rarityLevel = candidate.rarityLevel ?: continue,
+                rarityLevel = checkNotNull(candidate.rarityLevel) { "rarityLevel null after parseScoreCandidate" },
                 tag = candidate.tag.ifBlank { "uncertain" }.take(16),
                 confidence = candidate.confidence
             )
@@ -148,16 +148,12 @@ class LmStudioResponseParser(
         return ParsedBatch(scores = scored, unresolved = unresolved)
     }
 
+    /** Returns null if rarity_level is missing or out of 1..5. When non-null, [ScoreCandidate.rarityLevel] is always set. */
     private fun parseScoreCandidate(node: JsonNode): ScoreCandidate? {
         val rarity = node.path("rarity_level").asInt(-1)
         if (rarity !in 1..5) return null
 
-        val wordIdNode = node.path("word_id")
-        val wordId = when {
-            wordIdNode.isInt -> wordIdNode.asInt()
-            wordIdNode.isTextual -> wordIdNode.asText("").toIntOrNull()
-            else -> null
-        }
+        val wordId = nodeToInt(node.path("word_id"))
 
         val word = node.path("word").asText("").ifBlank { null }
         val type = node.path("type").asText("").ifBlank { null }

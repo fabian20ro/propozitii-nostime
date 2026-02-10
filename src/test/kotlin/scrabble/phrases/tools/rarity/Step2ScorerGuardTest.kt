@@ -2,6 +2,7 @@ package scrabble.phrases.tools.rarity
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -25,5 +26,33 @@ class Step2ScorerGuardTest {
 
         val ids = repo.loadRunRows(path).map { it.wordId }
         assertEquals(listOf(1), ids)
+    }
+
+    @Test
+    fun minId_increase_aborts_rewrite() {
+        val repo = RunCsvRepository()
+        val path = tempDir.resolve("runs/guard_min.csv")
+        repo.appendRunRows(path, listOf(testRunRow(5), testRunRow(10)))
+
+        val baseline = RunBaseline(count = 2, minId = 3, maxId = 10)
+
+        val ex = assertThrows(IllegalStateException::class.java) {
+            repo.mergeAndRewriteAtomic(path, emptyList(), baseline)
+        }
+        assertTrue(ex.message!!.contains("minId"))
+    }
+
+    @Test
+    fun maxId_decrease_aborts_rewrite() {
+        val repo = RunCsvRepository()
+        val path = tempDir.resolve("runs/guard_max.csv")
+        repo.appendRunRows(path, listOf(testRunRow(1), testRunRow(5)))
+
+        val baseline = RunBaseline(count = 2, minId = 1, maxId = 10)
+
+        val ex = assertThrows(IllegalStateException::class.java) {
+            repo.mergeAndRewriteAtomic(path, emptyList(), baseline)
+        }
+        assertTrue(ex.message!!.contains("maxId"))
     }
 }

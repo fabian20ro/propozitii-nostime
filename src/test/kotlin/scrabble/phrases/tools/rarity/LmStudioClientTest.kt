@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -853,6 +854,36 @@ class LmStudioClientTest {
         } finally {
             server.stop(0)
         }
+    }
+
+    @Test
+    fun connectivity_failure_throws_immediately_without_batch_split() {
+        val server = startServer { exchange ->
+            respond(exchange, 200, successResponseFor("apa", "N", 2, 0.9))
+        }
+        val port = server.address.port
+        server.stop(0)
+
+        val client = LmStudioClient(mapper, apiKey = null)
+        val endpoint = "http://127.0.0.1:$port/v1/chat/completions"
+
+        val ex = assertThrows(IllegalStateException::class.java) {
+            client.scoreBatchResilient(
+                batch = listOf(
+                    BaseWordRow(1, "apa", "N"),
+                    BaseWordRow(2, "brad", "N")
+                ),
+                context = ctx(
+                    runSlug = "run_connectivity_fail",
+                    endpoint = endpoint,
+                    maxRetries = 2,
+                    runLogPath = tempDir.resolve("run_connectivity_fail.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_connectivity_fail.jsonl")
+                )
+            )
+        }
+
+        assertTrue(ex.message!!.contains("connectivity"))
     }
 
     private fun startServer(handler: (HttpExchange) -> Unit): HttpServer {

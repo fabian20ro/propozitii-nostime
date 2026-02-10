@@ -15,10 +15,12 @@ class RunLockManager {
 
         val channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)
         val lock = tryAcquire(channel)
-        require(lock != null) {
+        if (lock == null) {
             channel.close()
-            "Another step2 process is already writing to ${outputCsvPath.toAbsolutePath()}. " +
-                "Use a different --output-csv or stop the other process first."
+            error(
+                "Another step2 process is already writing to ${outputCsvPath.toAbsolutePath()}. " +
+                    "Use a different --output-csv or stop the other process first."
+            )
         }
 
         return AutoCloseable {

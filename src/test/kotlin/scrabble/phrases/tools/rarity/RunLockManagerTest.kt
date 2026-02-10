@@ -17,7 +17,7 @@ class RunLockManagerTest {
 
         val firstLock = lockManager.acquire(path)
         try {
-            assertThrows(IllegalArgumentException::class.java) {
+            assertThrows(IllegalStateException::class.java) {
                 lockManager.acquire(path)
             }
         } finally {

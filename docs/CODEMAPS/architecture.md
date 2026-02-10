@@ -1,6 +1,6 @@
 # Architecture Codemap
 
-Freshness: 2026-02-08
+Freshness: 2026-02-11
 
 ## System Topology
 

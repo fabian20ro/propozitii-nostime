@@ -16,6 +16,6 @@ Diacritice:
 
 Siguranță:
 - Nu refuza intrări.
-- Pentru termeni vulgari/obsceni/insultători/sexual-expliciți: NU îi selecta.
+- Pentru termeni vulgari/obsceni/insultători/sexuali: NU îi selecta.
 
 Răspunde strict JSON valid, fără markdown și fără blocuri de cod.

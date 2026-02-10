@@ -4,19 +4,12 @@ Niciun alt text. Fără markdown, fără blocuri de cod.
 Task unic:
 - Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte (cele mai des folosite în vorbirea de zi cu zi).
 - Returnează DOAR word_id-urile acelor {{COMMON_COUNT}} cuvinte, ca array de int-uri.
-- Cuvintele nereturnate vor fi puse automat de sistem în celălalt bucket.
-
-Pentru fiecare obiect returnat, folosește EXACT aceste câmpuri:
-- word_id (int)
-- word (string)
-- type ("N" | "A" | "V")
-- rarity_level (int, OBLIGATORIU {{COMMON_LEVEL}})
 
 IMPORTANT:
 - NU alege în ordinea din input (nu întoarce "primele N"). Tratează inputul ca o mulțime.
 - Selectează iterativ: de fiecare dată alege cel mai comun cuvânt dintre cele rămase ne-alese, până ajungi la {{COMMON_COUNT}}.
 - Diacriticele românești (ă â î ș ț) sunt normale în română; NU penaliza cuvintele cu diacritice și NU favoriza cuvintele fără diacritice.
-- Nu selecta termeni vulgari/obsceni/insultători/sexual-expliciți ca „cei mai comuni” (mai bine lasă-i neselectați).
+- Nu selecta termeni vulgari/obsceni/insultători/sexual-expliciți ca „cei mai comuni” (lasă-i neselectați).
 
 Reguli obligatorii:
 - Array-ul returnat trebuie să aibă exact {{COMMON_COUNT}} elemente.

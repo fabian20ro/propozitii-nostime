@@ -3,7 +3,6 @@ package scrabble.phrases.tools.rarity
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.math.roundToInt
 
 fun resolveStep(args: Array<String>): Pair<String, List<String>> {
     val stepFromProperty = System.getProperty("rarity.step")
@@ -69,7 +68,7 @@ fun median(values: List<Int>): Int {
     return if (sorted.size % 2 == 1) {
         sorted[mid]
     } else {
-        ((sorted[mid - 1] + sorted[mid]) / 2.0).roundToInt()
+        Math.round((sorted[mid - 1] + sorted[mid]) / 2.0).toInt()
     }
 }
 
