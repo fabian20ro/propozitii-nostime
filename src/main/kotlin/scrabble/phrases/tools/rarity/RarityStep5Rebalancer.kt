@@ -110,7 +110,18 @@ private data class TransitionSummary(
     val eligible: Int,
     val targetAssigned: Int,
     val switchedCount: Int
-)
+) {
+    constructor(
+        transition: LevelTransition,
+        eligible: Int,
+        targetAssigned: Int
+    ) : this(
+        transition = transition,
+        eligible = eligible,
+        targetAssigned = targetAssigned,
+        switchedCount = 0
+    )
+}
 
 private data class Step5Logs(
     val runLogPath: Path,
