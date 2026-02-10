@@ -1,33 +1,42 @@
 Returnează DOAR JSON valid: un ARRAY de obiecte.
 Niciun alt text. Fără markdown, fără blocuri de cod.
 
-Pentru fiecare intrare, output-ul trebuie să conțină EXACT aceste câmpuri:
+Task unic:
+- Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte.
+- Returnează DOAR aceste {{COMMON_COUNT}} cuvinte.
+- Cuvintele nereturnate vor fi puse automat de sistem în celălalt bucket.
+- Nu întoarce rezultate pentru toate intrările.
+
+Exemplu conceptual:
+- Dacă ai 60 de cuvinte și COMMON_COUNT=15, întorci doar 15 obiecte (cele selectate), nu 60.
+
+Pentru fiecare obiect returnat, folosește EXACT aceste câmpuri:
 - word_id (int)
 - word (string)
 - type ("N" | "A" | "V")
-- rarity_level (int, permis DOAR {{TO_LEVEL}} sau {{OTHER_LEVEL}})
+- rarity_level (int, OBLIGATORIU {{COMMON_LEVEL}})
 - tag ("common|less_common|rare|technical|regional|archaic|uncertain")
 - confidence (număr 0.0..1.0)
 
 Reguli obligatorii:
-- Un rezultat pentru fiecare intrare (același număr total).
-- Păstrează ordinea intrărilor și word_id-urile identice.
-- Păstrează `word` și `type` identice cu input-ul.
-- Semantica nivelurilor este strictă: nivel numeric mai mic = cuvânt mai comun; nivel numeric mai mare = cuvânt mai rar.
-- TO_LEVEL este nivelul țintă care trebuie alocat la EXACT {{TARGET_COUNT}} intrări (indiferent dacă TO_LEVEL este mai mic sau mai mare decât OTHER_LEVEL).
-- Exact {{TARGET_COUNT}} intrări trebuie să aibă rarity_level={{TO_LEVEL}}.
-- TOATE celelalte intrări au rarity_level={{OTHER_LEVEL}}.
+- Returnează doar subsetul de {{COMMON_COUNT}} item-uri.
+- Pentru item-urile returnate, păstrează `word_id`, `word`, `type` identice cu input-ul.
+- Toate obiectele returnate trebuie să aibă rarity_level={{COMMON_LEVEL}}.
 - Nu folosi altă valoare pentru rarity_level.
-- Alege pentru {{TO_LEVEL}} cuvintele cele mai potrivite pentru nivelul țintă din batch.
+- Alege strict cele mai comune {{COMMON_COUNT}} cuvinte din batch.
+- Când ești indecis între două cuvinte, aplică prioritate astfel:
+  1) uz mai frecvent în româna contemporană generală
+  2) non-tehnic și non-regional
+  3) word_id mai mic (tie-break final)
 - Clasifică inclusiv termeni vulgari/obsceni; nu omite niciun item.
-- Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, preferă nivelul numeric mai mare dintre {{TO_LEVEL}} și {{OTHER_LEVEL}}.
+- Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi include printre cele mai comune.
 - Fără duplicate de word_id.
 - Nu folosi `null` și nu omite niciun câmp obligatoriu.
 - Fără text înainte/după JSON.
 
 Verificare internă obligatorie înainte de răspuns:
-- count(rarity_level={{TO_LEVEL}}) == {{TARGET_COUNT}}
-- count(rarity_level={{OTHER_LEVEL}}) == total_intrări - {{TARGET_COUNT}}
+- total_obiecte_returnate == {{COMMON_COUNT}}
+- count(rarity_level={{COMMON_LEVEL}}) == {{COMMON_COUNT}}
 
 Intrări:
 {{INPUT_JSON}}

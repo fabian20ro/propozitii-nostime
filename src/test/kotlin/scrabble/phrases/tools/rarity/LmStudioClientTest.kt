@@ -211,6 +211,55 @@ class LmStudioClientTest {
     }
 
     @Test
+    fun allow_partial_results_returns_sparse_batch_without_recursive_retry() {
+        val requests = mutableListOf<String>()
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+            respond(
+                exchange,
+                200,
+                successResponse(
+                    """
+                    [
+                      {"word_id":1,"word":"cuvant1","type":"N","rarity_level":2,"tag":"common","confidence":0.8}
+                    ]
+                    """.trimIndent()
+                )
+            )
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+
+            val scored = client.scoreBatchResilient(
+                batch = listOf(
+                    BaseWordRow(1, "cuvant1", "N"),
+                    BaseWordRow(2, "cuvant2", "N")
+                ),
+                context = ctx(
+                    runSlug = "run_partial_allowed",
+                    endpoint = endpoint,
+                    maxRetries = 2,
+                    runLogPath = tempDir.resolve("run_partial_allowed.jsonl"),
+                    failedLogPath = tempDir.resolve("failed_partial_allowed.jsonl"),
+                    maxTokens = 200
+                ).copy(
+                    allowPartialResults = true,
+                    expectedJsonItems = 1
+                )
+            )
+
+            assertEquals(1, scored.size)
+            assertEquals(1, scored.first().wordId)
+            assertEquals(1, requests.size)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun parses_top_level_array_content() {
         val server = startServer { exchange ->
             respond(

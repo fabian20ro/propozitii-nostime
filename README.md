@@ -145,6 +145,7 @@ Step5 integration tips:
 - Pair mode is available via `--from-level <n> --from-level-high <n+1> --to-level <n|n+1>`.
 - Transition string supports pair tokens too (example: `--transitions "2-3:2"`).
 - Pair mode batches are sampled using the initial source mix (for example, 25/75 source buckets keep ~25/75 sampling per batch).
+- Step5 prompt is sparse by design: LM returns only `target_level` words for each batch, while the remaining batch words are assigned automatically to the companion level.
 - Rebalance output can feed directly into:
   - `step3` as a run CSV (if source was a Step2 run CSV),
   - or `step4` upload (uses `final_level` when present).

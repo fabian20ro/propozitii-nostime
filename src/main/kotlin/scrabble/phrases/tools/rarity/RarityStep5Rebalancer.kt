@@ -16,17 +16,19 @@ const val REBALANCE_FROM_LEVEL_PLACEHOLDER: String = "{{FROM_LEVEL}}"
 const val REBALANCE_TO_LEVEL_PLACEHOLDER: String = "{{TO_LEVEL}}"
 const val REBALANCE_OTHER_LEVEL_PLACEHOLDER: String = "{{OTHER_LEVEL}}"
 const val REBALANCE_TARGET_COUNT_PLACEHOLDER: String = "{{TARGET_COUNT}}"
+const val REBALANCE_COMMON_LEVEL_PLACEHOLDER: String = "{{COMMON_LEVEL}}"
+const val REBALANCE_COMMON_COUNT_PLACEHOLDER: String = "{{COMMON_COUNT}}"
 
 val REBALANCE_SYSTEM_PROMPT: String =
     """
-    Ești un clasificator lexical strict pentru limba română.
-    Task-ul tău este doar repartizarea unui batch între două niveluri fixe.
-    Semantica numerică este obligatorie: nivel numeric mai mic = cuvânt mai comun, nivel numeric mai mare = cuvânt mai rar.
-    Respectă exact cerințele numerice din promptul utilizatorului.
+    Ești evaluator lexical pentru limba română.
+    Primești un batch de cuvinte și trebuie să alegi DOAR cuvintele cele mai comune din acel batch.
+    Gândește exact așa: „din această listă, care sunt cele N cele mai comune cuvinte?”.
+    Tu alegi doar subsetul comun; caller-ul face maparea finală pe bucket-uri.
+    Respectă strict numărul cerut, fără explicații, fără text extra.
     Clasifică inclusiv termeni vulgari/obsceni; nu refuza intrări.
-    Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, preferă nivelul numeric mai mare dintre cele două niveluri permise în batch.
-    Nu adăuga explicații.
-    Răspunde strict JSON valid, fără markdown, fără blocuri de cod.
+    Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi considera printre cei mai comuni.
+    Răspunde strict JSON valid, fără markdown și fără blocuri de cod.
     """.trimIndent()
 
 val REBALANCE_USER_PROMPT_TEMPLATE: String =
@@ -34,33 +36,42 @@ val REBALANCE_USER_PROMPT_TEMPLATE: String =
     Returnează DOAR JSON valid: un ARRAY de obiecte.
     Niciun alt text. Fără markdown, fără blocuri de cod.
 
-    Pentru fiecare intrare, output-ul trebuie să conțină EXACT aceste câmpuri:
+    Task unic:
+    - Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte.
+    - Returnează DOAR aceste {{COMMON_COUNT}} cuvinte.
+    - Cuvintele nereturnate vor fi puse automat de sistem în celălalt bucket.
+    - Nu întoarce rezultate pentru toate intrările.
+
+    Exemplu conceptual:
+    - Dacă ai 60 de cuvinte și COMMON_COUNT=15, întorci doar 15 obiecte (cele selectate), nu 60.
+
+    Pentru fiecare obiect returnat, folosește EXACT aceste câmpuri:
     - word_id (int)
     - word (string)
     - type ("N" | "A" | "V")
-    - rarity_level (int, permis DOAR {{TO_LEVEL}} sau {{OTHER_LEVEL}})
+    - rarity_level (int, OBLIGATORIU {{COMMON_LEVEL}})
     - tag ("common|less_common|rare|technical|regional|archaic|uncertain")
     - confidence (număr 0.0..1.0)
 
     Reguli obligatorii:
-    - Un rezultat pentru fiecare intrare (același număr total).
-    - Păstrează ordinea intrărilor și word_id-urile identice.
-    - Păstrează `word` și `type` identice cu input-ul.
-    - Semantica nivelurilor este strictă: nivel numeric mai mic = cuvânt mai comun; nivel numeric mai mare = cuvânt mai rar.
-    - TO_LEVEL este nivelul țintă care trebuie alocat la EXACT {{TARGET_COUNT}} intrări (indiferent dacă TO_LEVEL este mai mic sau mai mare decât OTHER_LEVEL).
-    - Exact {{TARGET_COUNT}} intrări trebuie să aibă rarity_level={{TO_LEVEL}}.
-    - TOATE celelalte intrări au rarity_level={{OTHER_LEVEL}}.
+    - Returnează doar subsetul de {{COMMON_COUNT}} item-uri.
+    - Pentru item-urile returnate, păstrează `word_id`, `word`, `type` identice cu input-ul.
+    - Toate obiectele returnate trebuie să aibă rarity_level={{COMMON_LEVEL}}.
     - Nu folosi altă valoare pentru rarity_level.
-    - Alege pentru {{TO_LEVEL}} cuvintele cele mai potrivite pentru nivelul țintă din batch.
+    - Alege strict cele mai comune {{COMMON_COUNT}} cuvinte din batch.
+    - Când ești indecis între două cuvinte, aplică prioritate astfel:
+      1) uz mai frecvent în româna contemporană generală
+      2) non-tehnic și non-regional
+      3) word_id mai mic (tie-break final)
     - Clasifică inclusiv termeni vulgari/obsceni; nu omite niciun item.
-    - Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, preferă nivelul numeric mai mare dintre {{TO_LEVEL}} și {{OTHER_LEVEL}}.
+    - Pentru termeni vulgari/obsceni/insultători/sexual-expliciți, NU îi include printre cele mai comune.
     - Fără duplicate de word_id.
     - Nu folosi `null` și nu omite niciun câmp obligatoriu.
     - Fără text înainte/după JSON.
 
     Verificare internă obligatorie înainte de răspuns:
-    - count(rarity_level={{TO_LEVEL}}) == {{TARGET_COUNT}}
-    - count(rarity_level={{OTHER_LEVEL}}) == total_intrări - {{TARGET_COUNT}}
+    - total_obiecte_returnate == {{COMMON_COUNT}}
+    - count(rarity_level={{COMMON_LEVEL}}) == {{COMMON_COUNT}}
 
     Intrări:
     {{INPUT_JSON}}
@@ -136,7 +147,8 @@ private data class SwitchedWordEvent(
     val type: String,
     val previousLevel: Int,
     val nextLevel: Int,
-    val rule: String
+    val rule: String,
+    val selectedByLlm: Boolean
 )
 
 private data class Step5ResumeStats(
@@ -304,24 +316,29 @@ class RarityStep5Rebalancer(
                     expectedTotal = expectedTargetTotal
                 )
                 processed += batch.size
-                if (targetCount <= 0) {
-                    batch.forEach { runtime.processedWordIds += it.wordId }
-                    continue
-                }
-
-                val scored = scoreTransitionBatch(
-                    options = options,
-                    resolvedEndpoint = resolvedEndpoint,
-                    logs = logs,
-                    transition = transition,
-                    targetCount = targetCount,
-                    batch = batch
-                )
-                val selectedWordIds = selectTargetWordIds(batch, scored, transition, targetCount)
                 val batchMix = formatBatchSourceMix(batch, runtime)
+                val commonLevel = minOf(transition.toLevel, transition.otherLevel())
+                val commonCount = if (transition.toLevel == commonLevel) targetCount else (batch.size - targetCount)
+
+                val selectedCommonWordIds = when {
+                    commonCount <= 0 -> emptySet()
+                    commonCount >= batch.size -> batch.map { it.wordId }.toSet()
+                    else -> {
+                        val scored = scoreTransitionBatch(
+                            options = options,
+                            resolvedEndpoint = resolvedEndpoint,
+                            logs = logs,
+                            transition = transition,
+                            commonCount = commonCount,
+                            commonLevel = commonLevel,
+                            batch = batch
+                        )
+                        selectCommonWordIds(batch, scored, commonLevel, commonCount)
+                    }
+                }
                 val switchedEvents = applyBatchAssignments(
                     batch = batch,
-                    selectedWordIds = selectedWordIds,
+                    selectedCommonWordIds = selectedCommonWordIds,
                     transition = transition,
                     runtime = runtime,
                     options = options,
@@ -333,7 +350,8 @@ class RarityStep5Rebalancer(
                     processedWordIds = batch.map { it.wordId },
                     switchedEvents = switchedEvents
                 )
-                targetAssigned += selectedWordIds.size
+                val assignedToTarget = if (transition.toLevel == commonLevel) selectedCommonWordIds.size else (batch.size - selectedCommonWordIds.size)
+                targetAssigned += assignedToTarget
                 switchedCount += switchedEvents.size
                 printSwitchedEvents(
                     options = options,
@@ -439,7 +457,8 @@ class RarityStep5Rebalancer(
         resolvedEndpoint: ResolvedEndpoint,
         logs: Step5Logs,
         transition: LevelTransition,
-        targetCount: Int,
+        commonCount: Int,
+        commonLevel: Int,
         batch: List<RebalanceWord>
     ): List<ScoreResult> {
         val scoringContext = ScoringContext(
@@ -450,35 +469,58 @@ class RarityStep5Rebalancer(
             timeoutSeconds = options.timeoutSeconds,
             runLogPath = logs.runLogPath,
             failedLogPath = logs.failedLogPath,
-            systemPrompt = renderTemplate(options.systemPrompt, transition, targetCount),
-            userTemplate = renderTemplate(options.userTemplate, transition, targetCount),
+            systemPrompt = renderTemplate(
+                template = options.systemPrompt,
+                transition = transition,
+                commonCount = commonCount,
+                commonLevel = commonLevel
+            ),
+            userTemplate = renderTemplate(
+                template = options.userTemplate,
+                transition = transition,
+                commonCount = commonCount,
+                commonLevel = commonLevel
+            ),
             flavor = resolvedEndpoint.flavor,
-            maxTokens = options.maxTokens
+            maxTokens = options.maxTokens,
+            allowPartialResults = true,
+            expectedJsonItems = commonCount
         )
 
         val baseRows = batch.map { BaseWordRow(wordId = it.wordId, word = it.word, type = it.type) }
         return lmClient.scoreBatchResilient(baseRows, scoringContext)
     }
 
-    private fun selectTargetWordIds(
+    private fun selectCommonWordIds(
         batch: List<RebalanceWord>,
         scored: List<ScoreResult>,
-        transition: LevelTransition,
-        targetCount: Int
+        commonLevel: Int,
+        commonCount: Int
     ): Set<Int> {
         val batchIds = batch.map { it.wordId }.toSet()
         val scoredById = scored.associateBy { it.wordId }
 
         val selected = scored
             .asSequence()
-            .filter { it.rarityLevel == transition.toLevel }
+            .filter { it.rarityLevel == commonLevel }
             .map { it.wordId }
             .filter { it in batchIds }
             .distinct()
-            .take(targetCount)
+            .sortedWith(compareByDescending<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
+            .take(commonCount)
             .toMutableSet()
 
-        if (selected.size >= targetCount) {
+        if (selected.isEmpty()) {
+            scored.asSequence()
+                .map { it.wordId }
+                .filter { it in batchIds }
+                .distinct()
+                .sortedWith(compareByDescending<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
+                .take(commonCount)
+                .forEach { selected += it }
+        }
+
+        if (selected.size >= commonCount) {
             return selected
         }
 
@@ -486,8 +528,8 @@ class RarityStep5Rebalancer(
             .asSequence()
             .map { it.wordId }
             .filterNot { it in selected }
-            .sortedWith(compareBy<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
-            .take(targetCount - selected.size)
+            .sortedWith(compareByDescending<Int> { scoredById[it]?.confidence ?: 0.5 }.thenBy { it })
+            .take(commonCount - selected.size)
             .toList()
         selected += fallback
         return selected
@@ -495,16 +537,17 @@ class RarityStep5Rebalancer(
 
     private fun applyBatchAssignments(
         batch: List<RebalanceWord>,
-        selectedWordIds: Set<Int>,
+        selectedCommonWordIds: Set<Int>,
         transition: LevelTransition,
         runtime: RebalanceRuntime,
         options: Step5Options,
         logs: Step5Logs
     ): List<SwitchedWordEvent> {
         val switchedEvents = mutableListOf<SwitchedWordEvent>()
-        val otherLevel = transition.otherLevel()
+        val commonLevel = minOf(transition.toLevel, transition.otherLevel())
+        val rareLevel = maxOf(transition.toLevel, transition.otherLevel())
         batch.forEach { word ->
-            val nextLevel = if (word.wordId in selectedWordIds) transition.toLevel else otherLevel
+            val nextLevel = if (word.wordId in selectedCommonWordIds) commonLevel else rareLevel
             val previousLevel = runtime.levelsById[word.wordId]
             runtime.levelsById[word.wordId] = nextLevel
             runtime.distribution.setLevel(previousLevel, nextLevel)
@@ -518,7 +561,8 @@ class RarityStep5Rebalancer(
                     type = word.type,
                     previousLevel = previousLevel ?: -1,
                     nextLevel = nextLevel,
-                    rule = rule
+                    rule = rule,
+                    selectedByLlm = word.wordId in selectedCommonWordIds
                 )
                 switchedEvents += switched
                 logSwitchedWord(
@@ -547,6 +591,7 @@ class RarityStep5Rebalancer(
             "type" to switched.type,
             "previous_level" to switched.previousLevel,
             "new_level" to switched.nextLevel,
+            "selected_by_llm" to switched.selectedByLlm,
             "transition" to "${transition.describeSources()}->${transition.toLevel}"
         )
         appendJsonLine(logs.switchedWordsLogPath, payload)
@@ -558,8 +603,14 @@ class RarityStep5Rebalancer(
         switchedEvents: List<SwitchedWordEvent>
     ) {
         if (switchedEvents.isEmpty()) return
-        val promoted = switchedEvents.filter { it.nextLevel > it.previousLevel }
-        val downgraded = switchedEvents.filter { it.nextLevel < it.previousLevel }
+        // In sparse Step 5 mode:
+        // - LLM returns only the target subset.
+        // - Non-returned items are auto-assigned to the companion level.
+        // Keep terminal labels stable for operators:
+        //   promoted = not returned by LLM (auto-assigned companion bucket)
+        //   downgraded = returned by LLM (explicit target bucket)
+        val promoted = switchedEvents.filter { !it.selectedByLlm }
+        val downgraded = switchedEvents.filter { it.selectedByLlm }
         println(
             "Step 5 switched run='${options.runSlug}' transition=${transition.describeSources()}->${transition.toLevel} " +
                 "changed=${switchedEvents.size}"
@@ -687,13 +738,20 @@ class RarityStep5Rebalancer(
         runCsvRepository.writeTableAtomic(options.outputCsvPath, outputHeaders, outputRows)
     }
 
-    private fun renderTemplate(template: String, transition: LevelTransition, targetCount: Int): String {
+    private fun renderTemplate(
+        template: String,
+        transition: LevelTransition,
+        commonCount: Int,
+        commonLevel: Int
+    ): String {
         val sourceLabel = transition.describeSources()
         return template
             .replace(REBALANCE_FROM_LEVEL_PLACEHOLDER, sourceLabel)
             .replace(REBALANCE_TO_LEVEL_PLACEHOLDER, transition.toLevel.toString())
             .replace(REBALANCE_OTHER_LEVEL_PLACEHOLDER, transition.otherLevel().toString())
-            .replace(REBALANCE_TARGET_COUNT_PLACEHOLDER, targetCount.toString())
+            .replace(REBALANCE_TARGET_COUNT_PLACEHOLDER, commonCount.toString())
+            .replace(REBALANCE_COMMON_COUNT_PLACEHOLDER, commonCount.toString())
+            .replace(REBALANCE_COMMON_LEVEL_PLACEHOLDER, commonLevel.toString())
     }
 
     private fun resolveLevelColumn(headers: List<String>): String {

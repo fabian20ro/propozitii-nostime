@@ -13,7 +13,9 @@ data class ScoringContext(
     val systemPrompt: String,
     val userTemplate: String,
     val flavor: LmApiFlavor,
-    val maxTokens: Int
+    val maxTokens: Int,
+    val allowPartialResults: Boolean = false,
+    val expectedJsonItems: Int? = null
 )
 
 interface LmClient {

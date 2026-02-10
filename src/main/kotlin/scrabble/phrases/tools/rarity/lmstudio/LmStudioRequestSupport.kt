@@ -27,7 +27,8 @@ class LmStudioRequestBuilder(
         responseFormatMode: ResponseFormatMode,
         includeReasoningControls: Boolean,
         config: LmModelConfig,
-        maxTokens: Int
+        maxTokens: Int,
+        expectedItems: Int? = null
     ): String {
         val entriesJson = mapper.writeValueAsString(
             batch.map {
@@ -78,7 +79,7 @@ class LmStudioRequestBuilder(
         when (responseFormatMode) {
             ResponseFormatMode.NONE -> Unit
             ResponseFormatMode.JSON_OBJECT -> payload["response_format"] = mapOf("type" to "json_object")
-            ResponseFormatMode.JSON_SCHEMA -> payload["response_format"] = buildJsonSchemaResponseFormat(batch.size)
+            ResponseFormatMode.JSON_SCHEMA -> payload["response_format"] = buildJsonSchemaResponseFormat(expectedItems ?: batch.size)
         }
 
         return mapper.writeValueAsString(payload)

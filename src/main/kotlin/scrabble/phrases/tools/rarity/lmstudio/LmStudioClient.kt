@@ -67,6 +67,7 @@ class LmStudioClient(
         }
 
         if (direct.scores.isNotEmpty()) {
+            if (ctx.allowPartialResults) return direct.scores
             if (direct.unresolved.isEmpty()) return direct.scores
             val retried = scoreBatchResilientInternal(direct.unresolved, ctx, depth + 1)
             return direct.scores + retried
@@ -116,7 +117,8 @@ class LmStudioClient(
                 responseFormatMode = currentResponseFormatMode,
                 includeReasoningControls = includeReasoningControls,
                 config = config,
-                maxTokens = ctx.maxTokens
+                maxTokens = ctx.maxTokens,
+                expectedItems = ctx.expectedJsonItems
             )
 
             try {
@@ -144,6 +146,7 @@ class LmStudioClient(
                         "batch_size" to batch.size,
                         "parsed_count" to parsed.scores.size,
                         "unresolved_count" to parsed.unresolved.size,
+                        "allow_partial_results" to ctx.allowPartialResults,
                         "disable_response_format_after_partial_parse" to disableJsonSchemaAfterPartialParse,
                         "response_format_mode" to currentResponseFormatMode.name.lowercase(),
                         "reasoning_controls_enabled" to includeReasoningControls,

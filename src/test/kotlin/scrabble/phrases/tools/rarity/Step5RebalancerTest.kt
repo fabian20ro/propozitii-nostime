@@ -516,6 +516,63 @@ class Step5RebalancerTest {
     }
 
     @Test
+    fun rebalance_keeps_distribution_when_batch_already_matches_target_count() {
+        val inputCsv = tempDir.resolve("step2_run_exact_target_mix.csv")
+        val outputCsv = tempDir.resolve("step5_exact_target_mix.csv")
+
+        repo.appendRunRows(
+            inputCsv,
+            (1..24).map { id -> testRunRow(id = id, rarityLevel = 3, word = "w$id") } +
+                (25..60).map { id -> testRunRow(id = id, rarityLevel = 4, word = "w$id") }
+        )
+
+        val lm = FakeLmClient {
+            ScoreResult(
+                wordId = it.wordId,
+                word = it.word,
+                type = it.type,
+                rarityLevel = 4, // opposite signal; should be ignored when already on exact target
+                tag = "rare",
+                confidence = 0.2
+            )
+        }
+
+        val step5 = RarityStep5Rebalancer(
+            runCsvRepository = repo,
+            lmClient = lm,
+            outputDir = tempDir.resolve("build/rarity")
+        )
+
+        step5.execute(
+            Step5Options(
+                runSlug = "step5_exact_target_mix",
+                model = MODEL_GPT_OSS_20B,
+                inputCsvPath = inputCsv,
+                outputCsvPath = outputCsv,
+                batchSize = 60,
+                lowerRatio = 0.4, // 24 of 60 should stay at level 3
+                maxRetries = 1,
+                timeoutSeconds = 20,
+                maxTokens = 600,
+                skipPreflight = true,
+                endpointOption = null,
+                baseUrlOption = null,
+                seed = 10L,
+                transitions = listOf(LevelTransition(fromLevel = 3, toLevel = 3, fromLevelUpper = 4)),
+                systemPrompt = REBALANCE_SYSTEM_PROMPT,
+                userTemplate = REBALANCE_USER_PROMPT_TEMPLATE
+            )
+        )
+
+        val rows = repo.readTable(outputCsv).toRowMaps()
+        val level3Count = rows.count { it["final_level"] == "3" }
+        val level4Count = rows.count { it["final_level"] == "4" }
+        assertEquals(24, level3Count)
+        assertEquals(36, level4Count)
+        assertEquals(1, lm.scoreCalls)
+    }
+
+    @Test
     fun rebalance_uses_cumulative_target_compensation_across_batches() {
         val inputCsv = tempDir.resolve("step2_run_125.csv")
         val outputCsv = tempDir.resolve("step5_run_125.csv")
