@@ -10,6 +10,7 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.time.OffsetDateTime
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 private const val MAX_RECURSION_DEPTH = 10
 private const val JSON_SCHEMA_UNRESOLVED_DISABLE_RATIO = 0.2
@@ -58,6 +59,28 @@ class LmStudioClient(
             return emptyList()
         }
 
+        // Selection mode (Step 5): the caller expects an exact count of selected ids for this batch.
+        // If recursion splits the batch, expectedJsonItems must be rebalanced across sub-batches.
+        if (ctx.outputMode == ScoringOutputMode.SELECTED_WORD_IDS) {
+            val expected = ctx.expectedJsonItems
+                ?: throw IllegalArgumentException("expectedJsonItems is required for outputMode=SELECTED_WORD_IDS")
+            val forced = ctx.forcedRarityLevel
+                ?: throw IllegalArgumentException("forcedRarityLevel is required for outputMode=SELECTED_WORD_IDS")
+            if (expected <= 0) return emptyList()
+            if (expected >= batch.size) {
+                return batch.map {
+                    ScoreResult(
+                        wordId = it.wordId,
+                        word = it.word,
+                        type = it.type,
+                        rarityLevel = forced,
+                        tag = "common",
+                        confidence = 0.9
+                    )
+                }
+            }
+        }
+
         val direct = tryScoreBatch(batch, ctx)
 
         if (direct.connectivityFailure) {
@@ -79,9 +102,30 @@ class LmStudioClient(
         }
 
         val splitIndex = batch.size / 2
-        val left = scoreBatchResilientInternal(batch.subList(0, splitIndex), ctx, depth + 1)
-        val right = scoreBatchResilientInternal(batch.subList(splitIndex, batch.size), ctx, depth + 1)
+        val leftBatch = batch.subList(0, splitIndex)
+        val rightBatch = batch.subList(splitIndex, batch.size)
+
+        val (leftCtx, rightCtx) = if (ctx.outputMode == ScoringOutputMode.SELECTED_WORD_IDS) {
+            val totalExpected = ctx.expectedJsonItems
+                ?: throw IllegalArgumentException("expectedJsonItems is required for outputMode=SELECTED_WORD_IDS")
+            val leftExpected = computeSplitExpected(totalExpected, leftBatch.size, batch.size)
+            val rightExpected = totalExpected - leftExpected
+            ctx.copy(expectedJsonItems = leftExpected) to ctx.copy(expectedJsonItems = rightExpected)
+        } else {
+            ctx to ctx
+        }
+
+        val left = scoreBatchResilientInternal(leftBatch, leftCtx, depth + 1)
+        val right = scoreBatchResilientInternal(rightBatch, rightCtx, depth + 1)
         return left + right
+    }
+
+    private fun computeSplitExpected(totalExpected: Int, leftSize: Int, totalSize: Int): Int {
+        if (totalExpected <= 0 || leftSize <= 0 || totalSize <= 0) return 0
+        if (leftSize >= totalSize) return totalExpected
+        // Proportional allocation with a deterministic tie-break.
+        val raw = (totalExpected.toDouble() * leftSize.toDouble()) / totalSize.toDouble()
+        return raw.roundToInt().coerceIn(0, leftSize)
     }
 
     private fun logFailedWord(ctx: ScoringContext, word: BaseWordRow, error: String, vararg extra: Pair<String, Any?>) {
