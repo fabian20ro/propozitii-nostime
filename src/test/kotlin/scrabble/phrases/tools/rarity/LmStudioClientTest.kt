@@ -260,6 +260,75 @@ class LmStudioClientTest {
     }
 
     @Test
+    fun selection_mode_splits_expected_items_across_recursive_batch_splits() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            // 0) force json_schema (client starts with json_object)
+            // 1) force a split on the full batch call
+            // 2..n) succeed for the sub-batches
+            when (callIndex.getAndIncrement()) {
+                0 -> {
+                    respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                    return@startServer
+                }
+                1 -> {
+                    respond(exchange, 500, """{"error":"force split"}""")
+                    return@startServer
+                }
+            }
+
+            val requestJson = mapper.readTree(requestBody)
+            val content = requestJson.path("messages").path(1).path("content").asText("")
+            val start = content.indexOf('[')
+            val end = content.lastIndexOf(']')
+            val entriesJson = content.substring(start, end + 1)
+            val ids = mapper.readTree(entriesJson).mapNotNull { it.path("word_id").asInt() }
+
+            val schema = requestJson.path("response_format").path("json_schema").path("schema")
+            val expected = schema.path("minItems").asInt()
+            val selected = ids.sorted().take(expected)
+            respond(exchange, 200, successResponseRawContent(mapper.writeValueAsString(selected)))
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val context = ctx(
+                runSlug = "run_select_split",
+                model = MODEL_GPT_OSS_20B,
+                endpoint = endpoint,
+                maxRetries = 2,
+                runLogPath = tempDir.resolve("run_select_split.jsonl"),
+                failedLogPath = tempDir.resolve("failed_select_split.jsonl"),
+                maxTokens = 200
+            ).copy(
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 2,
+                expectedJsonItems = 15
+            )
+
+            val batch = (1..60).map { BaseWordRow(it, "w$it", "N") }
+            val scored = client.scoreBatchResilient(batch = batch, context = context)
+
+            assertEquals(15, scored.size)
+            assertEquals(15, scored.map { it.wordId }.distinct().size)
+            assertTrue(scored.all { it.rarityLevel == 2 })
+
+            // 400 forces json_schema + 500 forces split + 2 split calls
+            assertEquals(4, requests.size)
+            val req1 = mapper.readTree(requests[2]).path("response_format").path("json_schema").path("schema")
+            val req2 = mapper.readTree(requests[3]).path("response_format").path("json_schema").path("schema")
+            assertEquals(15, req1.path("minItems").asInt() + req2.path("minItems").asInt())
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun parses_top_level_array_content() {
         val server = startServer { exchange ->
             respond(
