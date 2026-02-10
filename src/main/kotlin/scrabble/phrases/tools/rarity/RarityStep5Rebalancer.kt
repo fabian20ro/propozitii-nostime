@@ -603,26 +603,20 @@ class RarityStep5Rebalancer(
         switchedEvents: List<SwitchedWordEvent>
     ) {
         if (switchedEvents.isEmpty()) return
-        // In sparse Step 5 mode:
-        // - LLM returns only the target subset.
-        // - Non-returned items are auto-assigned to the companion level.
-        // Keep terminal labels stable for operators:
-        //   promoted = not returned by LLM (auto-assigned companion bucket)
-        //   downgraded = returned by LLM (explicit target bucket)
-        val promoted = switchedEvents.filter { !it.selectedByLlm }
-        val downgraded = switchedEvents.filter { it.selectedByLlm }
+        val selected = switchedEvents.filter { it.selectedByLlm }
+        val notSelected = switchedEvents.filterNot { it.selectedByLlm }
         println(
             "Step 5 switched run='${options.runSlug}' transition=${transition.describeSources()}->${transition.toLevel} " +
                 "changed=${switchedEvents.size}"
         )
-        printSwitchedGroup("promoted", promoted)
-        printSwitchedGroup("downgraded", downgraded)
+        printSwitchedGroup("selected", selected)
+        printSwitchedGroup("not_selected", notSelected)
     }
 
     private fun printSwitchedGroup(label: String, events: List<SwitchedWordEvent>) {
         if (events.isEmpty()) return
         events.chunked(5).forEachIndexed { index, chunk ->
-            val prefix = if (index == 0) "  $label: " else "  "
+            val prefix = if (index == 0) "  $label: " else "    "
             val content = chunk.joinToString(" | ") { event ->
                 "${event.word}(${event.previousLevel}->${event.nextLevel})"
             }

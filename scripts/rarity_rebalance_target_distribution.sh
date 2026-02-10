@@ -19,14 +19,14 @@ Usage:
     [--system-prompt-file <path>] \
     [--user-template-file <path>]
 
-Sequence (fixed, as requested):
-  1) levels 1+2 -> level 1 target 2500
-  2) levels 2+3 -> level 2 target 7500
-  3) levels 3+4 -> level 3 target 15000
-  4) levels 4+5 -> level 5 target 30000
-  5) levels 3+4 -> level 3 target 15000
-  6) levels 2+3 -> level 2 target 15000
-  7) levels 1+2 -> level 1 target 2500
+Target distribution (fixed, as requested):
+  level1=2500, level2=7500, level3=15000, level4=22698, level5=30000
+
+Sequence (fixed, stop after step 4):
+  1) levels 1+2 -> level 1 target 2500 (common -> 1, rest -> 2)
+  2) levels 2+3 -> level 2 target 7500 (common -> 2, rest -> 3)
+  3) levels 3+4 -> level 3 target 15000 (common -> 3, rest -> 4)
+  4) levels 4+5 -> level 4 target 22698 (common -> 4, rest -> 5)
 EOF
 }
 
@@ -261,6 +261,11 @@ if [[ "$RESUME" != "true" && "$RESUME" != "false" ]]; then
   exit 1
 fi
 
+# Ensure Gradle uses the intended JDK (this repo expects JDK 21).
+if [[ -z "${JAVA_HOME:-}" && -x /usr/libexec/java_home ]]; then
+  export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
+fi
+
 CURRENT_CSV="$INPUT_CSV"
 
 if [[ "$RESUME" == "true" ]]; then
@@ -288,10 +293,7 @@ echo "$(print_distribution "$CURRENT_CSV")"
 run_step 1 1 2 1 2500
 run_step 2 2 3 2 7500
 run_step 3 3 4 3 15000
-run_step 4 4 5 5 30000
-run_step 5 3 4 3 15000
-run_step 6 2 3 2 15000
-run_step 7 1 2 1 2500
+run_step 4 4 5 4 22698
 
 if [[ -n "$FINAL_OUTPUT_CSV" ]]; then
   cp "$CURRENT_CSV" "$FINAL_OUTPUT_CSV"
