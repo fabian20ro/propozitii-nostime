@@ -114,3 +114,4 @@ Behavior:
 | DB acquisition timeout | 60s | `application.properties` |
 | Prod flyway auto-migrate | disabled | `application.properties` |
 | Health path | `/q/health` | Quarkus config |
+| Rarity range | `minRarity=1..5` (default 1), `rarity=1..5` (default 2) | `PhraseResource.kt` |

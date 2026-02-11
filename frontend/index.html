@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Propoziții Nostime</title>
+    <title>Propoziții Absurde</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="48x48" href="img/icon_48.png">
@@ -20,7 +20,7 @@
 
     <main class="container">
         <header>
-            <h1>Propoziții Nostime</h1>
+            <h1>Propoziții Absurde</h1>
             <p class="subtitle">Generator de propoziții hazlii în limba română</p>
         </header>
 
@@ -32,6 +32,9 @@
                         <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
                         <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
+                    <button class="explain-btn" data-target="haiku-text" aria-label="Explică cu AI">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l4 4-4 4"/></svg>
+                    </button>
                 </div>
                 <div class="sentence" id="haiku-text">
                     <span class="loading">Se încarcă...</span>
@@ -40,13 +43,32 @@
 
             <section class="card">
                 <div class="card-header">
-                    <h2>Cuplet</h2>
-                    <button class="copy-btn" data-target="couplet-text" aria-label="Copiază">
+                    <h2>Distih</h2>
+                    <button class="copy-btn" data-target="distih-text" aria-label="Copiază">
                         <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
                         <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
+                    <button class="explain-btn" data-target="distih-text" aria-label="Explică cu AI">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l4 4-4 4"/></svg>
+                    </button>
                 </div>
-                <div class="sentence" id="couplet-text">
+                <div class="sentence" id="distih-text">
+                    <span class="loading">Se încarcă...</span>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Rimă îmbrățișată</h2>
+                    <button class="copy-btn" data-target="mirror-text" aria-label="Copiază">
+                        <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
+                        <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button class="explain-btn" data-target="mirror-text" aria-label="Explică cu AI">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l4 4-4 4"/></svg>
+                    </button>
+                </div>
+                <div class="sentence" id="mirror-text">
                     <span class="loading">Se încarcă...</span>
                 </div>
             </section>
@@ -57,6 +79,9 @@
                     <button class="copy-btn" data-target="comparison-text" aria-label="Copiază">
                         <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
                         <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button class="explain-btn" data-target="comparison-text" aria-label="Explică cu AI">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l4 4-4 4"/></svg>
                     </button>
                 </div>
                 <div class="sentence" id="comparison-text">
@@ -71,6 +96,9 @@
                         <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
                         <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
+                    <button class="explain-btn" data-target="definition-text" aria-label="Explică cu AI">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l4 4-4 4"/></svg>
+                    </button>
                 </div>
                 <div class="sentence" id="definition-text">
                     <span class="loading">Se încarcă...</span>
@@ -84,42 +112,45 @@
                         <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
                         <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
+                    <button class="explain-btn" data-target="tautogram-text" aria-label="Explică cu AI">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l4 4-4 4"/></svg>
+                    </button>
                 </div>
                 <div class="sentence" id="tautogram-text">
                     <span class="loading">Se încarcă...</span>
                 </div>
             </section>
 
-            <section class="card">
-                <div class="card-header">
-                    <h2>Rimă îmbrățișată</h2>
-                    <button class="copy-btn" data-target="mirror-text" aria-label="Copiază">
-                        <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg>
-                        <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </button>
-                </div>
-                <div class="sentence" id="mirror-text">
-                    <span class="loading">Se încarcă...</span>
-                </div>
-            </section>
         </div>
 
         <div class="controls">
-            <label for="rarity-slider" class="rarity-label">Raritate cuvinte</label>
+            <label class="rarity-label">Raritate cuvinte</label>
             <div class="rarity-row">
                 <span class="scale-label">1 Foarte comun</span>
-                <input
-                    id="rarity-slider"
-                    type="range"
-                    min="1"
-                    max="5"
-                    step="1"
-                    value="2"
-                    aria-label="Nivel raritate cuvinte"
-                >
+                <div class="dual-range">
+                    <input
+                        id="rarity-min"
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value="1"
+                        aria-label="Raritate minimă"
+                    >
+                    <input
+                        id="rarity-max"
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value="2"
+                        aria-label="Raritate maximă"
+                    >
+                    <div class="dual-range-track"></div>
+                </div>
                 <span class="scale-label">5 Foarte rar</span>
             </div>
-            <p id="rarity-value" class="rarity-value">2 - Uzual extins</p>
+            <p id="rarity-value" class="rarity-value">1 (Foarte comun) – 2 (Uzual extins)</p>
         </div>
 
         <div class="actions">

@@ -6,7 +6,7 @@
 ## Entries
 - 2026-02-07: `./gradlew test` failed locally because Testcontainers could not start Ryuk with Colima Docker socket mount (`operation not supported`).
 - 2026-02-07: Full integration test reliability depends on local Docker/Testcontainers setup; use unit-test subsets for quick validation when container runtime is broken.
-- 2026-02-07: Restricting generation to only the top 5000 common words is likely to break rhyme/prefix constraints in `Couplet`, `Mirror`, and `Tautogram`.
+- 2026-02-07: Restricting generation to only the top 5000 common words is likely to break rhyme/prefix constraints in `Mirror` and `Tautogram`.
 - 2026-02-07: `AGENTS.md` should stay minimal as an activation/index file; `CLAUDE.md` is only a pointer to `AGENTS.md`.
 - 2026-02-07: LMStudio OpenAI-compatible `/v1/chat/completions` can reject `response_format: {"type":"json_object"}` with HTTP 400; Step 2 must fallback to plain text JSON prompting when this happens.
 - 2026-02-07: In this setup, Java `HttpClient` calls to `127.0.0.1:1234` timed out while `curl` worked; use direct `HttpURLConnection` + explicit timeouts for LMStudio calls.
@@ -70,3 +70,7 @@
 - 2026-02-11: Regex-based JSON trailing-comma removal (`Regex(",\\s*}")`) doesn't respect string boundaries; commas inside quoted values like `"value,"` get corrupted. Use character-walking with `inString` tracking instead.
 - 2026-02-11: Broad `catch (Exception)` in atomic-move fallback masks real I/O errors (disk full, permissions); narrow to `AtomicMoveNotSupportedException` + `UnsupportedOperationException` only.
 - 2026-02-11: `LmStudioErrorClassifier` had zero unit tests despite driving runtime capability negotiation (response_format fallback, reasoning controls); classifiers with string-matching heuristics need explicit test coverage for each branch.
+- 2026-02-12: Adding `minRarity` to WordRepository required changing every SQL from `rarity_level <= ?` to `rarity_level BETWEEN ? AND ?`; the cumulative count caches still work because `count(min..max) = cumulative(max) - cumulative(min-1)`. Rhyme/prefix caches bypass to DB when `minRarity > 1`.
+- 2026-02-12: Kotlin default parameters (`minRarity: Int = 1`) make the API change fully backward-compatible without touching any existing callers or tests.
+- 2026-02-12: CSS dual-range slider (two overlapping `<input type="range">`) requires `pointer-events: none` on the inputs and `pointer-events: auto` on the thumb pseudo-elements only; the track is a separate div with a dynamic gradient background.
+- 2026-02-12: When migrating localStorage keys (old `rarity-level` to new `rarity-min`/`rarity-max`), check that the new key doesn't already exist before migrating, to avoid overwriting user-set values on repeat visits.

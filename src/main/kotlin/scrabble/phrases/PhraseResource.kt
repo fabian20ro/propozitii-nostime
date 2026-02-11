@@ -11,7 +11,7 @@ import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer
 import scrabble.phrases.decorators.HtmlVerseBreaker
 import scrabble.phrases.decorators.VerseLineCapitalizer
 import scrabble.phrases.providers.ComparisonProvider
-import scrabble.phrases.providers.CoupletProvider
+import scrabble.phrases.providers.DistihProvider
 import scrabble.phrases.providers.DefinitionProvider
 import scrabble.phrases.providers.HaikuProvider
 import scrabble.phrases.providers.ISentenceProvider
@@ -26,61 +26,65 @@ class PhraseResource {
     @Inject
     lateinit var wordRepository: WordRepository
 
-    @GET
-    @Path("/haiku")
-    fun getHaiku(@QueryParam("rarity") rarity: Int?): SentenceResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return SentenceResponse(safeGenerate { decorateVerse(HaikuProvider(wordRepository, maxRarity)).getSentence() })
+    private fun rarityRange(rarity: Int?, minRarity: Int?): Pair<Int, Int> {
+        val max = normalizeRarity(rarity)
+        val min = normalizeRarity(minRarity, default = 1)
+        return Pair(min, max)
+    }
+
+    private fun generateVerse(rarity: Int?, minRarity: Int?, providerFactory: (Int, Int) -> ISentenceProvider): SentenceResponse {
+        val (min, max) = rarityRange(rarity, minRarity)
+        return SentenceResponse(safeGenerate { decorateVerse(providerFactory(min, max)).getSentence() })
+    }
+
+    private fun generateSentence(rarity: Int?, minRarity: Int?, providerFactory: (Int, Int) -> ISentenceProvider): SentenceResponse {
+        val (min, max) = rarityRange(rarity, minRarity)
+        return SentenceResponse(safeGenerate { decorateSentence(providerFactory(min, max)).getSentence() })
     }
 
     @GET
-    @Path("/couplet")
-    fun getCouplet(@QueryParam("rarity") rarity: Int?): SentenceResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return SentenceResponse(safeGenerate { decorateVerse(CoupletProvider(wordRepository, maxRarity)).getSentence() })
-    }
+    @Path("/haiku")
+    fun getHaiku(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
+        generateVerse(rarity, minRarity) { min, max -> HaikuProvider(wordRepository, minRarity = min, maxRarity = max) }
+
+    @GET
+    @Path("/distih")
+    fun getDistih(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
+        generateVerse(rarity, minRarity) { min, max -> DistihProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/comparison")
-    fun getComparison(@QueryParam("rarity") rarity: Int?): SentenceResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return SentenceResponse(safeGenerate { decorateSentence(ComparisonProvider(wordRepository, maxRarity)).getSentence() })
-    }
+    fun getComparison(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
+        generateSentence(rarity, minRarity) { min, max -> ComparisonProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/definition")
-    fun getDefinition(@QueryParam("rarity") rarity: Int?): SentenceResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return SentenceResponse(safeGenerate { DexonlineLinkAdder(DefinitionProvider(wordRepository, maxRarity)).getSentence() })
+    fun getDefinition(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse {
+        val (min, max) = rarityRange(rarity, minRarity)
+        return SentenceResponse(safeGenerate { DexonlineLinkAdder(DefinitionProvider(wordRepository, minRarity = min, maxRarity = max)).getSentence() })
     }
 
     @GET
     @Path("/tautogram")
-    fun getTautogram(@QueryParam("rarity") rarity: Int?): SentenceResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return SentenceResponse(safeGenerate { decorateSentence(TautogramProvider(wordRepository, maxRarity)).getSentence() })
-    }
+    fun getTautogram(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
+        generateSentence(rarity, minRarity) { min, max -> TautogramProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/all")
-    fun getAll(@QueryParam("rarity") rarity: Int?): AllSentencesResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return AllSentencesResponse(
-            haiku = getHaiku(maxRarity).sentence,
-            couplet = getCouplet(maxRarity).sentence,
-            comparison = getComparison(maxRarity).sentence,
-            definition = getDefinition(maxRarity).sentence,
-            tautogram = getTautogram(maxRarity).sentence,
-            mirror = getMirror(maxRarity).sentence
+    fun getAll(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): AllSentencesResponse =
+        AllSentencesResponse(
+            haiku = getHaiku(rarity, minRarity).sentence,
+            distih = getDistih(rarity, minRarity).sentence,
+            comparison = getComparison(rarity, minRarity).sentence,
+            definition = getDefinition(rarity, minRarity).sentence,
+            tautogram = getTautogram(rarity, minRarity).sentence,
+            mirror = getMirror(rarity, minRarity).sentence
         )
-    }
 
     @GET
     @Path("/mirror")
-    fun getMirror(@QueryParam("rarity") rarity: Int?): SentenceResponse {
-        val maxRarity = normalizeRarity(rarity)
-        return SentenceResponse(safeGenerate { decorateVerse(MirrorProvider(wordRepository, maxRarity)).getSentence() })
-    }
+    fun getMirror(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
+        generateVerse(rarity, minRarity) { min, max -> MirrorProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     private fun safeGenerate(generator: () -> String): String =
         try {
@@ -89,8 +93,8 @@ class PhraseResource {
             UNSATISFIABLE_PLACEHOLDER
         }
 
-    private fun normalizeRarity(rarity: Int?): Int =
-        (rarity ?: DEFAULT_RARITY).coerceIn(1, 5)
+    private fun normalizeRarity(rarity: Int?, default: Int = DEFAULT_RARITY): Int =
+        (rarity ?: default).coerceIn(1, 5)
 
     private fun decorateVerse(provider: ISentenceProvider): ISentenceProvider =
         HtmlVerseBreaker(DexonlineLinkAdder(VerseLineCapitalizer(provider)))

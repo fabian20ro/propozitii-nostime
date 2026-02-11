@@ -153,204 +153,249 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     private fun clampRarity(maxRarity: Int): Int =
         maxRarity.coerceIn(1, MAX_RARITY)
 
-    fun getRandomNoun(maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun {
-        val rarity = clampRarity(maxRarity)
-        if (exclude.isNotEmpty()) {
-            val notIn = notInClause(exclude.size)
-            return queryNoun(
-                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                rarity, *exclude.toTypedArray()
-            ) ?: throw IllegalStateException("No nouns found in database for rarity <= $rarity")
-        }
-        val count = countsByTypeMaxRarity["N" to rarity] ?: 0
-        if (count == 0) throw IllegalStateException("No nouns found in database for rarity <= $rarity")
-        return queryNoun(
-            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rarity_level<=? LIMIT 1 OFFSET ?",
-            rarity,
-            randomOffset(count)
-        ) ?: throw IllegalStateException("No nouns found in database for rarity <= $rarity")
+    private fun rangeCount(cache: Map<Pair<String, Int>, Int>, type: String, minRarity: Int, maxRarity: Int): Int {
+        val upper = cache[type to maxRarity] ?: 0
+        val lower = if (minRarity <= 1) 0 else (cache[type to (minRarity - 1)] ?: 0)
+        return upper - lower
     }
 
-    fun getRandomNounByRhyme(rhyme: String, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun? {
-        val rarity = clampRarity(maxRarity)
+    private fun rangeCountTriple(cache: Map<Triple<String, Int, Int>, Int>, type: String, dim: Int, minRarity: Int, maxRarity: Int): Int {
+        val upper = cache[Triple(type, dim, maxRarity)] ?: 0
+        val lower = if (minRarity <= 1) 0 else (cache[Triple(type, dim, minRarity - 1)] ?: 0)
+        return upper - lower
+    }
+
+    private fun rarityDesc(minRarity: Int, maxRarity: Int): String =
+        if (minRarity <= 1) "<= $maxRarity" else "between $minRarity and $maxRarity"
+
+    fun getRandomNoun(minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryNoun(
-                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                rhyme, rarity, *exclude.toTypedArray()
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                min, max, *exclude.toTypedArray()
+            ) ?: throw IllegalStateException("No nouns found in database for rarity ${rarityDesc(min, max)}")
+        }
+        val count = rangeCount(countsByTypeMaxRarity, "N", min, max)
+        if (count == 0) throw IllegalStateException("No nouns found in database for rarity ${rarityDesc(min, max)}")
+        return queryNoun(
+            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
+            min,
+            max,
+            randomOffset(count)
+        ) ?: throw IllegalStateException("No nouns found in database for rarity ${rarityDesc(min, max)}")
+    }
+
+    fun getRandomNounByRhyme(rhyme: String, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
+        if (exclude.isNotEmpty()) {
+            val notIn = notInClause(exclude.size)
+            return queryNoun(
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                rhyme, min, max, *exclude.toTypedArray()
             )
         }
         return queryNoun(
-            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? AND rarity_level<=? ORDER BY RANDOM() LIMIT 1",
+            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rhyme=? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             rhyme,
-            rarity
+            min,
+            max
         )
     }
 
     fun getRandomNounByArticulatedSyllables(
         articulatedSyllables: Int,
+        minRarity: Int = 1,
         maxRarity: Int = DEFAULT_MAX_RARITY,
         exclude: Set<String> = emptySet()
     ): Noun? {
-        val rarity = clampRarity(maxRarity)
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryNoun(
-                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND articulated_syllables=? AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                articulatedSyllables, rarity, *exclude.toTypedArray()
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND articulated_syllables=? AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                articulatedSyllables, min, max, *exclude.toTypedArray()
             )
         }
 
-        val count = countsByTypeArticulatedSyllablesMaxRarity[Triple("N", articulatedSyllables, rarity)] ?: 0
+        val count = rangeCountTriple(countsByTypeArticulatedSyllablesMaxRarity, "N", articulatedSyllables, min, max)
         if (count == 0) return null
         return queryNoun(
-            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND articulated_syllables=? AND rarity_level<=? LIMIT 1 OFFSET ?",
+            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND articulated_syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             articulatedSyllables,
-            rarity,
+            min,
+            max,
             randomOffset(count)
         )
     }
 
-    fun getRandomAdjective(maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Adjective {
-        val rarity = clampRarity(maxRarity)
+    fun getRandomAdjective(minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Adjective {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryAdjective(
-                "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                rarity, *exclude.toTypedArray()
-            ) ?: throw IllegalStateException("No adjectives found in database for rarity <= $rarity")
+                "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                min, max, *exclude.toTypedArray()
+            ) ?: throw IllegalStateException("No adjectives found in database for rarity ${rarityDesc(min, max)}")
         }
-        val count = countsByTypeMaxRarity["A" to rarity] ?: 0
-        if (count == 0) throw IllegalStateException("No adjectives found in database for rarity <= $rarity")
+        val count = rangeCount(countsByTypeMaxRarity, "A", min, max)
+        if (count == 0) throw IllegalStateException("No adjectives found in database for rarity ${rarityDesc(min, max)}")
         return queryAdjective(
-            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND rarity_level<=? LIMIT 1 OFFSET ?",
-            rarity,
+            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
+            min,
+            max,
             randomOffset(count)
-        ) ?: throw IllegalStateException("No adjectives found in database for rarity <= $rarity")
+        ) ?: throw IllegalStateException("No adjectives found in database for rarity ${rarityDesc(min, max)}")
     }
 
-    fun getRandomAdjectiveBySyllables(syllables: Int, maxRarity: Int = DEFAULT_MAX_RARITY): Adjective? {
-        val rarity = clampRarity(maxRarity)
-        val count = countsByTypeSyllablesMaxRarity[Triple("A", syllables, rarity)] ?: 0
+    fun getRandomAdjectiveBySyllables(syllables: Int, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Adjective? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
+        val count = rangeCountTriple(countsByTypeSyllablesMaxRarity, "A", syllables, min, max)
         if (count == 0) return null
         return queryAdjective(
-            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND syllables=? AND rarity_level<=? LIMIT 1 OFFSET ?",
+            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             syllables,
-            rarity,
+            min,
+            max,
             randomOffset(count)
         )
     }
 
-    fun getRandomVerb(maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Verb {
-        val rarity = clampRarity(maxRarity)
+    fun getRandomVerb(minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Verb {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryVerb(
-                "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                rarity, *exclude.toTypedArray()
-            ) ?: throw IllegalStateException("No verbs found in database for rarity <= $rarity")
+                "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                min, max, *exclude.toTypedArray()
+            ) ?: throw IllegalStateException("No verbs found in database for rarity ${rarityDesc(min, max)}")
         }
-        val count = countsByTypeMaxRarity["V" to rarity] ?: 0
-        if (count == 0) throw IllegalStateException("No verbs found in database for rarity <= $rarity")
+        val count = rangeCount(countsByTypeMaxRarity, "V", min, max)
+        if (count == 0) throw IllegalStateException("No verbs found in database for rarity ${rarityDesc(min, max)}")
         return queryVerb(
-            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rarity_level<=? LIMIT 1 OFFSET ?",
-            rarity,
+            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
+            min,
+            max,
             randomOffset(count)
-        ) ?: throw IllegalStateException("No verbs found in database for rarity <= $rarity")
+        ) ?: throw IllegalStateException("No verbs found in database for rarity ${rarityDesc(min, max)}")
     }
 
-    fun getRandomVerbByRhyme(rhyme: String, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Verb? {
-        val rarity = clampRarity(maxRarity)
+    fun getRandomVerbByRhyme(rhyme: String, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Verb? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryVerb(
-                "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rhyme=? AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                rhyme, rarity, *exclude.toTypedArray()
+                "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rhyme=? AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                rhyme, min, max, *exclude.toTypedArray()
             )
         }
         return queryVerb(
-            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rhyme=? AND rarity_level<=? ORDER BY RANDOM() LIMIT 1",
+            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rhyme=? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             rhyme,
-            rarity
+            min,
+            max
         )
     }
 
-    fun getRandomVerbBySyllables(syllables: Int, maxRarity: Int = DEFAULT_MAX_RARITY): Verb? {
-        val rarity = clampRarity(maxRarity)
-        val count = countsByTypeSyllablesMaxRarity[Triple("V", syllables, rarity)] ?: 0
+    fun getRandomVerbBySyllables(syllables: Int, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Verb? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
+        val count = rangeCountTriple(countsByTypeSyllablesMaxRarity, "V", syllables, min, max)
         if (count == 0) return null
         return queryVerb(
-            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND syllables=? AND rarity_level<=? LIMIT 1 OFFSET ?",
+            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             syllables,
-            rarity,
+            min,
+            max,
             randomOffset(count)
         )
     }
 
-    fun findTwoRhymeGroups(type: String, minCount: Int, maxRarity: Int = DEFAULT_MAX_RARITY): Pair<String, String>? {
-        val rarity = clampRarity(maxRarity)
-        val cached = when {
-            type == "N" && minCount <= 2 -> nounRhymeGroupsMin2ByMaxRarity[rarity]
-            type == "N" && minCount <= 3 -> nounRhymeGroupsMin3ByMaxRarity[rarity]
-            type == "V" && minCount <= 2 -> verbRhymeGroupsMin2ByMaxRarity[rarity]
-            else -> null
+    fun findTwoRhymeGroups(type: String, minCount: Int, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Pair<String, String>? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
+        if (min <= 1) {
+            val cached = when {
+                type == "N" && minCount <= 2 -> nounRhymeGroupsMin2ByMaxRarity[max]
+                type == "N" && minCount <= 3 -> nounRhymeGroupsMin3ByMaxRarity[max]
+                type == "V" && minCount <= 2 -> verbRhymeGroupsMin2ByMaxRarity[max]
+                else -> null
+            }
+            if (cached != null && cached.size >= 2) {
+                val shuffled = cached.shuffled(ThreadLocalRandom.current())
+                return Pair(shuffled[0], shuffled[1])
+            }
         }
-        if (cached != null && cached.size >= 2) {
-            val shuffled = cached.shuffled(ThreadLocalRandom.current())
-            return Pair(shuffled[0], shuffled[1])
-        }
-        return findTwoRhymeGroupsFromDb(type, minCount, rarity)
+        return findTwoRhymeGroupsFromDb(type, minCount, min, max)
     }
 
-    fun getRandomPrefixWithAllTypes(maxRarity: Int = DEFAULT_MAX_RARITY): String? {
-        val rarity = clampRarity(maxRarity)
-        val cached = validPrefixesByMaxRarity[rarity]
-        if (!cached.isNullOrEmpty()) return randomElement(cached)
-        return getRandomPrefixWithAllTypesFromDb(rarity)
+    fun getRandomPrefixWithAllTypes(minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): String? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
+        if (min <= 1) {
+            val cached = validPrefixesByMaxRarity[max]
+            if (!cached.isNullOrEmpty()) return randomElement(cached)
+        }
+        return getRandomPrefixWithAllTypesFromDb(min, max)
     }
 
-    fun getRandomNounByPrefix(prefix: String, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun? {
-        val rarity = clampRarity(maxRarity)
+    fun getRandomNounByPrefix(prefix: String, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryNoun(
-                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND rarity_level<=? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
-                "$prefix%", rarity, *exclude.toTypedArray()
+                "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                "$prefix%", min, max, *exclude.toTypedArray()
             )
         }
         return queryNoun(
-            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND rarity_level<=? ORDER BY RANDOM() LIMIT 1",
+            "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             "$prefix%",
-            rarity
+            min,
+            max
         )
     }
 
-    fun getRandomAdjectiveByPrefix(prefix: String, maxRarity: Int = DEFAULT_MAX_RARITY): Adjective? {
-        val rarity = clampRarity(maxRarity)
+    fun getRandomAdjectiveByPrefix(prefix: String, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Adjective? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         return queryAdjective(
-            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND word LIKE ? AND rarity_level<=? ORDER BY RANDOM() LIMIT 1",
+            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             "$prefix%",
-            rarity
+            min,
+            max
         )
     }
 
-    fun getRandomVerbByPrefix(prefix: String, maxRarity: Int = DEFAULT_MAX_RARITY): Verb? {
-        val rarity = clampRarity(maxRarity)
+    fun getRandomVerbByPrefix(prefix: String, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Verb? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
         return queryVerb(
-            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND word LIKE ? AND rarity_level<=? ORDER BY RANDOM() LIMIT 1",
+            "SELECT word, syllables, rhyme FROM words WHERE type='V' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             "$prefix%",
-            rarity
+            min,
+            max
         )
     }
 
-    private fun findTwoRhymeGroupsFromDb(type: String, minCount: Int, maxRarity: Int): Pair<String, String>? {
+    private fun findTwoRhymeGroupsFromDb(type: String, minCount: Int, minRarity: Int, maxRarity: Int): Pair<String, String>? {
         dataSource.connection.use { conn ->
             conn.prepareStatement(
-                "SELECT rhyme FROM words WHERE type=? AND rarity_level<=? GROUP BY rhyme HAVING COUNT(*)>=? ORDER BY RANDOM() LIMIT 2"
+                "SELECT rhyme FROM words WHERE type=? AND rarity_level BETWEEN ? AND ? GROUP BY rhyme HAVING COUNT(*)>=? ORDER BY RANDOM() LIMIT 2"
             ).use { stmt ->
                 stmt.setString(1, type)
-                stmt.setInt(2, maxRarity)
-                stmt.setInt(3, minCount)
+                stmt.setInt(2, minRarity)
+                stmt.setInt(3, maxRarity)
+                stmt.setInt(4, minCount)
                 stmt.executeQuery().use { rs ->
                     val rhyme1 = if (rs.next()) rs.getString("rhyme") else return null
                     val rhyme2 = if (rs.next()) rs.getString("rhyme") else return null
@@ -360,21 +405,22 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         }
     }
 
-    private fun getRandomPrefixWithAllTypesFromDb(maxRarity: Int): String? {
+    private fun getRandomPrefixWithAllTypesFromDb(minRarity: Int, maxRarity: Int): String? {
         dataSource.connection.use { conn ->
             conn.prepareStatement(
                 """
                 SELECT prefix FROM (
                     SELECT LEFT(word, 2) AS prefix
                     FROM words
-                    WHERE LENGTH(word) >= 2 AND rarity_level <= ?
+                    WHERE LENGTH(word) >= 2 AND rarity_level BETWEEN ? AND ?
                     GROUP BY LEFT(word, 2)
                     HAVING COUNT(DISTINCT type) = 3
                 ) valid_prefixes
                 ORDER BY RANDOM() LIMIT 1
                 """.trimIndent()
             ).use { stmt ->
-                stmt.setInt(1, maxRarity)
+                stmt.setInt(1, minRarity)
+                stmt.setInt(2, maxRarity)
                 stmt.executeQuery().use { rs ->
                     return if (rs.next()) rs.getString("prefix") else null
                 }

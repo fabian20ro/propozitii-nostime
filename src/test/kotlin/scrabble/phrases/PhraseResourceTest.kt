@@ -21,9 +21,9 @@ class PhraseResourceTest {
     }
 
     @Test
-    fun shouldReturnCouplet() {
+    fun shouldReturnDistih() {
         given()
-            .`when`().get("/api/couplet")
+            .`when`().get("/api/distih")
             .then()
             .statusCode(200)
             .body("sentence", notNullValue())
@@ -77,7 +77,7 @@ class PhraseResourceTest {
             .then()
             .statusCode(200)
             .body("haiku", notNullValue())
-            .body("couplet", notNullValue())
+            .body("distih", notNullValue())
             .body("comparison", notNullValue())
             .body("definition", notNullValue())
             .body("tautogram", notNullValue())
@@ -92,7 +92,7 @@ class PhraseResourceTest {
             .then()
             .statusCode(200)
             .body("haiku", notNullValue())
-            .body("couplet", notNullValue())
+            .body("distih", notNullValue())
             .body("comparison", notNullValue())
             .body("definition", notNullValue())
             .body("tautogram", notNullValue())
@@ -104,7 +104,7 @@ class PhraseResourceTest {
             .then()
             .statusCode(200)
             .body("haiku", notNullValue())
-            .body("couplet", notNullValue())
+            .body("distih", notNullValue())
             .body("comparison", notNullValue())
             .body("definition", notNullValue())
             .body("tautogram", notNullValue())
@@ -115,7 +115,7 @@ class PhraseResourceTest {
     fun shouldReturnPlaceholderWhenConstraintsAreImpossible() {
         given()
             .queryParam("rarity", 1)
-            .`when`().get("/api/couplet")
+            .`when`().get("/api/mirror")
             .then()
             .statusCode(200)
             .body("sentence", equalTo(PhraseResource.UNSATISFIABLE_PLACEHOLDER))

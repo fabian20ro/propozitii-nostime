@@ -3,14 +3,14 @@
 -- At rarity=1, some constrained providers should become unsatisfiable.
 
 -- Nouns (type='N')
--- Rhyme group 'asă' (feminine, 4 nouns for CoupletProvider ABBA + MirrorProvider)
+-- Rhyme group 'asă' (feminine, 4 nouns for MirrorProvider ABBA)
 INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine, articulated_syllables, rarity_level) VALUES
   ('masă',    'N', 'F', 2, 'asă', 'm', 'masa',       NULL, 2, 1),
   ('casă',    'N', 'F', 2, 'asă', 'c', 'casa',       NULL, 2, 1),
   ('basă',    'N', 'F', 2, 'asă', 'b', 'basa',       NULL, 2, 2),
   ('rasă',    'N', 'F', 2, 'asă', 'r', 'rasa',       NULL, 2, 2);
 
--- Rhyme group 'ine' (masculine, 3 nouns for CoupletProvider ABBA + MirrorProvider)
+-- Rhyme group 'ine' (masculine, 3 nouns for MirrorProvider ABBA)
 INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine, articulated_syllables, rarity_level) VALUES
   ('câine',   'N', 'M', 2, 'ine', 'c', 'câinele',    NULL, 3, 1),
   ('mine',    'N', 'M', 2, 'ine', 'm', 'minele',     NULL, 3, 2),

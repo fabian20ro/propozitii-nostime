@@ -28,7 +28,7 @@ The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take
 
 - `GET /api/all` — All 6 sentence types in a single response
 - `GET /api/haiku` — Haiku-style sentence (5-7-5 syllables)
-- `GET /api/couplet` — ABBA embraced rhyme (4 lines, 2 rhyme groups)
+- `GET /api/distih` — Distih (2 lines, noun-adj-verb-noun-adj pattern)
 - `GET /api/comparison` — Comparison sentence ("X e mai adj decât Y")
 - `GET /api/definition` — Dictionary-style definition
 - `GET /api/tautogram` — All words start with same two-letter prefix

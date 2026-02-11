@@ -1,12 +1,12 @@
 # Architecture Codemap
 
-Freshness: 2026-02-11
+Freshness: 2026-02-12
 
 ## System Topology
 
 ```text
 GitHub Pages (frontend static SPA)
-  -> HTTPS GET /api/all?rarity=1..5, /q/health
+  -> HTTPS GET /api/all?minRarity=1..5&rarity=1..5, /q/health
 Render.com (Quarkus JVM backend)
   -> JDBC
 Supabase PostgreSQL (words dictionary table)
@@ -24,14 +24,14 @@ Supabase PostgreSQL (words dictionary table)
 ## Request Flow (Primary Path)
 
 1. User clicks `Generează altele` in frontend.
-2. `frontend/app.js` calls `GET https://propozitii-nostime.onrender.com/api/all?rarity=<1..5>`.
+2. `frontend/app.js` calls `GET https://propozitii-nostime.onrender.com/api/all?minRarity=<1..5>&rarity=<1..5>`.
 3. `PhraseResource.getAll()` internally calls all six endpoint methods.
 4. Each endpoint:
 - creates provider
 - wraps provider in decorators
 - returns `SentenceResponse` or field in `AllSentencesResponse`
 5. Providers query `WordRepository` for random words under constraints.
-   - all runtime selections apply `rarity_level <= rarity`.
+   - all runtime selections apply `rarity_level BETWEEN minRarity AND rarity`.
 6. `DexonlineLinkAdder` injects `<a href="https://dexonline.ro/definitie/...">` around words.
 7. Frontend sanitizes returned HTML and renders into cards.
 
@@ -94,8 +94,8 @@ Operational safeguards:
 - Frontend must sanitize before `innerHTML`.
 
 3. API contract:
-- Frontend relies primarily on `/api/all` keys: `haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`.
-- Rarity control contract is `rarity=1..5` (default `2`) across all sentence endpoints.
+- Frontend relies primarily on `/api/all` keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`.
+- Rarity control contract: `rarity=1..5` (default `2`, max) and `minRarity=1..5` (default `1`, min) across all sentence endpoints. Backend-compatible: `minRarity` is optional.
 
 ## Where To Extend
 

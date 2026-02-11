@@ -1,6 +1,6 @@
 # Backend Codemap
 
-Freshness: 2026-02-11
+Freshness: 2026-02-12
 
 ## Entry Points
 
@@ -14,15 +14,16 @@ Freshness: 2026-02-11
 | Endpoint | Provider | Decorator chain | Notes |
 |---|---|---|---|
 | `/api/haiku` | `HaikuProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 5-7-5 style via syllable constraints |
-| `/api/couplet` | `CoupletProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 4 lines, ABBA rhyme by noun endings |
+| `/api/distih` | `DistihProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 2 lines, noun-adj-verb-noun-adj pattern, no rhyme |
 | `/api/comparison` | `ComparisonProvider` | `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder` | `X e mai adj decât Y` |
 | `/api/definition` | `DefinitionProvider` | `DexonlineLinkAdder` | starts with uppercased defined noun |
 | `/api/tautogram` | `TautogramProvider` | `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder` | shared 2-letter prefix across N/A/V |
 | `/api/mirror` | `MirrorProvider` | `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker` | 4 lines, ABBA rhyme by verb endings |
 | `/api/all` | Aggregates above | N/A | frontend's main fetch path |
 
-All sentence endpoints accept optional `rarity=1..5` (default `2`).
-If constraints are impossible at low rarity, endpoints return a placeholder sentence with HTTP 200.
+All sentence endpoints accept optional `rarity=1..5` (default `2`) and `minRarity=1..5` (default `1`).
+`PhraseResource` normalizes both via `rarityRange()` and passes `(min, max)` to provider factories via `generateVerse()` / `generateSentence()` helpers.
+If constraints are impossible at the chosen rarity range, endpoints return a placeholder sentence with HTTP 200.
 
 ## Provider Responsibilities
 
@@ -31,10 +32,9 @@ If constraints are impossible at low rarity, endpoints return a placeholder sent
 - adjective syllables depend on noun gender (F:3, M/N:4)
 - verb syllables fixed at 3
 
-- `CoupletProvider`
-- picks two noun rhyme groups with at least 2 words each
-- reserves line-ending nouns first, then fills line starts
-- uses exclusion sets to enforce uniqueness inside one sentence
+- `DistihProvider`
+- 2 lines with identical structure: noun adj verb noun adj
+- no rhyme constraints; uses exclusion sets to enforce word uniqueness
 
 - `ComparisonProvider`
 - simple comparative sentence, unique second noun
@@ -65,8 +65,11 @@ File: `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 
 ### Query Strategy
 
+- All queries filter by `rarity_level BETWEEN ? AND ?` (was `<= ?` before `minRarity` support).
 - No exclusions: uses cached counts + `LIMIT 1 OFFSET random` for several methods.
 - With exclusions: uses `NOT IN (...) ORDER BY RANDOM() LIMIT 1`.
+- Range counts derived from cumulative caches: `count(min..max) = cumulative(max) - cumulative(min-1)` via `rangeCount()` / `rangeCountTriple()` helpers.
+- Rhyme/prefix caches (keyed by maxRarity only) bypass to direct DB queries when `minRarity > 1`.
 - Mapping methods build `Noun`, `Adjective`, `Verb` domain objects directly.
 
 ## Rarity Tooling Map

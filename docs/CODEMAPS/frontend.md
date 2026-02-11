@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-09
+Freshness: 2026-02-12
 
 ## File Map
 
@@ -12,19 +12,19 @@ Freshness: 2026-02-09
 
 `index.html` renders:
 - theme toggle button
-- rarity slider (`1..5`, persisted in localStorage)
-- 6 sentence cards (`haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`), each with a copy-to-clipboard button
+- dual-range rarity slider (min + max, `1..5`, persisted in localStorage as `rarity-min`/`rarity-max`)
+- 6 sentence cards (`haiku`, `distih`, `mirror`, `comparison`, `definition`, `tautogram`), each with a copy-to-clipboard button and an explain-with-AI button
 - refresh button
 - status/error message area
 - dexonline drawer (bottom sheet with iframe)
 
-Each card uses a `.card-header` wrapper (flex row) containing the `<h2>` title and a `.copy-btn` button with `data-target` pointing to the sentence div ID.
+Each card uses a `.card-header` wrapper (flex row) containing the `<h2>` title, a `.copy-btn` button, and a `.explain-btn` button. Both buttons use `data-target` pointing to the sentence div ID.
 
 ## Data Flow
 
 1. `refresh()` is called on initial page load and refresh-button clicks.
 2. Main request: `fetchAllSentences()` -> `GET /api/all`.
-   - includes `?rarity=<1..5>`
+   - includes `?minRarity=<1..5>&rarity=<1..5>`
 3. On fetch failure: show info state, poll `/q/health` for up to 60s (`waitForBackend()`), retry once.
 4. Success path: `applySentences(data)` sanitizes each field and writes to DOM.
 
@@ -48,13 +48,15 @@ Hardcoded API endpoints:
 - `HEALTH_URL = https://propozitii-nostime.onrender.com/q/health`
 
 Rarity UI/storage contract:
-- slider id: `rarity-slider`
+- min slider id: `rarity-min`
+- max slider id: `rarity-max`
 - value label id: `rarity-value`
-- localStorage key: `rarity-level`
-- normalization/clamp: `1..5`, default `2`
+- localStorage keys: `rarity-min`, `rarity-max` (migrated from legacy `rarity-level` on first load)
+- normalization/clamp: `1..5`, defaults min=`1`, max=`2`
+- track highlight: `.dual-range-track` div with dynamic `linear-gradient` background
 
 Response field mapping:
-- `FIELD_MAP` expects keys: `haiku`, `couplet`, `comparison`, `definition`, `tautogram`, `mirror`
+- `FIELD_MAP` expects keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 
 If backend adds/removes sentence types, update both:
 - `FIELD_MAP` in `app.js`
@@ -68,9 +70,13 @@ If backend adds/removes sentence types, update both:
 
 `showCopyFeedback(button)` swaps clipboard icon → checkmark via `.copied` CSS class for 1.5s.
 
-Event delegation: single listener on `.grid` container handles all 6 copy buttons.
+## Explain-with-AI
 
-Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons during loading; CSS renders disabled buttons invisible (`opacity: 0; pointer-events: none`).
+`explainWithAI(button)` reads `data-target`, extracts sentence text via `extractPlainText()`, guards against loading/error states, builds a Google search URL prefixed with "explica semnificatia urmatoarei afirmatii: ", and opens in a new tab.
+
+Event delegation: single listener on `.grid` container handles all 6 copy buttons and all 6 explain buttons.
+
+Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons, explain buttons, and both rarity sliders during loading; CSS renders disabled buttons invisible (`opacity: 0; pointer-events: none`).
 
 ## Dexonline Drawer Behavior
 
@@ -91,7 +97,7 @@ Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons during lo
 
 ### Add new sentence card
 
-1. Add card section in `index.html` with `.card-header` wrapper, `<h2>`, and `.copy-btn` (with `data-target` matching the sentence div ID).
+1. Add card section in `index.html` with `.card-header` wrapper, `<h2>`, `.copy-btn`, and `.explain-btn` (both with `data-target` matching the sentence div ID).
 2. Add new field in `FIELD_MAP`.
 3. Ensure backend `/api/all` includes matching key.
 

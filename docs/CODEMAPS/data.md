@@ -105,7 +105,7 @@ With exclusion sets, repository switches to `NOT IN (...) ORDER BY RANDOM()` to 
 | Provider | Required data shape |
 |---|---|
 | `HaikuProvider` | nouns with articulated syllables 5 preferred; adjectives with 3 or 4 syllables; verbs with 3 syllables |
-| `CoupletProvider` | at least 2 noun rhyme groups with at least 2 words/group; enough nouns/adjectives/verbs for uniqueness |
+| `DistihProvider` | at least 4 nouns + 4 adjectives + 2 verbs for uniqueness |
 | `ComparisonProvider` | at least 2 nouns + 1 adjective |
 | `DefinitionProvider` | at least 3 nouns + 1 adjective + 1 verb |
 | `TautogramProvider` | at least one 2-letter prefix with N + A + V words |

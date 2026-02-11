@@ -76,15 +76,18 @@ const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
 const HEALTH_TIMEOUT = 5000;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
-const RARITY_KEY = 'rarity-level';
-const DEFAULT_RARITY = 2;
-const MIN_RARITY = 1;
-const MAX_RARITY = 5;
+const RARITY_MIN_KEY = 'rarity-min';
+const RARITY_MAX_KEY = 'rarity-max';
+const OLD_RARITY_KEY = 'rarity-level';
+const DEFAULT_RARITY_MIN = 1;
+const DEFAULT_RARITY_MAX = 2;
+const RARITY_FLOOR = 1;
+const RARITY_CEIL = 5;
 
 // Maps /api/all response keys to DOM element IDs
 const FIELD_MAP = {
     haiku: 'haiku-text',
-    couplet: 'couplet-text',
+    distih: 'distih-text',
     comparison: 'comparison-text',
     definition: 'definition-text',
     tautogram: 'tautogram-text',
@@ -95,13 +98,15 @@ const FIELD_IDS = Object.values(FIELD_MAP);
 // DOM elements
 const refreshBtn = document.getElementById('refresh');
 const errorMessage = document.getElementById('error-message');
-const raritySlider = document.getElementById('rarity-slider');
+const rarityMinSlider = document.getElementById('rarity-min');
+const rarityMaxSlider = document.getElementById('rarity-max');
 const rarityValue = document.getElementById('rarity-value');
+const dualRangeTrack = document.querySelector('.dual-range-track');
 
-function normalizeRarity(value) {
+function clampRarity(value, fallback) {
     const parsed = Number.parseInt(value, 10);
-    if (Number.isNaN(parsed)) return DEFAULT_RARITY;
-    return Math.max(MIN_RARITY, Math.min(MAX_RARITY, parsed));
+    if (Number.isNaN(parsed)) return fallback;
+    return Math.max(RARITY_FLOOR, Math.min(RARITY_CEIL, parsed));
 }
 
 function rarityLabel(level) {
@@ -115,21 +120,54 @@ function rarityLabel(level) {
     }
 }
 
-function setRarity(level) {
-    const normalized = normalizeRarity(level);
-    raritySlider.value = String(normalized);
-    rarityValue.textContent = `${normalized} - ${rarityLabel(normalized)}`;
-    localStorage.setItem(RARITY_KEY, String(normalized));
-    return normalized;
+function updateRangeTrack() {
+    const min = Number(rarityMinSlider.value);
+    const max = Number(rarityMaxSlider.value);
+    const pctMin = ((min - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
+    const pctMax = ((max - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
+    dualRangeTrack.style.background =
+        `linear-gradient(to right, var(--border-color) ${pctMin}%, var(--primary-color) ${pctMin}%, var(--primary-color) ${pctMax}%, var(--border-color) ${pctMax}%)`;
 }
 
-function getCurrentRarity() {
-    return normalizeRarity(raritySlider.value);
+function setRarityRange(min, max) {
+    const normMin = clampRarity(min, DEFAULT_RARITY_MIN);
+    const normMax = clampRarity(max, DEFAULT_RARITY_MAX);
+    const lo = Math.min(normMin, normMax);
+    const hi = Math.max(normMin, normMax);
+    rarityMinSlider.value = String(lo);
+    rarityMaxSlider.value = String(hi);
+    if (lo === hi) {
+        rarityValue.textContent = `${lo} (${rarityLabel(lo)})`;
+    } else {
+        rarityValue.textContent = `${lo} (${rarityLabel(lo)}) – ${hi} (${rarityLabel(hi)})`;
+    }
+    localStorage.setItem(RARITY_MIN_KEY, String(lo));
+    localStorage.setItem(RARITY_MAX_KEY, String(hi));
+    updateRangeTrack();
+}
+
+function getCurrentRarityRange() {
+    return {
+        min: clampRarity(rarityMinSlider.value, DEFAULT_RARITY_MIN),
+        max: clampRarity(rarityMaxSlider.value, DEFAULT_RARITY_MAX)
+    };
 }
 
 function initRarity() {
-    const stored = localStorage.getItem(RARITY_KEY);
-    setRarity(stored ?? DEFAULT_RARITY);
+    // Migrate from old single-slider key
+    const oldStored = localStorage.getItem(OLD_RARITY_KEY);
+    if (oldStored && !localStorage.getItem(RARITY_MAX_KEY)) {
+        const val = clampRarity(oldStored, DEFAULT_RARITY_MAX);
+        setRarityRange(DEFAULT_RARITY_MIN, val);
+        localStorage.removeItem(OLD_RARITY_KEY);
+        return;
+    }
+    const storedMin = localStorage.getItem(RARITY_MIN_KEY);
+    const storedMax = localStorage.getItem(RARITY_MAX_KEY);
+    setRarityRange(
+        storedMin ?? DEFAULT_RARITY_MIN,
+        storedMax ?? DEFAULT_RARITY_MAX
+    );
 }
 
 /**
@@ -186,8 +224,11 @@ async function waitForBackend() {
  * Fetch all sentences in a single request
  * @returns {Promise<Object>} Parsed JSON with all sentence fields
  */
-async function fetchAllSentences(rarity) {
-    const query = new URLSearchParams({ rarity: String(normalizeRarity(rarity)) });
+async function fetchAllSentences({ min, max }) {
+    const query = new URLSearchParams({
+        minRarity: String(clampRarity(min, DEFAULT_RARITY_MIN)),
+        rarity: String(clampRarity(max, DEFAULT_RARITY_MAX))
+    });
     const response = await fetch(`${API_BASE}/all?${query.toString()}`);
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -244,8 +285,9 @@ function hideMessage() {
  */
 function setButtonsDisabled(disabled) {
     refreshBtn.disabled = disabled;
-    raritySlider.disabled = disabled;
-    document.querySelectorAll('.copy-btn').forEach(btn => {
+    rarityMinSlider.disabled = disabled;
+    rarityMaxSlider.disabled = disabled;
+    document.querySelectorAll('.copy-btn, .explain-btn').forEach(btn => {
         btn.disabled = disabled;
     });
 }
@@ -270,11 +312,11 @@ async function refresh() {
     hideMessage();
     showLoading();
     setButtonsDisabled(true);
-    const rarity = getCurrentRarity();
+    const range = getCurrentRarityRange();
 
     try {
         // Try fetching directly — no health check on warm backend
-        const data = await fetchAllSentences(rarity);
+        const data = await fetchAllSentences(range);
         applySentences(data);
     } catch {
         // Fetch failed — backend likely cold-starting
@@ -293,7 +335,7 @@ async function refresh() {
 
         // Backend is up — retry once
         try {
-            const data = await fetchAllSentences(rarity);
+            const data = await fetchAllSentences(range);
             applySentences(data);
         } catch {
             showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
@@ -443,13 +485,19 @@ function showCopyFeedback(button) {
     setTimeout(() => button.classList.remove('copied'), 1500);
 }
 
-async function copyCardText(button) {
-    const targetId = button.dataset.target;
-    const el = document.getElementById(targetId);
-    if (!el) return;
+const PLACEHOLDER_TEXTS = new Set(['Se încarcă...', 'Eroare', 'Timeout']);
 
+function getCardText(button) {
+    const el = document.getElementById(button.dataset.target);
+    if (!el) return null;
     const text = extractPlainText(el).trim();
-    if (!text || text === 'Se încarcă...' || text === 'Eroare' || text === 'Timeout') return;
+    if (!text || PLACEHOLDER_TEXTS.has(text)) return null;
+    return text;
+}
+
+async function copyCardText(button) {
+    const text = getCardText(button);
+    if (!text) return;
 
     try {
         await navigator.clipboard.writeText(text);
@@ -459,15 +507,40 @@ async function copyCardText(button) {
     }
 }
 
+function explainWithAI(button) {
+    const text = getCardText(button);
+    if (!text) return;
+
+    const query = 'explica semnificatia urmatoarei afirmatii: ' + text;
+    const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+    window.open(url, '_blank', 'noopener');
+}
+
 document.querySelector('.grid').addEventListener('click', function (e) {
-    const btn = e.target.closest('.copy-btn');
-    if (btn) copyCardText(btn);
+    const copyBtn = e.target.closest('.copy-btn');
+    if (copyBtn) { copyCardText(copyBtn); return; }
+
+    const explainBtn = e.target.closest('.explain-btn');
+    if (explainBtn) explainWithAI(explainBtn);
 });
 
-// Event listeners
+// Rarity slider event listeners
+function onRarityInput() {
+    let min = Number(rarityMinSlider.value);
+    let max = Number(rarityMaxSlider.value);
+    if (min > max) {
+        [min, max] = [max, min];
+        rarityMinSlider.value = String(min);
+        rarityMaxSlider.value = String(max);
+    }
+    setRarityRange(min, max);
+}
+
 refreshBtn.addEventListener('click', refresh);
-raritySlider.addEventListener('input', (e) => setRarity(e.target.value));
-raritySlider.addEventListener('change', refresh);
+rarityMinSlider.addEventListener('input', onRarityInput);
+rarityMaxSlider.addEventListener('input', onRarityInput);
+rarityMinSlider.addEventListener('change', refresh);
+rarityMaxSlider.addEventListener('change', refresh);
 initDexonlineDrawer();
 initRarity();
 

@@ -68,7 +68,8 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
 
 4. **Grammar constraints are implementation, not comments:**
    - Haiku expects noun articulated syllables = 5, adjective syllable rules by noun gender, verb syllables = 3.
-   - Couplet and Mirror rely on rhyme-group availability and per-request uniqueness sets.
+   - Distih uses per-request uniqueness sets (no rhyme constraint).
+   - Mirror relies on rhyme-group availability and per-request uniqueness sets.
    - Tautogram requires a 2-letter prefix present across noun+adjective+verb.
 
 5. **Flyway policy:**
@@ -77,7 +78,7 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - Never edit already-applied migration files for production history; add a new `V*.sql` migration.
 
 6. **Rarity contracts:**
-   - Public query parameter is `rarity` (`1..5`, default `2`) on sentence endpoints.
+   - Public query parameters are `rarity` (`1..5`, default `2`, max) and `minRarity` (`1..5`, default `1`, min) on sentence endpoints.
    - Step 2 is CSV-only and must keep exclusive file lock + guarded final rewrite.
    - Step 4 default upload mode is `partial`; global fallback writes must require explicit `--mode full-fallback`.
 
@@ -89,7 +90,7 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - sentence: `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder`
    - verse: `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker`
 4. Extend `/api/all` response contract if the frontend should display it.
-5. Update frontend `FIELD_MAP` and add a card in `frontend/index.html` (include `.card-header` wrapper, `<h2>`, and `.copy-btn` with `data-target`).
+5. Update frontend `FIELD_MAP` and add a card in `frontend/index.html` (include `.card-header` wrapper, `<h2>`, `.copy-btn`, and `.explain-btn` with `data-target`).
 6. Add/adjust integration assertions in `src/test/kotlin/scrabble/phrases/PhraseResourceTest.kt`.
 
 ## How To Change Dictionary/Data Rules
