@@ -210,4 +210,36 @@ class LmStudioResponseParserTest {
             )
         }
     }
+
+    @Test
+    fun selection_mode_accepts_index_lists_as_fallback() {
+        val content = """[0,2]"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(121026, "monarhic", "A"), Triple(120934, "molecular", "A"), Triple(110947, "instrui", "V")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 1,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(setOf(121026, 110947), result.scores.map { it.wordId }.toSet())
+    }
+
+    @Test
+    fun selection_mode_accepts_one_based_index_lists_as_fallback() {
+        val content = """[1,3]"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(121026, "monarhic", "A"), Triple(120934, "molecular", "A"), Triple(110947, "instrui", "V")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 1,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(setOf(121026, 110947), result.scores.map { it.wordId }.toSet())
+    }
 }

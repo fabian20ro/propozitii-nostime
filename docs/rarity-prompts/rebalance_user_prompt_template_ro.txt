@@ -10,6 +10,7 @@ IMPORTANT:
 - Selectează iterativ: de fiecare dată alege cel mai comun cuvânt dintre cele rămase ne-alese, până ajungi la {{COMMON_COUNT}}.
 - Diacriticele românești (ă â î ș ț) sunt normale în română; NU penaliza cuvintele cu diacritice și NU favoriza cuvintele fără diacritice.
 - Nu selecta termeni vulgari/obsceni/insultători/sexual-expliciți ca „cei mai comuni” (lasă-i neselectați).
+- Returnează ID-urile din câmpul `word_id` (numere mari, de obicei cu 5-6 cifre), NU poziții/indici din listă (NU 0,1,2,...).
 
 Reguli obligatorii:
 - Array-ul returnat trebuie să aibă exact {{COMMON_COUNT}} elemente.
