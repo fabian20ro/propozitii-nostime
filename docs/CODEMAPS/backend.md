@@ -174,7 +174,22 @@ Folder: `src/main/kotlin/scrabble/phrases/words/`
   - Step 3 comparator: `Step3ComparatorTest.kt` (9 tests: agreement, outlier detection, missing runs, 3-run merge rules, null run-c compatibility)
   - Upload markers: `UploadMarkerWriterTest.kt` (3 tests: marking, empty status, partial marking)
   - Step 2 scorer counters: `Step2ScorerCountersTest.kt` (partial results, full scoring)
-  - LmStudioClient integration: `LmStudioClientTest.kt` (capability degradation, parsing, model profiles)
+  - Step 2 scorer guards: `Step2ScorerGuardTest.kt` (3 tests: shrink detection, minId increase abort, maxId decrease abort)
+  - LmStudioClient integration: `LmStudioClientTest.kt` (20 tests: capability degradation, json_schema fallback, partial parse retry, selection mode splits, model profile defaults, connectivity failures, salvage malformed items)
+  - LmStudioErrorClassifier: `LmStudioErrorClassifierTest.kt` (15 tests: response_format detection, json_schema switch, reasoning controls, empty results, excerpt truncation/collapse)
+  - JSON repair: `JsonRepairTest.kt` (19 tests: trailing decimals, line comments, trailing commas including JSON-string-awareness, unclosed structures, full pipeline, escaped quotes)
+  - CSV codec: `CsvCodecTest.kt` (5 tests: quotes/commas/UTF-8 roundtrip, malformed row detection, atomic write, empty file, column count mismatch)
+  - Rarity support: `RaritySupportTest.kt` (4 tests: median odd/even length, half-up rounding, unsorted input)
+  - Run lock manager: `RunLockManagerTest.kt`
+  - Fuzzy word matcher: `FuzzyWordMatcherTest.kt`
+  - Batch size adapter: `BatchSizeAdapterTest.kt`
+  - Step 2 metrics: `Step2MetricsTest.kt`
+  - Step 5 rebalancer: `Step5RebalancerTest.kt`
+  - Rarity distribution: `RarityDistributionTest.kt`, `Step2DistributionFormatterTest.kt`
+  - Step 2 scorer resume: `Step2ScorerResumeTest.kt`
+  - Step 4 uploader: `Step4UploaderTest.kt`
+  - Run CSV repository: `RunCsvRepositoryTest.kt`
+  - Test doubles: `TestDoubles.kt` (`FakeLmClient`, `HalfBatchLmClient`)
 
 ## High-Risk Areas
 
