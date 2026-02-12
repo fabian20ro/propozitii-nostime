@@ -512,7 +512,7 @@ function explainWithAI(button) {
     if (!text) return;
 
     const query = 'explica semnificatia urmatoarei afirmatii: ' + text;
-    const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+    const url = 'https://www.google.com/search?udm=50&q=' + encodeURIComponent(query);
     window.open(url, '_blank', 'noopener');
 }
 

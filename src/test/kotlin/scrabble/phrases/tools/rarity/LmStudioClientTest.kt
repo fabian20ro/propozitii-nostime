@@ -338,6 +338,73 @@ class LmStudioClientTest {
     }
 
     @Test
+    fun selection_mode_uses_compact_local_id_schema_and_low_token_cap() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                1 -> {
+                    val requestJson = mapper.readTree(requestBody)
+                    val expected = requestJson
+                        .path("response_format")
+                        .path("json_schema")
+                        .path("schema")
+                        .path("minItems")
+                        .asInt()
+                    val selected = (1..expected).map { localId -> mapOf("local_id" to localId) }
+                    respond(exchange, 200, successResponseRawContent(mapper.writeValueAsString(selected)))
+                }
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val context = ctx(
+                runSlug = "run_select_compact_schema",
+                model = MODEL_GPT_OSS_20B,
+                endpoint = endpoint,
+                maxRetries = 2,
+                runLogPath = tempDir.resolve("run_select_compact_schema.jsonl"),
+                failedLogPath = tempDir.resolve("failed_select_compact_schema.jsonl"),
+                maxTokens = 8000
+            ).copy(
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 2,
+                expectedJsonItems = 15
+            )
+
+            val batch = (1..60).map { BaseWordRow(it, "w$it", "N") }
+            val scored = client.scoreBatchResilient(batch = batch, context = context)
+
+            assertEquals(15, scored.size)
+            assertEquals(2, requests.size)
+
+            val requestJson = mapper.readTree(requests[1])
+            val maxTokens = requestJson.path("max_tokens").asInt()
+            assertTrue(maxTokens in 128..1024, "expected compact max_tokens for selection mode, got $maxTokens")
+
+            val itemSchema = requestJson
+                .path("response_format")
+                .path("json_schema")
+                .path("schema")
+                .path("items")
+            val required = itemSchema.path("required")
+            assertEquals(2, required.size())
+            assertEquals("local_id", required[0].asText())
+            assertEquals("word", required[1].asText())
+            assertTrue(itemSchema.path("properties").has("word"))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun parses_top_level_array_content() {
         val server = startServer { exchange ->
             respond(

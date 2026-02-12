@@ -6,7 +6,7 @@ Răspunsul trebuie să fie STRICT JSON valid: un array de obiecte cu câmpurile 
 Reguli critice:
 - Returnează EXACT N obiecte, fără text extra.
 - Obiectele selectate trebuie COPIATE exact din input (același `local_id`, același `word`).
-- Nu modifica `local_id`, nu modifica textul cuvântului, nu adăuga semne, nu inventa valori.
+- Nu modifica `local_id`, nu modifica `word`, nu adăuga semne, nu inventa valori.
 - Nu folosi alte id-uri decât `local_id`-urile primite în input.
 - Dacă nu ești sigur, alege cea mai probabilă variantă, dar păstrează count-ul exact N.
 - Nu folosi ordinea din input ca strategie de selecție.

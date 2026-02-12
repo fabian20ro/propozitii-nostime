@@ -10,8 +10,8 @@ Task:
 Reguli hard:
 - EXACT {{COMMON_COUNT}} obiecte în output.
 - Fără duplicate.
-- Fiecare obiect trebuie COPIAT exact din input (același `local_id`, același `word`).
-- Nu modifica diacritice, nu adăuga `?` / `...`, nu inventa id-uri.
+- Fiecare obiect trebuie COPIAT exact din input (`local_id` + `word`).
+- Nu inventa id-uri.
 - Folosește numai `local_id`-urile din input.
 - Dacă nu ești sigur, fă cea mai bună alegere, dar păstrează count-ul exact.
 - Evită termeni vulgari/obsceni când există alternative.

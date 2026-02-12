@@ -9,7 +9,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-const val DEFAULT_REBALANCE_BATCH_SIZE: Int = 60
+const val DEFAULT_REBALANCE_BATCH_SIZE: Int = 600
 const val DEFAULT_REBALANCE_LOWER_RATIO: Double = 1.0 / 3.0
 const val DEFAULT_REBALANCE_TRANSITIONS: String = "2:1,3:2,4:3"
 const val REBALANCE_FROM_LEVEL_PLACEHOLDER: String = "{{FROM_LEVEL}}"

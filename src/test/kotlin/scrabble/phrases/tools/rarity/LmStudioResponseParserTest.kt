@@ -196,6 +196,23 @@ class LmStudioResponseParserTest {
     }
 
     @Test
+    fun selection_mode_parses_results_array_of_objects_with_local_id_only() {
+        val content = """{"results":[{"local_id":1},{"local_id":"2"}]}"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 3,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(listOf(1, 2), result.scores.map { it.wordId }.sorted())
+        assertTrue(result.scores.all { it.rarityLevel == 3 })
+    }
+
+    @Test
     fun selection_mode_falls_back_to_word_match_when_word_id_is_invalid() {
         val content = """{"results":[{"local_id":0,"word":"apa"},{"local_id":999999,"word":"brad"}]}"""
         val response = chatResponseRawJson(content)

@@ -19,6 +19,16 @@ class LmStudioRequestBuilder(
     private val mapper: ObjectMapper = ObjectMapper(),
     private val configRegistry: LmModelConfigRegistry = LmModelConfigRegistry()
 ) {
+    companion object {
+        private const val SCORE_MIN_MAX_TOKENS = 256
+        private const val SCORE_TOKENS_PER_ITEM = 40
+        private const val SCORE_BASE_TOKENS = 200
+
+        private const val SELECTION_MIN_MAX_TOKENS = 128
+        private const val SELECTION_TOKENS_PER_ITEM = 24
+        private const val SELECTION_BASE_TOKENS = 128
+        private const val SELECTION_HARD_MAX_TOKENS = 1024
+    }
 
     fun modelConfigFor(model: String): LmModelConfig {
         return configRegistry.resolve(model)
@@ -60,12 +70,25 @@ class LmStudioRequestBuilder(
             "$userTemplate\n\nIntrări:\n$entriesJson"
         }
 
-        val estimatedTokens = (batch.size * 40) + 200
+        val estimatedTokens = when (schemaKind) {
+            JsonSchemaKind.SCORE_RESULTS -> (batch.size * SCORE_TOKENS_PER_ITEM) + SCORE_BASE_TOKENS
+            JsonSchemaKind.SELECTED_WORD_IDS -> {
+                val expected = (expectedItems ?: 0).coerceAtLeast(1)
+                (expected * SELECTION_TOKENS_PER_ITEM) + SELECTION_BASE_TOKENS
+            }
+        }
         val profileCap = config.maxTokensCap ?: Int.MAX_VALUE
-        val effectiveMaxTokens = estimatedTokens
-            .coerceAtLeast(256)
-            .coerceAtMost(maxTokens)
-            .coerceAtMost(profileCap)
+        val effectiveMaxTokens = when (schemaKind) {
+            JsonSchemaKind.SCORE_RESULTS -> estimatedTokens
+                .coerceAtLeast(SCORE_MIN_MAX_TOKENS)
+                .coerceAtMost(maxTokens)
+                .coerceAtMost(profileCap)
+            JsonSchemaKind.SELECTED_WORD_IDS -> estimatedTokens
+                .coerceAtLeast(SELECTION_MIN_MAX_TOKENS)
+                .coerceAtMost(maxTokens)
+                .coerceAtMost(profileCap)
+                .coerceAtMost(SELECTION_HARD_MAX_TOKENS)
+        }
 
         val payload = linkedMapOf<String, Any>(
             "model" to model,
