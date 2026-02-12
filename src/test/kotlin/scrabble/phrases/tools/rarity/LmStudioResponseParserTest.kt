@@ -179,8 +179,8 @@ class LmStudioResponseParserTest {
     }
 
     @Test
-    fun selection_mode_parses_results_array_of_objects_with_word_id_and_word() {
-        val content = """{"results":[{"word_id":1,"word":"apa"},{"word_id":"2","word":"brad"}]}"""
+    fun selection_mode_parses_results_array_of_objects_with_local_id_and_word() {
+        val content = """{"results":[{"local_id":1,"word":"apa"},{"local_id":"2","word":"brad"}]}"""
         val response = chatResponseRawJson(content)
         val result = parser.parse(
             batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
@@ -197,7 +197,7 @@ class LmStudioResponseParserTest {
 
     @Test
     fun selection_mode_falls_back_to_word_match_when_word_id_is_invalid() {
-        val content = """{"results":[{"word_id":0,"word":"apa"},{"word_id":999999,"word":"brad"}]}"""
+        val content = """{"results":[{"local_id":0,"word":"apa"},{"local_id":999999,"word":"brad"}]}"""
         val response = chatResponseRawJson(content)
         val result = parser.parse(
             batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
@@ -213,7 +213,7 @@ class LmStudioResponseParserTest {
 
     @Test
     fun selection_mode_falls_back_to_normalized_word_match_when_word_has_punctuation_noise() {
-        val content = """{"results":[{"word_id":0,"word":"frigorific?"},{"word_id":0,"word":"depeșat..."}]}"""
+        val content = """{"results":[{"local_id":0,"word":"frigorific?"},{"local_id":0,"word":"depeșat..."}]}"""
         val response = chatResponseRawJson(content)
         val result = parser.parse(
             batch(Triple(10, "frigorific", "A"), Triple(11, "depeșat", "A")),
@@ -225,6 +225,22 @@ class LmStudioResponseParserTest {
 
         assertEquals(2, result.scores.size)
         assertEquals(listOf(10, 11), result.scores.map { it.wordId }.sorted())
+    }
+
+    @Test
+    fun selection_mode_keeps_backward_compatibility_for_word_id_field() {
+        val content = """{"results":[{"word_id":1,"word":"apa"},{"word_id":2,"word":"brad"}]}"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 2,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(listOf(1, 2), result.scores.map { it.wordId }.sorted())
     }
 
     @Test

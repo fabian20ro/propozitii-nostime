@@ -287,11 +287,19 @@ class LmStudioClientTest {
             val start = content.indexOf('[')
             val end = content.lastIndexOf(']')
             val entriesJson = content.substring(start, end + 1)
-            val ids = mapper.readTree(entriesJson).mapNotNull { it.path("word_id").asInt() }
+            val ids = mapper.readTree(entriesJson).mapNotNull {
+                val localId = it.path("local_id").asInt(-1)
+                if (localId > 0) localId else null
+            }
 
             val schema = requestJson.path("response_format").path("json_schema").path("schema")
             val expected = schema.path("minItems").asInt()
-            val selected = ids.sorted().take(expected)
+            val selected = ids.sorted().take(expected).map { localId ->
+                mapOf(
+                    "local_id" to localId,
+                    "word" to "w$localId"
+                )
+            }
             respond(exchange, 200, successResponseRawContent(mapper.writeValueAsString(selected)))
         }
 

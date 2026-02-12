@@ -37,12 +37,20 @@ class LmStudioRequestBuilder(
         schemaKind: JsonSchemaKind = JsonSchemaKind.SCORE_RESULTS
     ): String {
         val entriesJson = mapper.writeValueAsString(
-            batch.map {
-                mapOf(
-                    "word_id" to it.wordId,
-                    "word" to it.word,
-                    "type" to it.type
-                )
+            when (schemaKind) {
+                JsonSchemaKind.SCORE_RESULTS -> batch.map {
+                    mapOf(
+                        "word_id" to it.wordId,
+                        "word" to it.word,
+                        "type" to it.type
+                    )
+                }
+                JsonSchemaKind.SELECTED_WORD_IDS -> batch.mapIndexed { index, row ->
+                    mapOf(
+                        "local_id" to (index + 1),
+                        "word" to row.word
+                    )
+                }
             }
         )
 
@@ -142,10 +150,10 @@ class LmStudioRequestBuilder(
         val selectedItemSchema = mapOf(
             "type" to "object",
             "properties" to mapOf(
-                "word_id" to mapOf("type" to "integer"),
+                "local_id" to mapOf("type" to "integer"),
                 "word" to mapOf("type" to "string")
             ),
-            "required" to listOf("word_id", "word"),
+            "required" to listOf("local_id", "word"),
             "additionalProperties" to false
         )
         val responseSchema = mapOf(

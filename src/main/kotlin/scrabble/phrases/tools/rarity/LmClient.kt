@@ -9,8 +9,8 @@ enum class ScoringOutputMode {
     SCORE_RESULTS,
 
     /**
-     * Step 5 rebalance mode: the model returns ONLY the selected subset (most common words) by `word_id`.
-     * The caller assigns non-selected words to the companion bucket.
+     * Step 5 rebalance mode: the model returns ONLY the selected subset (most common words)
+     * by batch-local ids (`local_id` in 1..N). The caller maps back to real `word_id`.
      */
     SELECTED_WORD_IDS
 }

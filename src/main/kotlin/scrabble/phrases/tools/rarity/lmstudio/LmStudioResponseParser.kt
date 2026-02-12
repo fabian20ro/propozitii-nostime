@@ -19,7 +19,7 @@ private data class ScoreCandidate(
 )
 
 private data class SelectionCandidate(
-    val wordId: Int?,
+    val returnedId: Int?,
     val word: String?
 )
 
@@ -67,18 +67,19 @@ class LmStudioResponseParser(
         if (batch.isEmpty()) return ParsedBatch(scores = emptyList(), unresolved = emptyList())
 
         val batchById = batch.associateBy { it.wordId }
+        val batchByLocalId = batch.mapIndexed { index, row -> (index + 1) to row }.toMap()
         val rawSelections = mutableListOf<SelectionCandidate>()
 
         for (i in 0 until results.size()) {
             val node = results[i]
-            val id = nodeToInt(node) ?: nodeToInt(node.path("word_id"))
+            val id = nodeToInt(node) ?: nodeToInt(node.path("local_id")) ?: nodeToInt(node.path("word_id"))
             val word = node.path("word").asText("").ifBlank { null }
             if (id != null || word != null) {
-                rawSelections += SelectionCandidate(wordId = id, word = word)
+                rawSelections += SelectionCandidate(returnedId = id, word = word)
             }
         }
 
-        val selectedWordIds = coerceSelectionsToWordIds(rawSelections, batch, batchById, expected)
+        val selectedWordIds = coerceSelectionsToWordIds(rawSelections, batch, batchById, batchByLocalId, expected)
         if (selectedWordIds.size != expected) {
             throw IllegalStateException(
                 "Expected exactly $expected selected ids, got ${selectedWordIds.size} for batch of ${batch.size}"
@@ -104,30 +105,36 @@ class LmStudioResponseParser(
         rawSelections: List<SelectionCandidate>,
         batch: List<BaseWordRow>,
         batchById: Map<Int, BaseWordRow>,
+        batchByLocalId: Map<Int, BaseWordRow>,
         expected: Int
     ): List<Int> {
         if (expected <= 0 || batch.isEmpty()) return emptyList()
 
         val selected = linkedSetOf<Int>()
+        val distinctReturnedIds = rawSelections.mapNotNull { it.returnedId }.distinct()
+        val hasZeroIndexSignal = distinctReturnedIds.any { it == 0 }
 
-        // 1) Preferred: treat values as actual word_id.
+        // 1) Preferred: treat values as batch-local ids (Step 5 contract). Keep backward compatibility for word_id.
         for (candidate in rawSelections) {
-            val id = candidate.wordId ?: continue
-            if (id in batchById) {
-                selected += id
-                if (selected.size == expected) return selected.toList()
+            val id = candidate.returnedId ?: continue
+            when {
+                !hasZeroIndexSignal && id in batchByLocalId -> selected += checkNotNull(batchByLocalId[id]).wordId
+                id in batchById -> selected += id
             }
+            if (selected.size == expected) return selected.toList()
         }
 
-        // 2) If id is missing/invalid, map by exact word copy from input.
+        // 2) If id is missing/invalid, map by exact/normalized word copy from input.
         if (selected.size < expected) {
             val remainingById = batchById.toMutableMap()
             for (id in selected) remainingById.remove(id)
 
             for (candidate in rawSelections) {
                 if (selected.size == expected) return selected.toList()
-                val directId = candidate.wordId
-                if (directId != null && directId in batchById) continue
+                val directId = candidate.returnedId
+                if (directId != null && (directId in batchById || (!hasZeroIndexSignal && directId in batchByLocalId))) {
+                    continue
+                }
 
                 val rawWord = candidate.word?.trim().orEmpty()
                 if (rawWord.isEmpty()) continue
@@ -145,19 +152,18 @@ class LmStudioResponseParser(
             if (selected.size == expected) return selected.toList()
         }
 
-        // 3) Common model failure mode: returns positions (0-based or 1-based) instead of word_id.
+        // 3) Common model failure mode: returns positions (0-based or 1-based) instead of local_id.
         // Only attempt this fallback if we could not match any real ids.
         val direct = selected.toList()
         if (direct.isNotEmpty()) return direct.take(expected)
 
-        val distinct = rawSelections.mapNotNull { it.wordId }.distinct()
         val batchSize = batch.size
-        if (distinct.isEmpty()) return emptyList()
+        if (distinctReturnedIds.isEmpty()) return emptyList()
 
         // Infer index base. Prefer 0-based if `0` is present; otherwise prefer 1-based.
-        val base = if (distinct.any { it == 0 }) 0 else 1
+        val base = if (hasZeroIndexSignal) 0 else 1
 
-        val indices = distinct.asSequence()
+        val indices = distinctReturnedIds.asSequence()
             .map { it - base }
             .filter { it in 0 until batchSize }
             .distinct()

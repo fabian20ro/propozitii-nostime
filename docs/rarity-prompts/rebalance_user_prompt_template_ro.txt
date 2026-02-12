@@ -4,15 +4,15 @@ Fără text extra, fără markdown, fără blocuri de cod.
 Task:
 - Alege EXACT {{COMMON_COUNT}} cele mai comune intrări din lista de mai jos.
 - Răspunsul trebuie să conțină DOAR obiecte cu câmpurile:
-  - `word_id`
+  - `local_id`
   - `word`
 
 Reguli hard:
 - EXACT {{COMMON_COUNT}} obiecte în output.
 - Fără duplicate.
-- Fiecare obiect trebuie COPIAT exact din input (același `word_id`, același `word`).
+- Fiecare obiect trebuie COPIAT exact din input (același `local_id`, același `word`).
 - Nu modifica diacritice, nu adăuga `?` / `...`, nu inventa id-uri.
-- Nu folosi indici de poziție (0,1,2...) în loc de `word_id`.
+- Folosește numai `local_id`-urile din input.
 - Dacă nu ești sigur, fă cea mai bună alegere, dar păstrează count-ul exact.
 - Evită termeni vulgari/obsceni când există alternative.
 
