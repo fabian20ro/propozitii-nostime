@@ -22,11 +22,11 @@ Usage:
 Target distribution (fixed, as requested):
   level1=2500, level2=7500, level3=15000, level4=22698, level5=30000
 
-Sequence (fixed, stop after step 4):
-  1) levels 1+2 -> level 1 target 2500 (common -> 1, rest -> 2)
-  2) levels 2+3 -> level 2 target 7500 (common -> 2, rest -> 3)
-  3) levels 3+4 -> level 3 target 15000 (common -> 3, rest -> 4)
-  4) levels 4+5 -> level 4 target 22698 (common -> 4, rest -> 5)
+Sequence (fixed):
+  - levels 1+2 -> level 1 target 2500: run 3x
+  - levels 2+3 -> level 2 target 7500: run 2x
+  - levels 3+4 -> level 3 target 15000: run 2x
+  - levels 4+5 -> level 4 target 22698: run 1x
 EOF
 }
 
@@ -133,7 +133,7 @@ discover_completed_steps_from_outputs() {
   local highest=0
   local csv="$INPUT_CSV"
   local step path
-  for step in 1 2 3 4 5 6 7; do
+  for step in $(seq 1 "$TOTAL_STEPS"); do
     path="$(step_output_csv "$step")"
     if [[ -f "$path" ]]; then
       highest="$step"
@@ -220,6 +220,7 @@ SYSTEM_PROMPT_FILE="docs/rarity-prompts/rebalance_system_prompt_ro.txt"
 USER_TEMPLATE_FILE="docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
 INPUT_CSV=""
 LAST_COMPLETED_STEP=0
+TOTAL_STEPS=8
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -290,10 +291,20 @@ echo "max_tokens=$MAX_TOKENS timeout_seconds=$TIMEOUT_SECONDS max_retries=$MAX_R
 echo "current_csv=$CURRENT_CSV"
 echo "$(print_distribution "$CURRENT_CSV")"
 
-run_step 1 1 2 1 2500
-run_step 2 2 3 2 7500
-run_step 3 3 4 3 15000
-run_step 4 4 5 4 22698
+step_idx=1
+for _ in 1 2 3; do
+  run_step "$step_idx" 1 2 1 2500
+  step_idx=$((step_idx + 1))
+done
+for _ in 1 2; do
+  run_step "$step_idx" 2 3 2 7500
+  step_idx=$((step_idx + 1))
+done
+for _ in 1 2; do
+  run_step "$step_idx" 3 4 3 15000
+  step_idx=$((step_idx + 1))
+done
+run_step "$step_idx" 4 5 4 22698
 
 if [[ -n "$FINAL_OUTPUT_CSV" ]]; then
   cp "$CURRENT_CSV" "$FINAL_OUTPUT_CSV"

@@ -139,9 +139,18 @@ class LmStudioRequestBuilder(
 
     private fun buildSelectedWordIdsJsonSchemaResponseFormat(expectedItems: Int): Map<String, Any> {
         val boundedExpectedItems = expectedItems.coerceAtLeast(1)
+        val selectedItemSchema = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "word_id" to mapOf("type" to "integer"),
+                "word" to mapOf("type" to "string")
+            ),
+            "required" to listOf("word_id", "word"),
+            "additionalProperties" to false
+        )
         val responseSchema = mapOf(
             "type" to "array",
-            "items" to mapOf("type" to "integer"),
+            "items" to selectedItemSchema,
             "minItems" to boundedExpectedItems,
             "maxItems" to boundedExpectedItems
         )

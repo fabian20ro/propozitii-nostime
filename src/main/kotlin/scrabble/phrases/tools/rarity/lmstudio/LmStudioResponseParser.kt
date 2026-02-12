@@ -18,6 +18,11 @@ private data class ScoreCandidate(
     val confidence: Double
 )
 
+private data class SelectionCandidate(
+    val wordId: Int?,
+    val word: String?
+)
+
 class LmStudioResponseParser(
     private val mapper: ObjectMapper = ObjectMapper(),
     private val metrics: Step2Metrics? = null
@@ -62,12 +67,15 @@ class LmStudioResponseParser(
         if (batch.isEmpty()) return ParsedBatch(scores = emptyList(), unresolved = emptyList())
 
         val batchById = batch.associateBy { it.wordId }
-        val rawSelections = mutableListOf<Int>()
+        val rawSelections = mutableListOf<SelectionCandidate>()
 
         for (i in 0 until results.size()) {
             val node = results[i]
-            val id = nodeToInt(node) ?: nodeToInt(node.path("word_id")) ?: continue
-            rawSelections += id
+            val id = nodeToInt(node) ?: nodeToInt(node.path("word_id"))
+            val word = node.path("word").asText("").ifBlank { null }
+            if (id != null || word != null) {
+                rawSelections += SelectionCandidate(wordId = id, word = word)
+            }
         }
 
         val selectedWordIds = coerceSelectionsToWordIds(rawSelections, batch, batchById, expected)
@@ -93,26 +101,60 @@ class LmStudioResponseParser(
     }
 
     private fun coerceSelectionsToWordIds(
-        rawSelections: List<Int>,
+        rawSelections: List<SelectionCandidate>,
         batch: List<BaseWordRow>,
         batchById: Map<Int, BaseWordRow>,
         expected: Int
     ): List<Int> {
         if (expected <= 0 || batch.isEmpty()) return emptyList()
 
+        val selected = linkedSetOf<Int>()
+
         // 1) Preferred: treat values as actual word_id.
-        val direct = rawSelections.asSequence()
-            .filter { it in batchById }
-            .distinct()
-            .take(expected)
-            .toList()
-        if (direct.size == expected) return direct
+        for (candidate in rawSelections) {
+            val id = candidate.wordId ?: continue
+            if (id in batchById) {
+                selected += id
+                if (selected.size == expected) return selected.toList()
+            }
+        }
 
-        // 2) Common model failure mode: returns positions (0-based or 1-based) instead of word_id.
+        // 2) If id is missing/invalid, map by exact word copy from input.
+        if (selected.size < expected) {
+            val batchIdsByWord = batch
+                .groupBy { it.word.lowercase() }
+                .mapValues { (_, rows) -> rows.map { it.wordId }.toMutableList() }
+                .toMutableMap()
+
+            for (id in selected) {
+                val selectedRow = batchById[id] ?: continue
+                val key = selectedRow.word.lowercase()
+                val idsForWord = batchIdsByWord[key] ?: continue
+                idsForWord.remove(id)
+                if (idsForWord.isEmpty()) batchIdsByWord.remove(key)
+            }
+
+            for (candidate in rawSelections) {
+                if (selected.size == expected) return selected.toList()
+                val directId = candidate.wordId
+                if (directId != null && directId in batchById) continue
+                val key = candidate.word?.trim()?.lowercase().orEmpty()
+                if (key.isEmpty()) continue
+                val idsForWord = batchIdsByWord[key] ?: continue
+                val matchedId = idsForWord.firstOrNull() ?: continue
+                selected += matchedId
+                idsForWord.removeAt(0)
+                if (idsForWord.isEmpty()) batchIdsByWord.remove(key)
+            }
+            if (selected.size == expected) return selected.toList()
+        }
+
+        // 3) Common model failure mode: returns positions (0-based or 1-based) instead of word_id.
         // Only attempt this fallback if we could not match any real ids.
-        if (direct.isNotEmpty()) return direct
+        val direct = selected.toList()
+        if (direct.isNotEmpty()) return direct.take(expected)
 
-        val distinct = rawSelections.distinct()
+        val distinct = rawSelections.mapNotNull { it.wordId }.distinct()
         val batchSize = batch.size
         if (distinct.isEmpty()) return emptyList()
 

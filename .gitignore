@@ -8,12 +8,13 @@
 
 # Build directories
 /.gradle/
+/.gradle-home/
 /bin/
 /build/
 /target/
 
 # IDE files
-.idea/
+/.idea/
 *.iml
 .project
 .classpath
@@ -23,6 +24,7 @@
 *.swo
 *~
 .vscode/
+.kotlin/
 
 # OS files
 .DS_Store

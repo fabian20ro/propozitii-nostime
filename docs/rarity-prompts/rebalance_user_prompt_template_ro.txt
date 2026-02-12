@@ -1,26 +1,29 @@
-Returnează DOAR JSON valid: un ARRAY de integer (word_id).
+Returnează DOAR JSON valid: un ARRAY de obiecte.
 Niciun alt text. Fără markdown, fără blocuri de cod.
 
 Task unic:
 - Din lista de intrări, alege EXACT {{COMMON_COUNT}} cele mai comune cuvinte (cele mai des folosite în vorbirea de zi cu zi).
-- Returnează DOAR word_id-urile acelor {{COMMON_COUNT}} cuvinte, ca array de int-uri.
+- Returnează DOAR cuvintele alese, ca array de obiecte cu exact câmpurile:
+  - `word_id` (integer)
+  - `word` (string)
 
 IMPORTANT:
 - NU alege în ordinea din input (nu întoarce "primele N"). Tratează inputul ca o mulțime.
 - Selectează iterativ: de fiecare dată alege cel mai comun cuvânt dintre cele rămase ne-alese, până ajungi la {{COMMON_COUNT}}.
 - Diacriticele românești (ă â î ș ț) sunt normale în română; NU penaliza cuvintele cu diacritice și NU favoriza cuvintele fără diacritice.
 - Nu selecta termeni vulgari/obsceni/insultători/sexual-expliciți ca „cei mai comuni” (lasă-i neselectați).
-- Returnează ID-urile din câmpul `word_id` (numere mari, de obicei cu 5-6 cifre), NU poziții/indici din listă (NU 0,1,2,...).
+- `word_id` trebuie copiat din input (numere mari, de obicei cu 5-6 cifre), NU poziții/indici din listă (NU 0,1,2,...).
+- `word` trebuie copiat exact din input pentru fiecare `word_id` selectat.
 
 Reguli obligatorii:
-- Array-ul returnat trebuie să aibă exact {{COMMON_COUNT}} elemente.
-- Fără duplicate.
-- Toate word_id-urile trebuie să existe în input.
-- Fără null.
+- Array-ul returnat trebuie să aibă exact {{COMMON_COUNT}} elemente (obiecte).
+- Fără duplicate de `word_id`.
+- Toate `word_id`-urile și `word`-urile trebuie să existe în input.
+- Fără câmpuri extra. Fără null.
 
 Verificare internă înainte de răspuns:
-- count(ids_returnate) == {{COMMON_COUNT}}
-- all distinct
+- count(obiecte_returnate) == {{COMMON_COUNT}}
+- toate `word_id` sunt distincte
 
 Intrari:
 {{INPUT_JSON}}

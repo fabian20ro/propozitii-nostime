@@ -534,15 +534,20 @@ class RarityStep5Rebalancer(
                 "changed=${switchedEvents.size}"
         )
         printSwitchedGroup("selected", selected)
-        printSwitchedGroup("not_selected", notSelected)
+        printSwitchedGroup("not", notSelected)
     }
 
     private fun printSwitchedGroup(label: String, events: List<SwitchedWordEvent>) {
         if (events.isEmpty()) return
-        events.chunked(5).forEachIndexed { index, chunk ->
+        events.chunked(7).forEachIndexed { index, chunk ->
             val prefix = if (index == 0) "  $label: " else "    "
             val content = chunk.joinToString(" | ") { event ->
-                "${event.word}(${event.previousLevel}->${event.nextLevel})"
+                val direction = when {
+                    event.nextLevel > event.previousLevel -> "+"
+                    event.nextLevel < event.previousLevel -> "-"
+                    else -> "="
+                }
+                "${event.word}($direction)"
             }
             println(prefix + content)
         }

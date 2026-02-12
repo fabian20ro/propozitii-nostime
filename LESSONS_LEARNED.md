@@ -74,3 +74,11 @@
 - 2026-02-12: Kotlin default parameters (`minRarity: Int = 1`) make the API change fully backward-compatible without touching any existing callers or tests.
 - 2026-02-12: CSS dual-range slider (two overlapping `<input type="range">`) requires `pointer-events: none` on the inputs and `pointer-events: auto` on the thumb pseudo-elements only; the track is a separate div with a dynamic gradient background.
 - 2026-02-12: When migrating localStorage keys (old `rarity-level` to new `rarity-min`/`rarity-max`), check that the new key doesn't already exist before migrating, to avoid overwriting user-set values on repeat visits.
+- 2026-02-12: Two rarity CSVs can have identical global level distribution and still differ heavily per-word; one comparison showed 48,159 level changes while preserving the same 1..5 totals, so always diff by `word_id`, not only by histogram.
+- 2026-02-12: For `level 1` comparisons between runs, skip-common analysis is operationally useful (set difference on `word_id`) and often reveals large drift even when both runs keep the same target count (e.g., 2500/2500 with only a small overlap).
+- 2026-02-12: `zai-org/glm-4.7-flash` in LMStudio may fail repeatedly with "insufficient system resources"; retries/splitting do not solve capacity limits, so abort early and switch to a smaller model.
+- 2026-02-12: For deterministic cross-run set diffs in shell tools (`join`), sort by `word_id` under `LC_ALL=C`; locale/encoding-sensitive sorts can produce incorrect intersections.
+- 2026-02-12: Step 5 selection output now works better operationally as lightweight objects (`word_id` + `word`) instead of raw ints only; parser can recover by exact word match when model returns invalid IDs.
+- 2026-02-12: Step 5 terminal switched-word logs are easier to audit with compact directional markers (`selected` / `not`, `(+)/(-)`, 7 entries per line) instead of verbose `old->new` tuples.
+- 2026-02-12: Chain rebalance schedule is now intentionally asymmetric (3x `1+2->1`, 2x `2+3->2`, 2x `3+4->3`, 1x `4+5->4`) and resume discovery must scan all 8 generated step files.
+- 2026-02-12: Overly long `run_base` values can truncate `run_slug` step suffixes after sanitization length limits; keep `run_base` short to preserve transition identity in logs/artifacts.
