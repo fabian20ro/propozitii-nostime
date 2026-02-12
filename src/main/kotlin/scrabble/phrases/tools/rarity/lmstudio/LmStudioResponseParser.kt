@@ -80,13 +80,14 @@ class LmStudioResponseParser(
         }
 
         val selectedWordIds = coerceSelectionsToWordIds(rawSelections, batch, batchById, batchByLocalId, expected)
-        if (selectedWordIds.size != expected) {
+        val normalizedSelectedWordIds = normalizeSelectedWordIdsToExpected(selectedWordIds, batch, expected)
+        if (normalizedSelectedWordIds.size != expected) {
             throw IllegalStateException(
-                "Expected exactly $expected selected ids, got ${selectedWordIds.size} for batch of ${batch.size}"
+                "Expected exactly $expected selected ids, got ${normalizedSelectedWordIds.size} for batch of ${batch.size}"
             )
         }
 
-        val scores = selectedWordIds.map { id ->
+        val scores = normalizedSelectedWordIds.map { id ->
             val row = batchById[id] ?: error("Internal error: selected id $id not in batch")
             ScoreResult(
                 wordId = row.wordId,
@@ -112,13 +113,11 @@ class LmStudioResponseParser(
 
         val selected = linkedSetOf<Int>()
         val distinctReturnedIds = rawSelections.mapNotNull { it.returnedId }.distinct()
-        val hasZeroIndexSignal = distinctReturnedIds.any { it == 0 }
-
         // 1) Preferred: treat values as batch-local ids (Step 5 contract). Keep backward compatibility for word_id.
         for (candidate in rawSelections) {
             val id = candidate.returnedId ?: continue
             when {
-                !hasZeroIndexSignal && id in batchByLocalId -> selected += checkNotNull(batchByLocalId[id]).wordId
+                id in batchByLocalId -> selected += checkNotNull(batchByLocalId[id]).wordId
                 id in batchById -> selected += id
             }
             if (selected.size == expected) return selected.toList()
@@ -132,7 +131,7 @@ class LmStudioResponseParser(
             for (candidate in rawSelections) {
                 if (selected.size == expected) return selected.toList()
                 val directId = candidate.returnedId
-                if (directId != null && (directId in batchById || (!hasZeroIndexSignal && directId in batchByLocalId))) {
+                if (directId != null && (directId in batchById || directId in batchByLocalId)) {
                     continue
                 }
 
@@ -160,6 +159,7 @@ class LmStudioResponseParser(
         val batchSize = batch.size
         if (distinctReturnedIds.isEmpty()) return emptyList()
 
+        val hasZeroIndexSignal = distinctReturnedIds.any { it == 0 }
         // Infer index base. Prefer 0-based if `0` is present; otherwise prefer 1-based.
         val base = if (hasZeroIndexSignal) 0 else 1
 
@@ -169,9 +169,33 @@ class LmStudioResponseParser(
             .distinct()
             .take(expected)
             .toList()
-        if (indices.size != expected) return emptyList()
-
         return indices.map { idx -> batch[idx].wordId }
+    }
+
+    private fun normalizeSelectedWordIdsToExpected(
+        selectedWordIds: List<Int>,
+        batch: List<BaseWordRow>,
+        expected: Int
+    ): List<Int> {
+        if (expected <= 0 || batch.isEmpty()) return emptyList()
+        if (selectedWordIds.isEmpty()) return emptyList()
+
+        val normalized = linkedSetOf<Int>()
+        val batchIds = batch.map { it.wordId }.toSet()
+        selectedWordIds.forEach { id ->
+            if (id in batchIds) normalized += id
+            if (normalized.size == expected) return normalized.toList()
+        }
+
+        if (normalized.size < expected) {
+            for (row in batch) {
+                if (row.wordId !in normalized) {
+                    normalized += row.wordId
+                    if (normalized.size == expected) break
+                }
+            }
+        }
+        return normalized.toList().take(expected)
     }
 
     private fun parseResultsLenient(

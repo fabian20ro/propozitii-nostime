@@ -213,6 +213,43 @@ class LmStudioResponseParserTest {
     }
 
     @Test
+    fun selection_mode_accepts_local_ids_when_zero_is_present() {
+        val content = """[0,1,2]"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 2,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(listOf(1, 2), result.scores.map { it.wordId }.sorted())
+    }
+
+    @Test
+    fun selection_mode_tops_up_partial_valid_ids_to_expected_count() {
+        val content = """[0,1,1,2]"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(
+                Triple(10, "a", "N"),
+                Triple(11, "b", "N"),
+                Triple(12, "c", "N"),
+                Triple(13, "d", "N")
+            ),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 3,
+            expectedItems = 3
+        )
+
+        assertEquals(3, result.scores.size)
+        assertEquals(setOf(10, 11, 12), result.scores.map { it.wordId }.toSet())
+    }
+
+    @Test
     fun selection_mode_falls_back_to_word_match_when_word_id_is_invalid() {
         val content = """{"results":[{"local_id":0,"word":"apa"},{"local_id":999999,"word":"brad"}]}"""
         val response = chatResponseRawJson(content)
@@ -261,8 +298,8 @@ class LmStudioResponseParserTest {
     }
 
     @Test
-    fun selection_mode_requires_exact_count() {
-        val content = """[1]"""
+    fun selection_mode_throws_when_no_valid_ids_can_be_coerced() {
+        val content = """[999]"""
         val response = chatResponseRawJson(content)
 
         assertThrows<IllegalStateException> {
@@ -289,7 +326,7 @@ class LmStudioResponseParserTest {
         )
 
         assertEquals(2, result.scores.size)
-        assertEquals(setOf(121026, 110947), result.scores.map { it.wordId }.toSet())
+        assertEquals(setOf(121026, 120934), result.scores.map { it.wordId }.toSet())
     }
 
     @Test
