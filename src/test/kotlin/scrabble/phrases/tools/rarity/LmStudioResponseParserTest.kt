@@ -212,6 +212,22 @@ class LmStudioResponseParserTest {
     }
 
     @Test
+    fun selection_mode_falls_back_to_normalized_word_match_when_word_has_punctuation_noise() {
+        val content = """{"results":[{"word_id":0,"word":"frigorific?"},{"word_id":0,"word":"depeșat..."}]}"""
+        val response = chatResponseRawJson(content)
+        val result = parser.parse(
+            batch(Triple(10, "frigorific", "A"), Triple(11, "depeșat", "A")),
+            response,
+            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+            forcedRarityLevel = 2,
+            expectedItems = 2
+        )
+
+        assertEquals(2, result.scores.size)
+        assertEquals(listOf(10, 11), result.scores.map { it.wordId }.sorted())
+    }
+
+    @Test
     fun selection_mode_requires_exact_count() {
         val content = """[1]"""
         val response = chatResponseRawJson(content)

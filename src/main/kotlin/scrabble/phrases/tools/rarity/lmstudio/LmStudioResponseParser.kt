@@ -121,30 +121,26 @@ class LmStudioResponseParser(
 
         // 2) If id is missing/invalid, map by exact word copy from input.
         if (selected.size < expected) {
-            val batchIdsByWord = batch
-                .groupBy { it.word.lowercase() }
-                .mapValues { (_, rows) -> rows.map { it.wordId }.toMutableList() }
-                .toMutableMap()
-
-            for (id in selected) {
-                val selectedRow = batchById[id] ?: continue
-                val key = selectedRow.word.lowercase()
-                val idsForWord = batchIdsByWord[key] ?: continue
-                idsForWord.remove(id)
-                if (idsForWord.isEmpty()) batchIdsByWord.remove(key)
-            }
+            val remainingById = batchById.toMutableMap()
+            for (id in selected) remainingById.remove(id)
 
             for (candidate in rawSelections) {
                 if (selected.size == expected) return selected.toList()
                 val directId = candidate.wordId
                 if (directId != null && directId in batchById) continue
-                val key = candidate.word?.trim()?.lowercase().orEmpty()
-                if (key.isEmpty()) continue
-                val idsForWord = batchIdsByWord[key] ?: continue
-                val matchedId = idsForWord.firstOrNull() ?: continue
-                selected += matchedId
-                idsForWord.removeAt(0)
-                if (idsForWord.isEmpty()) batchIdsByWord.remove(key)
+
+                val rawWord = candidate.word?.trim().orEmpty()
+                if (rawWord.isEmpty()) continue
+                val exactKey = rawWord.lowercase()
+                val normalizedKey = normalizeSelectionWord(rawWord)
+
+                val matched = remainingById.values.firstOrNull { row ->
+                    row.word.lowercase() == exactKey ||
+                        (normalizedKey.isNotEmpty() && normalizeSelectionWord(row.word) == normalizedKey)
+                } ?: continue
+
+                selected += matched.wordId
+                remainingById.remove(matched.wordId)
             }
             if (selected.size == expected) return selected.toList()
         }
@@ -500,7 +496,18 @@ class LmStudioResponseParser(
         if (value > 1.0 && value <= 100.0) return value / 100.0
         return 0.5
     }
+
+    private fun normalizeSelectionWord(value: String): String {
+        if (value.isBlank()) return ""
+        return value
+            .lowercase()
+            .trim()
+            .replace('’', '\'')
+            .replace(SELECTION_EDGE_PUNCTUATION, "")
+    }
 }
+
+private val SELECTION_EDGE_PUNCTUATION = Regex("""^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$""")
 
 private fun MutableMap<Pair<String, String>, MutableList<BaseWordRow>>.removeById(
     key: Pair<String, String>,

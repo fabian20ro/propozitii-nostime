@@ -82,3 +82,5 @@
 - 2026-02-12: Step 5 terminal switched-word logs are easier to audit with compact directional markers (`selected` / `not`, `(+)/(-)`, 7 entries per line) instead of verbose `old->new` tuples.
 - 2026-02-12: Chain rebalance schedule is now intentionally asymmetric (3x `1+2->1`, 2x `2+3->2`, 2x `3+4->3`, 1x `4+5->4`) and resume discovery must scan all 8 generated step files.
 - 2026-02-12: Overly long `run_base` values can truncate `run_slug` step suffixes after sanitization length limits; keep `run_base` short to preserve transition identity in logs/artifacts.
+- 2026-02-12: Rebalance prompt compliance degrades when model has to "reconstruct" selected entries; requiring exact copy of selected input objects (`word_id` + `word`) reduces invented IDs (`0`, large random ids) and malformed words.
+- 2026-02-12: Step 5 selection parser should normalize minor punctuation noise in returned `word` values (`?`, `...`) before fallback matching; otherwise valid selections are dropped and batch split/retry rate increases.
