@@ -475,7 +475,7 @@ class LmStudioClientTest {
 
             when (callIndex.getAndIncrement()) {
                 0 -> respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
-                1 -> respond(exchange, 200, successResponseRawContent("[0,0,0,0,0]")) // expected=6 -> still invalid after coercion
+                1 -> respond(exchange, 200, successResponseRawContent("[99,99,99,99,99]")) // expected=6 -> no valid ids
                 2 -> respond(exchange, 200, successResponseRawContent("[1,2,3,4,5,6]")) // repair pass succeeds
                 else -> respond(exchange, 500, """{"error":"unexpected call"}""")
             }
