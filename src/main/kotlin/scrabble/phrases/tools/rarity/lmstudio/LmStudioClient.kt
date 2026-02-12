@@ -14,6 +14,28 @@ import kotlin.math.roundToInt
 
 private const val MAX_RECURSION_DEPTH = 10
 private const val JSON_SCHEMA_UNRESOLVED_DISABLE_RATIO = 0.2
+private const val SELECTION_REPAIR_MAX_RETRIES = 1
+
+private const val SELECTION_REPAIR_SYSTEM_PROMPT = """
+Ești selector lexical pentru limba română.
+Alege cele mai comune intrări din listă (uz curent, vorbire de zi cu zi în România).
+
+Răspunsul trebuie să fie STRICT JSON valid: un array de numere întregi.
+Fiecare număr trebuie să fie un `local_id` din input.
+Nu adăuga text extra, explicații, markdown sau blocuri de cod.
+Nu inventa id-uri. Fără duplicate.
+Evită termeni vulgari/obsceni când există alternative.
+"""
+
+private const val SELECTION_REPAIR_USER_TEMPLATE = """
+Returnează DOAR JSON valid: array de întregi `local_id`.
+Fără text extra, fără markdown, fără blocuri de cod.
+Selectează cele mai comune intrări din listă.
+Numărul exact de id-uri este impus de schema JSON; respectă schema.
+
+Input:
+{{INPUT_JSON}}
+"""
 
 data class CapabilityState(
     val responseFormatMode: ResponseFormatMode = ResponseFormatMode.JSON_OBJECT,
@@ -96,6 +118,13 @@ class LmStudioClient(
             return direct.scores + retried
         }
 
+        if (ctx.outputMode == ScoringOutputMode.SELECTED_WORD_IDS && isSelectionCountMismatch(direct.lastError)) {
+            val repaired = trySelectionRepairBeforeSplit(batch, ctx)
+            if (repaired != null) {
+                return repaired
+            }
+        }
+
         if (batch.size == 1) {
             logFailedWord(ctx, batch.single(), "batch_failed_after_retries", "last_error" to direct.lastError)
             return emptyList()
@@ -154,14 +183,15 @@ class LmStudioClient(
             ScoringOutputMode.SCORE_RESULTS -> JsonSchemaKind.SCORE_RESULTS
             ScoringOutputMode.SELECTED_WORD_IDS -> JsonSchemaKind.SELECTED_WORD_IDS
         }
+        val (resolvedSystemPrompt, resolvedUserTemplate) = resolveSelectionPromptCounts(ctx)
 
         repeat(ctx.maxRetries) { attempt ->
             var responseBody: String? = null
             val requestPayload = requestBuilder.buildRequest(
                 model = ctx.model,
                 batch = batch,
-                systemPrompt = ctx.systemPrompt,
-                userTemplate = ctx.userTemplate,
+                systemPrompt = resolvedSystemPrompt,
+                userTemplate = resolvedUserTemplate,
                 responseFormatMode = currentResponseFormatMode,
                 includeReasoningControls = includeReasoningControls,
                 config = config,
@@ -278,6 +308,51 @@ class LmStudioClient(
             lastError = lastError,
             connectivityFailure = sawOnlyConnectivityFailures
         )
+    }
+
+    private fun trySelectionRepairBeforeSplit(
+        batch: List<BaseWordRow>,
+        ctx: ScoringContext
+    ): List<ScoreResult>? {
+        val expected = ctx.expectedJsonItems ?: return null
+        if (expected <= 0 || expected >= batch.size) return null
+
+        val repairContext = ctx.copy(
+            runSlug = "${ctx.runSlug}_repair",
+            maxRetries = SELECTION_REPAIR_MAX_RETRIES,
+            systemPrompt = SELECTION_REPAIR_SYSTEM_PROMPT.trimIndent(),
+            userTemplate = SELECTION_REPAIR_USER_TEMPLATE.trimIndent(),
+            allowPartialResults = false
+        )
+        val repaired = tryScoreBatch(batch, repairContext)
+        if (repaired.connectivityFailure) return null
+        if (repaired.unresolved.isNotEmpty()) return null
+        if (repaired.scores.size != expected) return null
+
+        println(
+            "Selection repair succeeded (size=${batch.size}, expected=$expected), avoiding recursive split."
+        )
+        return repaired.scores
+    }
+
+    private fun isSelectionCountMismatch(lastError: String?): Boolean {
+        val text = lastError?.lowercase().orEmpty()
+        return text.contains("expected exactly") && text.contains("selected")
+    }
+
+    private fun resolveSelectionPromptCounts(ctx: ScoringContext): Pair<String, String> {
+        if (ctx.outputMode != ScoringOutputMode.SELECTED_WORD_IDS) {
+            return ctx.systemPrompt to ctx.userTemplate
+        }
+        val expected = ctx.expectedJsonItems ?: return ctx.systemPrompt to ctx.userTemplate
+        return applySelectionCountPlaceholders(ctx.systemPrompt, expected) to
+            applySelectionCountPlaceholders(ctx.userTemplate, expected)
+    }
+
+    private fun applySelectionCountPlaceholders(prompt: String, expected: Int): String {
+        return prompt
+            .replace(REBALANCE_TARGET_COUNT_PLACEHOLDER, expected.toString())
+            .replace(REBALANCE_COMMON_COUNT_PLACEHOLDER, expected.toString())
     }
 
     private fun shouldDisableResponseFormatAfterPartialSchemaParse(

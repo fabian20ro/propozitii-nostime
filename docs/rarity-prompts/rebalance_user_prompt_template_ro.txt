@@ -1,19 +1,16 @@
-Returnează DOAR JSON valid: array de obiecte.
+Returnează DOAR JSON valid: array de numere întregi (`local_id`).
 Fără text extra, fără markdown, fără blocuri de cod.
 
 Task:
-- Alege EXACT {{COMMON_COUNT}} cele mai comune intrări din lista de mai jos.
-- Răspunsul trebuie să conțină DOAR obiecte cu câmpurile:
-  - `local_id`
-  - `word`
+- Alege cele mai comune intrări din lista de mai jos.
+- Răspunsul trebuie să conțină DOAR `local_id`.
+- Numărul exact de intrări este impus de schema JSON.
 
 Reguli hard:
-- EXACT {{COMMON_COUNT}} obiecte în output.
 - Fără duplicate.
-- Fiecare obiect trebuie COPIAT exact din input (`local_id` + `word`).
 - Nu inventa id-uri.
 - Folosește numai `local_id`-urile din input.
-- Dacă nu ești sigur, fă cea mai bună alegere, dar păstrează count-ul exact.
+- Dacă nu ești sigur, fă cea mai bună alegere.
 - Evită termeni vulgari/obsceni când există alternative.
 
 Input:

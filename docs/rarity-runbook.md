@@ -102,7 +102,9 @@ Step5 notes:
 - In pair mode, each batch is sampled stratified by the initial source mix (for example, initial 25/75 keeps ~25/75 source sampling per batch).
 - Level source precedence is `final_level`, then `rarity_level`, then `median_level`.
 - Each `word_id` is processed at most once per step5 run, even if later transitions would match.
-- Step 5 prompt mode is sparse: LM returns only the selected subset as a JSON array of `word_id` integers (the most common words in the batch), and the pipeline auto-assigns non-returned words to the companion level.
+- Step 5 prompt mode is sparse: LM returns only the selected subset as a JSON array of batch-local `local_id` integers (the most common words in the batch), and the pipeline auto-assigns non-returned words to the companion level.
+- For recursive split retries in Step 5, expected selection count is rebound per sub-batch (`expectedJsonItems`) before each LM call.
+- If Step 5 gets a count-mismatch response (`Expected exactly ... selected`), it runs one strict repair pass on the same batch before splitting.
 - Multi-transition mode is available via `--transitions "2:1,3:2,4:3"`.
 - Step 5 is loop-safe: you can feed the previous Step 5 output back into a new Step 5 run.
 - Step 5 logs switched words only to `build/rarity/rebalance/switched_words/<run>.switched.jsonl` (`previous_level != new_level`).

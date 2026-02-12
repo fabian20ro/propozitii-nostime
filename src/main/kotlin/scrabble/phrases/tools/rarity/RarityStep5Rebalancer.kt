@@ -416,13 +416,11 @@ class RarityStep5Rebalancer(
             systemPrompt = renderTemplate(
                 template = options.systemPrompt,
                 transition = transition,
-                commonCount = commonCount,
                 commonLevel = commonLevel
             ),
             userTemplate = renderTemplate(
                 template = options.userTemplate,
                 transition = transition,
-                commonCount = commonCount,
                 commonLevel = commonLevel
             ),
             flavor = resolvedEndpoint.flavor,
@@ -664,7 +662,6 @@ class RarityStep5Rebalancer(
     private fun renderTemplate(
         template: String,
         transition: LevelTransition,
-        commonCount: Int,
         commonLevel: Int
     ): String {
         val sourceLabel = transition.describeSources()
@@ -672,8 +669,6 @@ class RarityStep5Rebalancer(
             .replace(REBALANCE_FROM_LEVEL_PLACEHOLDER, sourceLabel)
             .replace(REBALANCE_TO_LEVEL_PLACEHOLDER, transition.toLevel.toString())
             .replace(REBALANCE_OTHER_LEVEL_PLACEHOLDER, transition.otherLevel().toString())
-            .replace(REBALANCE_TARGET_COUNT_PLACEHOLDER, commonCount.toString())
-            .replace(REBALANCE_COMMON_COUNT_PLACEHOLDER, commonCount.toString())
             .replace(REBALANCE_COMMON_LEVEL_PLACEHOLDER, commonLevel.toString())
     }
 

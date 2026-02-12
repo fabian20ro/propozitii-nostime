@@ -355,7 +355,7 @@ class LmStudioClientTest {
                         .path("schema")
                         .path("minItems")
                         .asInt()
-                    val selected = (1..expected).map { localId -> mapOf("local_id" to localId) }
+                    val selected = (1..expected).toList()
                     respond(exchange, 200, successResponseRawContent(mapper.writeValueAsString(selected)))
                 }
                 else -> respond(exchange, 500, """{"error":"unexpected call"}""")
@@ -394,11 +394,117 @@ class LmStudioClientTest {
                 .path("json_schema")
                 .path("schema")
                 .path("items")
-            val required = itemSchema.path("required")
-            assertEquals(2, required.size())
-            assertEquals("local_id", required[0].asText())
-            assertEquals("word", required[1].asText())
-            assertTrue(itemSchema.path("properties").has("word"))
+            assertEquals("integer", itemSchema.path("type").asText())
+            assertEquals(1, itemSchema.path("minimum").asInt())
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun selection_mode_updates_common_count_placeholder_after_recursive_split() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> {
+                    respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                    return@startServer
+                }
+                1 -> {
+                    respond(exchange, 500, """{"error":"force split"}""")
+                    return@startServer
+                }
+            }
+
+            val requestJson = mapper.readTree(requestBody)
+            val expected = requestJson
+                .path("response_format")
+                .path("json_schema")
+                .path("schema")
+                .path("minItems")
+                .asInt()
+            val selected = (1..expected).toList()
+            respond(exchange, 200, successResponseRawContent(mapper.writeValueAsString(selected)))
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val context = ctx(
+                runSlug = "run_select_split_prompt_count",
+                model = MODEL_GPT_OSS_20B,
+                endpoint = endpoint,
+                maxRetries = 2,
+                runLogPath = tempDir.resolve("run_select_split_prompt_count.jsonl"),
+                failedLogPath = tempDir.resolve("failed_select_split_prompt_count.jsonl"),
+                maxTokens = 200
+            ).copy(
+                systemPrompt = "count=${REBALANCE_COMMON_COUNT_PLACEHOLDER}",
+                userTemplate = "count=${REBALANCE_COMMON_COUNT_PLACEHOLDER} {{INPUT_JSON}}",
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 2,
+                expectedJsonItems = 15
+            )
+
+            val batch = (1..60).map { BaseWordRow(it, "w$it", "N") }
+            val scored = client.scoreBatchResilient(batch = batch, context = context)
+
+            assertEquals(15, scored.size)
+            assertEquals(4, requests.size)
+
+            val leftRequest = mapper.readTree(requests[2]).path("messages").path(1).path("content").asText("")
+            val rightRequest = mapper.readTree(requests[3]).path("messages").path(1).path("content").asText("")
+            assertTrue(leftRequest.contains("count=8"))
+            assertTrue(rightRequest.contains("count=7"))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun selection_mode_tries_repair_once_before_recursive_split() {
+        val requests = mutableListOf<String>()
+        val callIndex = AtomicInteger(0)
+        val server = startServer { exchange ->
+            val requestBody = exchange.requestBody.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            synchronized(requests) { requests += requestBody }
+
+            when (callIndex.getAndIncrement()) {
+                0 -> respond(exchange, 400, """{"error":"'response_format.type' must be 'json_schema' or 'text'"}""")
+                1 -> respond(exchange, 200, successResponseRawContent("[1,2,3,4,5]")) // expected=6 -> mismatch
+                2 -> respond(exchange, 200, successResponseRawContent("[1,2,3,4,5,6]")) // repair pass succeeds
+                else -> respond(exchange, 500, """{"error":"unexpected call"}""")
+            }
+        }
+
+        try {
+            val client = LmStudioClient(mapper, apiKey = null)
+            val endpoint = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
+            val context = ctx(
+                runSlug = "run_select_repair_before_split",
+                model = MODEL_GPT_OSS_20B,
+                endpoint = endpoint,
+                maxRetries = 2,
+                runLogPath = tempDir.resolve("run_select_repair_before_split.jsonl"),
+                failedLogPath = tempDir.resolve("failed_select_repair_before_split.jsonl"),
+                maxTokens = 200
+            ).copy(
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 2,
+                expectedJsonItems = 6
+            )
+
+            val batch = (1..24).map { BaseWordRow(it, "w$it", "N") }
+            val scored = client.scoreBatchResilient(batch = batch, context = context)
+
+            assertEquals(6, scored.size)
+            assertEquals(3, requests.size, "repair path should avoid recursive split calls")
+            val repairRequestContent = mapper.readTree(requests[2]).path("messages").path(0).path("content").asText("")
+            assertTrue(repairRequestContent.contains("array de numere întregi"))
         } finally {
             server.stop(0)
         }

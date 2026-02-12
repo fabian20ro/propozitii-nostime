@@ -49,6 +49,23 @@ sanitize_slug() {
   echo "$cleaned"
 }
 
+count_total_words() {
+  local csv_path="$1"
+  awk -F',' 'NR>1 { c++ } END { print c+0 }' "$csv_path"
+}
+
+build_step_slug() {
+  local step="$1"
+  local from_low="$2"
+  local from_high="$3"
+  local to_level="$4"
+  local run_suffix="$RUN_BASE"
+  if (( ${#run_suffix} > 24 )); then
+    run_suffix="${run_suffix: -24}"
+  fi
+  sanitize_slug "s${step}_${from_low}${from_high}to${to_level}_${run_suffix}"
+}
+
 get_level_count() {
   local csv_path="$1"
   local level="$2"
@@ -185,7 +202,7 @@ run_step() {
     exit 1
   fi
 
-  step_slug="$(sanitize_slug "${RUN_BASE}_s${step}_${from_low}${from_high}to${to_level}")"
+  step_slug="$(build_step_slug "$step" "$from_low" "$from_high" "$to_level")"
 
   echo
   echo "========== STEP $step =========="
@@ -291,20 +308,32 @@ echo "max_tokens=$MAX_TOKENS timeout_seconds=$TIMEOUT_SECONDS max_retries=$MAX_R
 echo "current_csv=$CURRENT_CSV"
 echo "$(print_distribution "$CURRENT_CSV")"
 
+TARGET_L1=2500
+TARGET_L2=7500
+TARGET_L3=15000
+TARGET_L5=30000
+TOTAL_WORDS="$(count_total_words "$CURRENT_CSV")"
+TARGET_L4=$((TOTAL_WORDS - TARGET_L1 - TARGET_L2 - TARGET_L3 - TARGET_L5))
+if (( TARGET_L4 < 1 )); then
+  echo "Invalid target distribution for total=$TOTAL_WORDS: computed level4 target is $TARGET_L4" >&2
+  exit 1
+fi
+echo "target_distribution=[1:$TARGET_L1 2:$TARGET_L2 3:$TARGET_L3 4:$TARGET_L4 5:$TARGET_L5] total=$TOTAL_WORDS"
+
 step_idx=1
 for _ in 1 2 3; do
-  run_step "$step_idx" 1 2 1 2500
+  run_step "$step_idx" 1 2 1 "$TARGET_L1"
   step_idx=$((step_idx + 1))
 done
 for _ in 1 2; do
-  run_step "$step_idx" 2 3 2 7500
+  run_step "$step_idx" 2 3 2 "$TARGET_L2"
   step_idx=$((step_idx + 1))
 done
 for _ in 1 2; do
-  run_step "$step_idx" 3 4 3 15000
+  run_step "$step_idx" 3 4 3 "$TARGET_L3"
   step_idx=$((step_idx + 1))
 done
-run_step "$step_idx" 4 5 4 22698
+run_step "$step_idx" 4 5 4 "$TARGET_L4"
 
 if [[ -n "$FINAL_OUTPUT_CSV" ]]; then
   cp "$CURRENT_CSV" "$FINAL_OUTPUT_CSV"

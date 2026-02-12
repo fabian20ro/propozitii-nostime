@@ -84,3 +84,6 @@
 - 2026-02-12: Overly long `run_base` values can truncate `run_slug` step suffixes after sanitization length limits; keep `run_base` short to preserve transition identity in logs/artifacts.
 - 2026-02-12: Rebalance prompt compliance degrades when model has to "reconstruct" selected entries; requiring exact copy of selected input objects (`word_id` + `word`) reduces invented IDs (`0`, large random ids) and malformed words.
 - 2026-02-12: Step 5 selection parser should normalize minor punctuation noise in returned `word` values (`?`, `...`) before fallback matching; otherwise valid selections are dropped and batch split/retry rate increases.
+- 2026-02-12: Step 5 recursive split can create a hard prompt/schema conflict if prompt text keeps the original count (for example `EXACT 6`) while sub-batches expect 3/2/1; rebind count placeholders per request or keep count only in schema.
+- 2026-02-12: For unstable local models, Step 5 is more robust with IDs-only sparse output (`[local_id,...]`) than object output that forces the model to regenerate words and increases malformed-token failures.
+- 2026-02-12: Before splitting a failed Step 5 batch, one strict repair pass on the same batch can recover exact-count selection and avoid expensive retry cascades.

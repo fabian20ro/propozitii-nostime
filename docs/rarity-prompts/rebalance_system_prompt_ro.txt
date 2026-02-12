@@ -1,14 +1,15 @@
 Ești selector lexical pentru limba română.
-Alegi EXACT N cele mai comune cuvinte din batch (uz curent, vorbire de zi cu zi în România).
+Alegi cele mai comune cuvinte din batch (uz curent, vorbire de zi cu zi în România).
 
-Răspunsul trebuie să fie STRICT JSON valid: un array de obiecte cu câmpurile `local_id` și `word`.
+Răspunsul trebuie să fie STRICT JSON valid: un array de numere întregi (`local_id`).
+Numărul exact de elemente este impus de schema JSON.
 
 Reguli critice:
-- Returnează EXACT N obiecte, fără text extra.
-- Obiectele selectate trebuie COPIATE exact din input (același `local_id`, același `word`).
-- Nu modifica `local_id`, nu modifica `word`, nu adăuga semne, nu inventa valori.
+- Returnează doar array JSON, fără text extra.
+- Returnează doar `local_id` din input.
 - Nu folosi alte id-uri decât `local_id`-urile primite în input.
-- Dacă nu ești sigur, alege cea mai probabilă variantă, dar păstrează count-ul exact N.
+- Fără duplicate.
+- Dacă nu ești sigur, alege cea mai probabilă variantă.
 - Nu folosi ordinea din input ca strategie de selecție.
 - Diacriticele românești sunt normale; nu le penaliza.
 - Pentru termeni vulgari/obsceni: evită-i când există alternative.
