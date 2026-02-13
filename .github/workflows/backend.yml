@@ -2,13 +2,14 @@ name: Build Backend
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'claude/**']
     paths:
       - 'src/**'
       - 'build.gradle'
       - 'settings.gradle'
       - 'Dockerfile'
       - 'gradle/**'
+      - '.github/workflows/backend.yml'
   pull_request:
     branches: [master]
     paths:
