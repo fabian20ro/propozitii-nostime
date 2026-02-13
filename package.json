@@ -1,0 +1,12 @@
+{
+  "name": "propozitii-nostime-fallback",
+  "private": true,
+  "description": "Vercel serverless fallback for Render cold-start",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1"
+  },
+  "devDependencies": {
+    "@vercel/node": "^5.1.0",
+    "typescript": "^5.7.0"
+  }
+}
