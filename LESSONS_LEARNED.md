@@ -87,3 +87,10 @@
 - 2026-02-12: Step 5 recursive split can create a hard prompt/schema conflict if prompt text keeps the original count (for example `EXACT 6`) while sub-batches expect 3/2/1; rebind count placeholders per request or keep count only in schema.
 - 2026-02-12: For unstable local models, Step 5 is more robust with IDs-only sparse output (`[local_id,...]`) than object output that forces the model to regenerate words and increases malformed-token failures.
 - 2026-02-12: Before splitting a failed Step 5 batch, one strict repair pass on the same batch can recover exact-count selection and avoid expensive retry cascades.
+- 2026-02-13: Vercel serverless function (`api/all.ts`) using the Supabase JS client (PostgREST) is a viable cold-start bypass for the Kotlin/Render backend; both must maintain response-shape parity (same 6 keys, same HTML decorations).
+- 2026-02-13: Frontend dual-backend fallback should try the primary backend first with a short timeout (8s), then fall back to the serverless function; a sticky `renderIsHealthy` flag avoids redundant Vercel calls once Render is warm.
+- 2026-02-13: Background health polling (`wakeRenderInBackground`) should be guarded against concurrent invocations; a simple `_running` flag prevents stacking.
+- 2026-02-13: Supabase PostgREST does not support `GROUP BY` or `HAVING` directly; rhyme-group queries in the Vercel function must use `.rpc()` or fetch+count client-side.
+- 2026-02-13: Tautogram prefix finding via iterative single-noun probing (up to 15 attempts x 4 queries each = 60 round trips) is far too slow for serverless; batch approach (fetch 5 random nouns, single `.or()` verification query, client-side type counting) reduces to 3 queries total.
+- 2026-02-13: The same batch-prefix optimization applies to the Kotlin non-cached path (`minRarity > 1`): pick 5 random nouns then GROUP BY on those prefixes only, instead of scanning the entire `words` table.
+- 2026-02-13: Supabase `.or()` filter accepts `word.like.ab%,word.like.co%` syntax for multi-prefix matching in a single PostgREST call; result set is small enough for client-side aggregation.

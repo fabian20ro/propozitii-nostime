@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-12
+Freshness: 2026-02-13
 
 ## File Map
 
@@ -23,10 +23,13 @@ Each card uses a `.card-header` wrapper (flex row) containing the `<h2>` title, 
 ## Data Flow
 
 1. `refresh()` is called on initial page load and refresh-button clicks.
-2. Main request: `fetchAllSentences()` -> `GET /api/all`.
-   - includes `?minRarity=<1..5>&rarity=<1..5>`
-3. On fetch failure: show info state, poll `/q/health` for up to 60s (`waitForBackend()`), retry once.
-4. Success path: `applySentences(data)` sanitizes each field and writes to DOM.
+2. `fetchAllSentences(range)` implements dual-backend strategy:
+   - If `renderIsHealthy` flag is set, go directly to Render (8s timeout).
+   - Otherwise try Render with 8s timeout; on success, set `renderIsHealthy = true`.
+   - On Render failure: fall back to Vercel (`FALLBACK_API_BASE`) and fire `wakeRenderInBackground()`.
+3. `wakeRenderInBackground()` polls Render health up to 12 times (5s apart). Once healthy, sets `renderIsHealthy` so next request bypasses fallback.
+4. Both backends use the shared `fetchFrom(baseUrl, range, timeout)` helper which validates the 6 expected keys.
+5. Success path: `applySentences(data)` sanitizes each field and writes to DOM.
 
 ## Security/Sanitization Contract
 
@@ -44,7 +47,8 @@ Any non-allowed tags/attrs are removed before rendering.
 ## Backend Coupling Points
 
 Hardcoded API endpoints:
-- `API_BASE = https://propozitii-nostime.onrender.com/api`
+- `API_BASE = https://propozitii-nostime.onrender.com/api` (Render primary)
+- `FALLBACK_API_BASE = /api` (Vercel serverless, relative path)
 - `HEALTH_URL = https://propozitii-nostime.onrender.com/q/health`
 
 Rarity UI/storage contract:
@@ -109,12 +113,15 @@ Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons, explain 
 
 ### Improve cold-start UX
 
-Update:
-- retry limits/timeouts (`MAX_RETRIES`, `RETRY_DELAY`, `HEALTH_TIMEOUT`)
-- user-facing messages in `refresh()` / `waitForBackend()`
+The primary cold-start mitigation is now the Vercel fallback (users see instant results while Render wakes). For further tuning:
+- `FETCH_TIMEOUT` (8s): how long to wait for Render before falling back
+- `MAX_RETRIES`, `RETRY_DELAY`: background health poll cadence
+- `HEALTH_TIMEOUT`: per-poll timeout
+- `renderIsHealthy` flag: sticky — once Render responds, subsequent requests skip fallback
 
 ## High-Risk Areas
 
 - Writing unsanitized backend HTML directly to `innerHTML`.
 - Broadening sanitizer URL policy beyond trusted dexonline domain.
 - Breaking `FIELD_MAP` alignment with backend `/api/all` response.
+- Vercel fallback returning different keys/HTML than Render — both backends must stay in sync.
