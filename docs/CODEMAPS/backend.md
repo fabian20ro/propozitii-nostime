@@ -1,6 +1,6 @@
 # Backend Codemap
 
-Freshness: 2026-02-12
+Freshness: 2026-02-13
 
 ## Entry Points
 
@@ -43,7 +43,8 @@ If constraints are impossible at the chosen rarity range, endpoints return a pla
 - dictionary-style sentence using one defined noun and three additional words
 
 - `TautogramProvider`
-- uses cached prefix list with all three word types
+- uses cached prefix list with all three word types (when `minRarity <= 1`)
+- non-cached path: batch-probes 5 random nouns → verifies their prefixes in one targeted GROUP BY query
 - enforces second noun different from first
 
 - `MirrorProvider`
@@ -61,7 +62,7 @@ File: `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 - counts by `(type, articulated_syllables)`
 - noun rhyme groups (>=2 and >=3 cached separately)
 - verb rhyme groups (>=2)
-- valid 2-char prefixes with all 3 types
+- valid 2-char prefixes with all 3 types (keyed by maxRarity)
 
 ### Query Strategy
 
@@ -194,9 +195,44 @@ Folder: `src/main/kotlin/scrabble/phrases/words/`
   - Run CSV repository: `RunCsvRepositoryTest.kt`
   - Test doubles: `TestDoubles.kt` (`FakeLmClient`, `HalfBatchLmClient`)
 
+## Vercel Serverless Fallback
+
+File: `api/all.ts`
+Config: `vercel.json` (512MB, 10s max, single `/api/all` rewrite)
+
+A self-contained TypeScript function that mirrors the Kotlin `/api/all` endpoint using the Supabase JS client (PostgREST). Used as a cold-start bypass when Render is sleeping.
+
+### Structure
+
+- Supabase client init + env validation (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
+- Word types: `Noun`, `Adjective`, `Verb`
+- Generic `randomRow<T>` helper: count query + random offset
+- Six provider functions matching Kotlin providers: `comparison`, `definition`, `distih`, `haiku`, `mirror`, `tautogram`
+- Inline decorators: HTML escaping, dexonline link wrapping, verse line breaking
+- Accepts `?minRarity=&rarity=` query params (same contract as Kotlin)
+
+### Tautogram Prefix Strategy (batch probe)
+
+1. Count nouns in rarity range → pick random offset → fetch 5 nouns (2 queries)
+2. Extract distinct 2-letter prefixes from sample
+3. Single `.or(word.like.ab%,word.like.co%,...)` query → fetch all matching words
+4. Count types per prefix client-side → return first valid prefix (all 3 types + ≥2 nouns)
+
+Total: 3 Supabase queries instead of up to 60 sequential probes.
+
+### Mirror Rhyme Strategy
+
+- Fetches verb rhyme groups with `GROUP BY rhyme HAVING COUNT(*) >= 2`
+- Up to 15 retries to find 2 valid groups
+
+### Parity Contract
+
+Must return the same 6-key JSON shape and produce the same HTML decorations (dexonline `<a>` links, `<br/>` verse breaks) as the Kotlin backend.
+
 ## High-Risk Areas
 
 - Breaking `" / "` delimiter usage in verse providers.
 - Relaxing or removing exclusion sets and introducing duplicate words.
 - Changing anchor output without frontend sanitizer updates.
 - Schema changes without synchronized loader/repository/test-seed updates.
+- Vercel function diverging from Kotlin backend (different response shape, missing decorators, or sentence type drift).

@@ -1,39 +1,47 @@
 # Architecture Codemap
 
-Freshness: 2026-02-12
+Freshness: 2026-02-13
 
 ## System Topology
 
 ```text
 GitHub Pages (frontend static SPA)
-  -> HTTPS GET /api/all?minRarity=1..5&rarity=1..5, /q/health
-Render.com (Quarkus JVM backend)
+  -> tries Render first (8s timeout)
+  -> falls back to Vercel if Render is cold
+Render.com (Quarkus JVM backend, primary)
   -> JDBC
+Vercel Serverless (TypeScript fallback, cold-start bypass)
+  -> Supabase JS client (PostgREST)
 Supabase PostgreSQL (words dictionary table)
 ```
 
 ## Runtime Components
 
 - Frontend: `frontend/`
-- Backend endpoint code: `src/main/kotlin/scrabble/phrases/`
+- Primary backend (Kotlin): `src/main/kotlin/scrabble/phrases/`
+- Serverless fallback (TypeScript): `api/all.ts`
+- Vercel config: `vercel.json`
 - Migrations: `src/main/resources/db/migration/`
 - Deployment config:
-- `render.yaml`
-- `Dockerfile`
+  - `render.yaml` (Render/Kotlin backend)
+  - `Dockerfile`
+  - `vercel.json` (Vercel serverless fallback)
 
 ## Request Flow (Primary Path)
 
 1. User clicks `Generează altele` in frontend.
-2. `frontend/app.js` calls `GET https://propozitii-nostime.onrender.com/api/all?minRarity=<1..5>&rarity=<1..5>`.
-3. `PhraseResource.getAll()` internally calls all six endpoint methods.
-4. Each endpoint:
-- creates provider
-- wraps provider in decorators
-- returns `SentenceResponse` or field in `AllSentencesResponse`
-5. Providers query `WordRepository` for random words under constraints.
-   - all runtime selections apply `rarity_level BETWEEN minRarity AND rarity`.
-6. `DexonlineLinkAdder` injects `<a href="https://dexonline.ro/definitie/...">` around words.
-7. Frontend sanitizes returned HTML and renders into cards.
+2. `frontend/app.js` tries Render first with 8s timeout via `fetchFrom(API_BASE, ...)`.
+3. If Render responds:
+   - `PhraseResource.getAll()` internally calls all six endpoint methods.
+   - Each endpoint: creates provider → wraps in decorators → returns `SentenceResponse`.
+   - Providers query `WordRepository` for random words under constraints.
+   - All runtime selections apply `rarity_level BETWEEN minRarity AND rarity`.
+4. If Render is cold/down (timeout or error):
+   - Frontend falls back to `fetchFrom(FALLBACK_API_BASE, ...)` targeting Vercel.
+   - `api/all.ts` generates all six sentence types directly via Supabase PostgREST.
+   - Background: `wakeRenderInBackground()` polls Render health so next request goes to primary.
+5. `DexonlineLinkAdder` (Kotlin) or inline decorators (TypeScript) inject `<a href="https://dexonline.ro/definitie/...">` around words.
+6. Frontend sanitizes returned HTML and renders into cards.
 
 ## Cross-Cutting Backend Behaviors
 
@@ -78,8 +86,8 @@ Operational safeguards:
 
 ## Deployment Reality
 
-- Backend image is JVM-based (Temurin 21), not native.
-- Render deploys using `render.yaml` (Docker runtime).
+- Primary backend: JVM-based (Temurin 21), Render via `render.yaml` (Docker runtime). Subject to cold-start delays on free tier.
+- Serverless fallback: Vercel, `api/all.ts` TypeScript function (512MB, 10s max). Connects to same Supabase DB via `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` env vars.
 - Frontend deploys separately via GitHub Actions Pages workflow.
 - Flyway is on by default in dev/test and explicitly off in `%prod`.
 
@@ -97,13 +105,19 @@ Operational safeguards:
 - Frontend relies primarily on `/api/all` keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`.
 - Rarity control contract: `rarity=1..5` (default `2`, max) and `minRarity=1..5` (default `1`, min) across all sentence endpoints. Backend-compatible: `minRarity` is optional.
 
+4. Dual-backend contract:
+- Both Render (Kotlin) and Vercel (TypeScript) must return identical `/api/all` response shape with the same 6 keys.
+- Both must produce dexonline `<a>` links and `" / "` verse delimiters.
+- Both accept `?minRarity=&rarity=` query parameters.
+
 ## Where To Extend
 
 - New sentence type:
-- new provider
-- new endpoint in `PhraseResource`
-- optionally new `/api/all` field + frontend card and `FIELD_MAP` entry
+  - new provider in Kotlin
+  - new endpoint in `PhraseResource`
+  - new provider function in `api/all.ts` (Vercel fallback)
+  - optionally new `/api/all` field + frontend card and `FIELD_MAP` entry
 
 - New lexical/data feature:
-- migration in `db/migration`
-- update loader + repository + tests + docs together
+  - migration in `db/migration`
+  - update loader + repository + tests + docs together
