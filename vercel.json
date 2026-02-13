@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/all.ts": {
-      "memory": 256,
+      "memory": 512,
       "maxDuration": 10
     }
   },
