@@ -352,13 +352,8 @@ header h1 {
 }
 
 @media (max-width: 640px) {
-    .rarity-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .scale-label {
-        text-align: center;
+    .scale-text {
+        display: none;
     }
 }
 
