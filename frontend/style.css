@@ -70,6 +70,11 @@ header h1 {
     font-size: 1rem;
 }
 
+.subtitle-hint {
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
 /* Grid */
 .grid {
     display: grid;
