@@ -121,10 +121,12 @@ function rarityLabel(level) {
 }
 
 function updateRangeTrack() {
-    const min = Number(rarityMinSlider.value);
-    const max = Number(rarityMaxSlider.value);
-    const pctMin = ((min - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
-    const pctMax = ((max - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
+    const a = Number(rarityMinSlider.value);
+    const b = Number(rarityMaxSlider.value);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const pctMin = ((lo - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
+    const pctMax = ((hi - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
     dualRangeTrack.style.background =
         `linear-gradient(to right, var(--border-color) ${pctMin}%, var(--primary-color) ${pctMin}%, var(--primary-color) ${pctMax}%, var(--border-color) ${pctMax}%)`;
 }
@@ -147,10 +149,9 @@ function setRarityRange(min, max) {
 }
 
 function getCurrentRarityRange() {
-    return {
-        min: clampRarity(rarityMinSlider.value, DEFAULT_RARITY_MIN),
-        max: clampRarity(rarityMaxSlider.value, DEFAULT_RARITY_MAX)
-    };
+    const a = clampRarity(rarityMinSlider.value, DEFAULT_RARITY_MIN);
+    const b = clampRarity(rarityMaxSlider.value, DEFAULT_RARITY_MAX);
+    return { min: Math.min(a, b), max: Math.max(a, b) };
 }
 
 function initRarity() {
@@ -526,14 +527,18 @@ document.querySelector('.grid').addEventListener('click', function (e) {
 
 // Rarity slider event listeners
 function onRarityInput() {
-    let min = Number(rarityMinSlider.value);
-    let max = Number(rarityMaxSlider.value);
-    if (min > max) {
-        [min, max] = [max, min];
-        rarityMinSlider.value = String(min);
-        rarityMaxSlider.value = String(max);
+    const a = Number(rarityMinSlider.value);
+    const b = Number(rarityMaxSlider.value);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    if (lo === hi) {
+        rarityValue.textContent = `${lo} (${rarityLabel(lo)})`;
+    } else {
+        rarityValue.textContent = `${lo} (${rarityLabel(lo)}) – ${hi} (${rarityLabel(hi)})`;
     }
-    setRarityRange(min, max);
+    localStorage.setItem(RARITY_MIN_KEY, String(lo));
+    localStorage.setItem(RARITY_MAX_KEY, String(hi));
+    updateRangeTrack();
 }
 
 refreshBtn.addEventListener('click', refresh);
