@@ -407,20 +407,39 @@ class WordRepository(private val dataSource: AgroalDataSource) {
 
     private fun getRandomPrefixWithAllTypesFromDb(minRarity: Int, maxRarity: Int): String? {
         dataSource.connection.use { conn ->
+            // Step 1: pick a few random nouns to get candidate two-letter prefixes
+            val prefixes = mutableListOf<String>()
             conn.prepareStatement(
-                """
-                SELECT prefix FROM (
-                    SELECT LEFT(word, 2) AS prefix
-                    FROM words
-                    WHERE LENGTH(word) >= 2 AND rarity_level BETWEEN ? AND ?
-                    GROUP BY LEFT(word, 2)
-                    HAVING COUNT(DISTINCT type) = 3
-                ) valid_prefixes
-                ORDER BY RANDOM() LIMIT 1
-                """.trimIndent()
+                "SELECT word FROM words WHERE type='N' AND LENGTH(word) >= 2 AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 5"
             ).use { stmt ->
                 stmt.setInt(1, minRarity)
                 stmt.setInt(2, maxRarity)
+                stmt.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        val w = rs.getString("word")
+                        val p = w.substring(0, 2)
+                        if (p !in prefixes) prefixes.add(p)
+                    }
+                }
+            }
+            if (prefixes.isEmpty()) return null
+
+            // Step 2: verify which candidate prefixes have all 3 word types
+            val placeholders = prefixes.joinToString(", ") { "?" }
+            conn.prepareStatement(
+                """
+                SELECT LEFT(word, 2) AS prefix
+                FROM words
+                WHERE LEFT(word, 2) IN ($placeholders) AND rarity_level BETWEEN ? AND ?
+                GROUP BY LEFT(word, 2)
+                HAVING COUNT(DISTINCT type) = 3
+                ORDER BY RANDOM() LIMIT 1
+                """.trimIndent()
+            ).use { stmt ->
+                var idx = 1
+                for (p in prefixes) stmt.setString(idx++, p)
+                stmt.setInt(idx++, minRarity)
+                stmt.setInt(idx, maxRarity)
                 stmt.executeQuery().use { rs ->
                     return if (rs.next()) rs.getString("prefix") else null
                 }

@@ -210,47 +210,56 @@ async function randomVerbByPrefix(
   ]);
 }
 
-// --- Tautogram: iterative prefix probing (no bulk fetch) ---
+// --- Tautogram: batch prefix probing (3 queries total) ---
 
-const MAX_PREFIX_ATTEMPTS = 15;
+const PREFIX_SAMPLE_SIZE = 5;
 
 async function randomPrefixWithAllTypes(
   minR: number, maxR: number
 ): Promise<string | null> {
-  // Strategy: pick a random noun, take its 2-letter prefix,
-  // check if adj + verb exist for that prefix. Retry up to N times.
-  for (let i = 0; i < MAX_PREFIX_ATTEMPTS; i++) {
-    const noun = await randomRow<Noun>(NOUN_SELECT, [
-      { column: "type", op: "eq", value: "N" },
-      ...rarityFilters(minR, maxR),
-    ]);
-    if (!noun || noun.word.length < 2) continue;
-    const prefix = noun.word.substring(0, 2);
+  // 1) Pick a few random nouns to get candidate two-letter prefixes
+  const { count: nounTotal } = await supabase
+    .from("words").select("word", { count: "exact", head: true })
+    .eq("type", "N").gte("rarity_level", minR).lte("rarity_level", maxR);
+  if (!nounTotal) return null;
 
-    // Check adj exists with this prefix (count only, head: true)
-    let adjQ = supabase.from("words").select("word", { count: "exact", head: true })
-      .eq("type", "A").like("word", `${prefix}%`)
-      .gte("rarity_level", minR).lte("rarity_level", maxR);
-    const { count: adjCount } = await adjQ;
-    if (!adjCount) continue;
+  const offset = Math.floor(Math.random() * Math.max(1, nounTotal - PREFIX_SAMPLE_SIZE));
+  const { data: sampleNouns } = await supabase
+    .from("words").select("word")
+    .eq("type", "N").gte("rarity_level", minR).lte("rarity_level", maxR)
+    .range(offset, offset + PREFIX_SAMPLE_SIZE - 1).limit(PREFIX_SAMPLE_SIZE);
+  if (!sampleNouns || sampleNouns.length === 0) return null;
 
-    // Check verb exists
-    let verbQ = supabase.from("words").select("word", { count: "exact", head: true })
-      .eq("type", "V").like("word", `${prefix}%`)
-      .gte("rarity_level", minR).lte("rarity_level", maxR);
-    const { count: verbCount } = await verbQ;
-    if (!verbCount) continue;
+  const prefixes = [...new Set(
+    sampleNouns.map((n) => n.word.substring(0, 2)).filter((p) => p.length === 2)
+  )];
+  if (prefixes.length === 0) return null;
 
-    // Check we have at least 2 nouns for this prefix
-    let nounQ = supabase.from("words").select("word", { count: "exact", head: true })
-      .eq("type", "N").like("word", `${prefix}%`)
-      .gte("rarity_level", minR).lte("rarity_level", maxR);
-    const { count: nounCount } = await nounQ;
-    if (!nounCount || nounCount < 2) continue;
+  // 2) Single query: fetch type + prefix for all words matching any candidate prefix
+  const orFilter = prefixes.map((p) => `word.like.${p}%`).join(",");
+  const { data: candidates } = await supabase
+    .from("words").select("word, type")
+    .gte("rarity_level", minR).lte("rarity_level", maxR)
+    .or(orFilter);
+  if (!candidates) return null;
 
-    return prefix;
+  // 3) Count types per prefix client-side
+  const stats = new Map<string, { types: Set<string>; nounCount: number }>();
+  for (const c of candidates) {
+    if (c.word.length < 2) continue;
+    const p = c.word.substring(0, 2);
+    if (!stats.has(p)) stats.set(p, { types: new Set(), nounCount: 0 });
+    const s = stats.get(p)!;
+    s.types.add(c.type);
+    if (c.type === "N") s.nounCount++;
   }
-  return null;
+
+  const valid = prefixes.filter((p) => {
+    const s = stats.get(p);
+    return s && s.types.size === 3 && s.nounCount >= 2;
+  });
+  if (valid.length === 0) return null;
+  return valid[Math.floor(Math.random() * valid.length)];
 }
 
 // --- Mirror: iterative rhyme group probing (no bulk fetch) ---
