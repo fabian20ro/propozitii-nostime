@@ -2,7 +2,7 @@ name: Build Backend
 
 on:
   push:
-    branches: [master, 'claude/**']
+    branches: [master]
     paths:
       - 'src/**'
       - 'build.gradle'
