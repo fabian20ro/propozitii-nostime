@@ -264,7 +264,8 @@ async function fetchAllSentences(range) {
     if (renderIsHealthy) {
         try {
             return await fetchFrom(API_BASE, range, FETCH_TIMEOUT);
-        } catch {
+        } catch (err) {
+            console.warn('Render backend unavailable:', err.message);
             renderIsHealthy = false;
             // fall through to fallback
         }
@@ -275,15 +276,20 @@ async function fetchAllSentences(range) {
         const data = await fetchFrom(API_BASE, range, FETCH_TIMEOUT);
         renderIsHealthy = true;
         return data;
-    } catch {
-        // Render is cold — use Vercel fallback and wake Render in background
+    } catch (err) {
+        console.warn('Render backend cold, falling back to Vercel:', err.message);
     }
 
     // Wake Render in background (fire-and-forget health poll)
     wakeRenderInBackground();
 
     // Serve from Vercel fallback
-    return await fetchFrom(FALLBACK_API_BASE, range, FETCH_TIMEOUT);
+    try {
+        return await fetchFrom(FALLBACK_API_BASE, range, FETCH_TIMEOUT);
+    } catch (err) {
+        console.error('Both backends failed:', err.message);
+        throw new Error('Service temporarily unavailable');
+    }
 }
 
 /**
@@ -293,12 +299,15 @@ function wakeRenderInBackground() {
     if (wakeRenderInBackground._running) return;
     wakeRenderInBackground._running = true;
     (async () => {
-        for (let i = 0; i < MAX_RETRIES; i++) {
-            const up = await checkHealth();
-            if (up) { renderIsHealthy = true; break; }
-            await new Promise(r => setTimeout(r, RETRY_DELAY));
+        try {
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                const up = await checkHealth();
+                if (up) { renderIsHealthy = true; break; }
+                await new Promise(r => setTimeout(r, RETRY_DELAY));
+            }
+        } finally {
+            wakeRenderInBackground._running = false;
         }
-        wakeRenderInBackground._running = false;
     })();
 }
 wakeRenderInBackground._running = false;

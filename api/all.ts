@@ -1,9 +1,18 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// --- Environment validation ---
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Missing required environment variables: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+  );
+}
+
+const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 const DEXONLINE_URL = "https://dexonline.ro/definitie/";
 const UNSATISFIABLE =
@@ -32,359 +41,251 @@ interface Verb {
   rhyme: string;
 }
 
+type WordRow = Noun | Adjective | Verb;
+
+interface QueryFilter {
+  column: string;
+  op: "eq" | "gte" | "lte" | "like" | "neq";
+  value: string | number;
+}
+
 function adjForGender(adj: Adjective, gender: string): string {
   return gender === "F" ? adj.feminine : adj.word;
 }
 
-// --- Random word queries (Supabase) ---
+// --- Generic random-row helper (single count + single fetch) ---
+
+async function randomRow<T extends WordRow>(
+  select: string,
+  filters: QueryFilter[]
+): Promise<T | null> {
+  // 1) Count
+  let countQ = supabase.from("words").select("word", { count: "exact", head: true });
+  for (const f of filters) countQ = applyFilter(countQ, f);
+  const { count } = await countQ;
+  if (!count) return null;
+
+  // 2) Fetch one at random offset
+  const offset = Math.floor(Math.random() * count);
+  let dataQ = supabase.from("words").select(select).range(offset, offset).limit(1);
+  for (const f of filters) dataQ = applyFilter(dataQ, f);
+  const { data } = await dataQ;
+  if (!data || data.length === 0) return null;
+  return data[0] as T;
+}
+
+function applyFilter(q: any, f: QueryFilter): any {
+  switch (f.op) {
+    case "eq": return q.eq(f.column, f.value);
+    case "gte": return q.gte(f.column, f.value);
+    case "lte": return q.lte(f.column, f.value);
+    case "like": return q.like(f.column, f.value);
+    case "neq": return q.neq(f.column, f.value);
+  }
+}
+
+function rarityFilters(minR: number, maxR: number): QueryFilter[] {
+  return [
+    { column: "rarity_level", op: "gte", value: minR },
+    { column: "rarity_level", op: "lte", value: maxR },
+  ];
+}
+
+function excludeFilters(exclude: string[]): QueryFilter[] {
+  return exclude.map((w) => ({ column: "word", op: "neq" as const, value: w }));
+}
+
+// --- Word query functions ---
+
+const NOUN_SELECT = "word, gender, syllables, rhyme, articulated";
+const ADJ_SELECT = "word, syllables, rhyme, feminine";
+const VERB_SELECT = "word, syllables, rhyme";
 
 async function randomNoun(
-  minR: number,
-  maxR: number,
-  exclude: string[] = []
+  minR: number, maxR: number, exclude: string[] = []
 ): Promise<Noun> {
-  // Use Postgres function random() via RPC is not available on free tier,
-  // so fetch a count, pick random offset.
-  let query = supabase
-    .from("words")
-    .select("word, gender, syllables, rhyme, articulated")
-    .eq("type", "N")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) query = query.neq("word", w);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) throw new Error("No nouns");
-  const offset = Math.floor(Math.random() * count);
-  // Re-build query with actual select
-  let q2 = supabase
-    .from("words")
-    .select("word, gender, syllables, rhyme, articulated")
-    .eq("type", "N")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) q2 = q2.neq("word", w);
-  const { data } = await q2.range(offset, offset).limit(1);
-  return data![0] as Noun;
+  const row = await randomRow<Noun>(NOUN_SELECT, [
+    { column: "type", op: "eq", value: "N" },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ]);
+  if (!row) throw new Error("No nouns found");
+  return row;
 }
 
 async function randomNounByArticulatedSyllables(
-  syllables: number,
-  minR: number,
-  maxR: number,
-  exclude: string[] = []
+  syllables: number, minR: number, maxR: number, exclude: string[] = []
 ): Promise<Noun | null> {
-  let query = supabase
-    .from("words")
-    .select("word, gender, syllables, rhyme, articulated")
-    .eq("type", "N")
-    .eq("articulated_syllables", syllables)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) query = query.neq("word", w);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  let q2 = supabase
-    .from("words")
-    .select("word, gender, syllables, rhyme, articulated")
-    .eq("type", "N")
-    .eq("articulated_syllables", syllables)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) q2 = q2.neq("word", w);
-  const { data } = await q2.range(offset, offset).limit(1);
-  return data?.[0] as Noun | null;
+  return randomRow<Noun>(NOUN_SELECT, [
+    { column: "type", op: "eq", value: "N" },
+    { column: "articulated_syllables", op: "eq", value: syllables },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ]);
 }
 
 async function randomNounByPrefix(
-  prefix: string,
-  minR: number,
-  maxR: number,
-  exclude: string[] = []
+  prefix: string, minR: number, maxR: number, exclude: string[] = []
 ): Promise<Noun | null> {
-  let query = supabase
-    .from("words")
-    .select("word, gender, syllables, rhyme, articulated")
-    .eq("type", "N")
-    .like("word", `${prefix}%`)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) query = query.neq("word", w);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  let q2 = supabase
-    .from("words")
-    .select("word, gender, syllables, rhyme, articulated")
-    .eq("type", "N")
-    .like("word", `${prefix}%`)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) q2 = q2.neq("word", w);
-  const { data } = await q2.range(offset, offset).limit(1);
-  return data?.[0] as Noun | null;
+  return randomRow<Noun>(NOUN_SELECT, [
+    { column: "type", op: "eq", value: "N" },
+    { column: "word", op: "like", value: `${prefix}%` },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ]);
 }
 
 async function randomAdj(
-  minR: number,
-  maxR: number,
-  exclude: string[] = []
+  minR: number, maxR: number, exclude: string[] = []
 ): Promise<Adjective> {
-  let query = supabase
-    .from("words")
-    .select("word, syllables, rhyme, feminine")
-    .eq("type", "A")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) query = query.neq("word", w);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) throw new Error("No adjectives");
-  const offset = Math.floor(Math.random() * count);
-  let q2 = supabase
-    .from("words")
-    .select("word, syllables, rhyme, feminine")
-    .eq("type", "A")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) q2 = q2.neq("word", w);
-  const { data } = await q2.range(offset, offset).limit(1);
-  return data![0] as Adjective;
+  const row = await randomRow<Adjective>(ADJ_SELECT, [
+    { column: "type", op: "eq", value: "A" },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ]);
+  if (!row) throw new Error("No adjectives found");
+  return row;
 }
 
 async function randomAdjBySyllables(
-  syllables: number,
-  minR: number,
-  maxR: number
+  syllables: number, minR: number, maxR: number
 ): Promise<Adjective | null> {
-  const query = supabase
-    .from("words")
-    .select("word, syllables, rhyme, feminine")
-    .eq("type", "A")
-    .eq("syllables", syllables)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  const { data } = await supabase
-    .from("words")
-    .select("word, syllables, rhyme, feminine")
-    .eq("type", "A")
-    .eq("syllables", syllables)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR)
-    .range(offset, offset)
-    .limit(1);
-  return data?.[0] as Adjective | null;
+  return randomRow<Adjective>(ADJ_SELECT, [
+    { column: "type", op: "eq", value: "A" },
+    { column: "syllables", op: "eq", value: syllables },
+    ...rarityFilters(minR, maxR),
+  ]);
 }
 
 async function randomAdjByPrefix(
-  prefix: string,
-  minR: number,
-  maxR: number
+  prefix: string, minR: number, maxR: number
 ): Promise<Adjective | null> {
-  const query = supabase
-    .from("words")
-    .select("word, syllables, rhyme, feminine")
-    .eq("type", "A")
-    .like("word", `${prefix}%`)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  const { data } = await supabase
-    .from("words")
-    .select("word, syllables, rhyme, feminine")
-    .eq("type", "A")
-    .like("word", `${prefix}%`)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR)
-    .range(offset, offset)
-    .limit(1);
-  return data?.[0] as Adjective | null;
+  return randomRow<Adjective>(ADJ_SELECT, [
+    { column: "type", op: "eq", value: "A" },
+    { column: "word", op: "like", value: `${prefix}%` },
+    ...rarityFilters(minR, maxR),
+  ]);
 }
 
 async function randomVerb(
-  minR: number,
-  maxR: number,
-  exclude: string[] = []
+  minR: number, maxR: number, exclude: string[] = []
 ): Promise<Verb> {
-  let query = supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) query = query.neq("word", w);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) throw new Error("No verbs");
-  const offset = Math.floor(Math.random() * count);
-  let q2 = supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) q2 = q2.neq("word", w);
-  const { data } = await q2.range(offset, offset).limit(1);
-  return data![0] as Verb;
+  const row = await randomRow<Verb>(VERB_SELECT, [
+    { column: "type", op: "eq", value: "V" },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ]);
+  if (!row) throw new Error("No verbs found");
+  return row;
 }
 
 async function randomVerbBySyllables(
-  syllables: number,
-  minR: number,
-  maxR: number
+  syllables: number, minR: number, maxR: number
 ): Promise<Verb | null> {
-  const query = supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .eq("syllables", syllables)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  const { data } = await supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .eq("syllables", syllables)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR)
-    .range(offset, offset)
-    .limit(1);
-  return data?.[0] as Verb | null;
+  return randomRow<Verb>(VERB_SELECT, [
+    { column: "type", op: "eq", value: "V" },
+    { column: "syllables", op: "eq", value: syllables },
+    ...rarityFilters(minR, maxR),
+  ]);
 }
 
 async function randomVerbByRhyme(
-  rhyme: string,
-  minR: number,
-  maxR: number,
-  exclude: string[] = []
+  rhyme: string, minR: number, maxR: number, exclude: string[] = []
 ): Promise<Verb | null> {
-  let query = supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .eq("rhyme", rhyme)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) query = query.neq("word", w);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  let q2 = supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .eq("rhyme", rhyme)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  for (const w of exclude) q2 = q2.neq("word", w);
-  const { data } = await q2.range(offset, offset).limit(1);
-  return data?.[0] as Verb | null;
+  return randomRow<Verb>(VERB_SELECT, [
+    { column: "type", op: "eq", value: "V" },
+    { column: "rhyme", op: "eq", value: rhyme },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ]);
 }
 
 async function randomVerbByPrefix(
-  prefix: string,
-  minR: number,
-  maxR: number
+  prefix: string, minR: number, maxR: number
 ): Promise<Verb | null> {
-  const query = supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .like("word", `${prefix}%`)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR);
-  const { count } = await query.select("word", { count: "exact", head: true });
-  if (!count) return null;
-  const offset = Math.floor(Math.random() * count);
-  const { data } = await supabase
-    .from("words")
-    .select("word, syllables, rhyme")
-    .eq("type", "V")
-    .like("word", `${prefix}%`)
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR)
-    .range(offset, offset)
-    .limit(1);
-  return data?.[0] as Verb | null;
+  return randomRow<Verb>(VERB_SELECT, [
+    { column: "type", op: "eq", value: "V" },
+    { column: "word", op: "like", value: `${prefix}%` },
+    ...rarityFilters(minR, maxR),
+  ]);
 }
 
-async function findTwoVerbRhymeGroups(
-  minR: number,
-  maxR: number
-): Promise<[string, string] | null> {
-  // Get all verb rhymes with 2+ members
-  const { data } = await supabase.rpc("find_rhyme_groups", {
-    word_type: "V",
-    min_count: 2,
-    min_rarity: minR,
-    max_rarity: maxR,
-  });
-  // If RPC not available, fall back to fetching all verb rhymes
-  if (!data || data.length < 2) {
-    // Fallback: query distinct rhymes and filter client-side
-    const { data: allVerbs } = await supabase
-      .from("words")
-      .select("rhyme")
-      .eq("type", "V")
-      .gte("rarity_level", minR)
-      .lte("rarity_level", maxR);
-    if (!allVerbs) return null;
-    const counts = new Map<string, number>();
-    for (const v of allVerbs) {
-      counts.set(v.rhyme, (counts.get(v.rhyme) || 0) + 1);
-    }
-    const valid = [...counts.entries()]
-      .filter(([, c]) => c >= 2)
-      .map(([r]) => r);
-    if (valid.length < 2) return null;
-    // Shuffle and pick two
-    for (let i = valid.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [valid[i], valid[j]] = [valid[j], valid[i]];
-    }
-    return [valid[0], valid[1]];
-  }
-  // Shuffle RPC results
-  const rhymes = data.map((r: { rhyme: string }) => r.rhyme);
-  for (let i = rhymes.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rhymes[i], rhymes[j]] = [rhymes[j], rhymes[i]];
-  }
-  return [rhymes[0], rhymes[1]];
-}
+// --- Tautogram: iterative prefix probing (no bulk fetch) ---
+
+const MAX_PREFIX_ATTEMPTS = 15;
 
 async function randomPrefixWithAllTypes(
-  minR: number,
-  maxR: number
+  minR: number, maxR: number
 ): Promise<string | null> {
-  // Fetch first_letter values that have all 3 types
-  const { data: allWords } = await supabase
-    .from("words")
-    .select("word, type")
-    .gte("rarity_level", minR)
-    .lte("rarity_level", maxR)
-    .gte("word", "aa") // at least 2 chars
-    .limit(50000);
-  if (!allWords) return null;
-  const prefixTypes = new Map<string, Set<string>>();
-  for (const w of allWords) {
-    if (w.word.length >= 2) {
-      const p = w.word.substring(0, 2);
-      if (!prefixTypes.has(p)) prefixTypes.set(p, new Set());
-      prefixTypes.get(p)!.add(w.type);
+  // Strategy: pick a random noun, take its 2-letter prefix,
+  // check if adj + verb exist for that prefix. Retry up to N times.
+  for (let i = 0; i < MAX_PREFIX_ATTEMPTS; i++) {
+    const noun = await randomRow<Noun>(NOUN_SELECT, [
+      { column: "type", op: "eq", value: "N" },
+      ...rarityFilters(minR, maxR),
+    ]);
+    if (!noun || noun.word.length < 2) continue;
+    const prefix = noun.word.substring(0, 2);
+
+    // Check adj exists with this prefix (count only, head: true)
+    let adjQ = supabase.from("words").select("word", { count: "exact", head: true })
+      .eq("type", "A").like("word", `${prefix}%`)
+      .gte("rarity_level", minR).lte("rarity_level", maxR);
+    const { count: adjCount } = await adjQ;
+    if (!adjCount) continue;
+
+    // Check verb exists
+    let verbQ = supabase.from("words").select("word", { count: "exact", head: true })
+      .eq("type", "V").like("word", `${prefix}%`)
+      .gte("rarity_level", minR).lte("rarity_level", maxR);
+    const { count: verbCount } = await verbQ;
+    if (!verbCount) continue;
+
+    // Check we have at least 2 nouns for this prefix
+    let nounQ = supabase.from("words").select("word", { count: "exact", head: true })
+      .eq("type", "N").like("word", `${prefix}%`)
+      .gte("rarity_level", minR).lte("rarity_level", maxR);
+    const { count: nounCount } = await nounQ;
+    if (!nounCount || nounCount < 2) continue;
+
+    return prefix;
+  }
+  return null;
+}
+
+// --- Mirror: iterative rhyme group probing (no bulk fetch) ---
+
+const MAX_RHYME_ATTEMPTS = 15;
+
+async function findTwoVerbRhymeGroups(
+  minR: number, maxR: number
+): Promise<[string, string] | null> {
+  // Strategy: pick random verbs, check if their rhyme has 2+ members.
+  // Collect two distinct rhyme groups.
+  const foundRhymes: string[] = [];
+
+  for (let i = 0; i < MAX_RHYME_ATTEMPTS && foundRhymes.length < 2; i++) {
+    const verb = await randomVerb(minR, maxR);
+    const rhyme = verb.rhyme;
+
+    if (foundRhymes.includes(rhyme)) continue;
+
+    // Check if at least 2 verbs share this rhyme
+    const { count } = await supabase
+      .from("words")
+      .select("word", { count: "exact", head: true })
+      .eq("type", "V")
+      .eq("rhyme", rhyme)
+      .gte("rarity_level", minR)
+      .lte("rarity_level", maxR);
+
+    if (count && count >= 2) {
+      foundRhymes.push(rhyme);
     }
   }
-  const valid = [...prefixTypes.entries()]
-    .filter(([, types]) => types.size === 3)
-    .map(([p]) => p);
-  if (valid.length === 0) return null;
-  return valid[Math.floor(Math.random() * valid.length)];
+
+  if (foundRhymes.length < 2) return null;
+  return [foundRhymes[0], foundRhymes[1]];
 }
 
 // --- Decorators ---
@@ -509,10 +410,7 @@ async function genMirror(minR: number, maxR: number): Promise<string> {
   const usedA: string[] = [];
   const usedV: string[] = [];
 
-  async function buildLine(
-    rhyme: string,
-    punct: string
-  ): Promise<string> {
+  async function buildLine(rhyme: string, punct: string): Promise<string> {
     const n = await randomNoun(minR, maxR, usedN);
     usedN.push(n.word);
     const a = await randomAdj(minR, maxR, usedA);
@@ -560,7 +458,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {
       return await fn();
-    } catch {
+    } catch (err) {
+      console.error("Sentence generation failed:", err);
       return UNSATISFIABLE;
     }
   }
