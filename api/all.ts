@@ -1,26 +1,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// --- Environment validation ---
+// --- Environment validation (deferred for testability) ---
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL ?? "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    "Missing required environment variables: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
-  );
-}
+const supabase: SupabaseClient = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : (null as unknown as SupabaseClient); // null when imported in test environment
 
-const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
-
-const DEXONLINE_URL = "https://dexonline.ro/definitie/";
+export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
 const UNSATISFIABLE =
   "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
 
 // --- Types ---
 
-interface Noun {
+export interface Noun {
   word: string;
   gender: string;
   syllables: number;
@@ -28,14 +24,14 @@ interface Noun {
   articulated: string;
 }
 
-interface Adjective {
+export interface Adjective {
   word: string;
   syllables: number;
   rhyme: string;
   feminine: string;
 }
 
-interface Verb {
+export interface Verb {
   word: string;
   syllables: number;
   rhyme: string;
@@ -49,7 +45,7 @@ interface QueryFilter {
   value: string | number;
 }
 
-function adjForGender(adj: Adjective, gender: string): string {
+export function adjForGender(adj: Adjective, gender: string): string {
   return gender === "F" ? adj.feminine : adj.word;
 }
 
@@ -71,7 +67,7 @@ async function randomRow<T extends WordRow>(
   for (const f of filters) dataQ = applyFilter(dataQ, f);
   const { data } = await dataQ;
   if (!data || data.length === 0) return null;
-  return data[0] as T;
+  return data[0] as unknown as T;
 }
 
 function applyFilter(q: any, f: QueryFilter): any {
@@ -299,7 +295,7 @@ async function findTwoVerbRhymeGroups(
 
 // --- Decorators ---
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -307,7 +303,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function addDexLinks(sentence: string): string {
+export function addDexLinks(sentence: string): string {
   const words = sentence.match(/\p{L}+/gu) || [];
   const spaces = sentence.split(/\p{L}+/u);
   let result = "";
@@ -328,12 +324,12 @@ function addDexLinks(sentence: string): string {
   return result;
 }
 
-function capitalizeFirst(s: string): string {
+export function capitalizeFirst(s: string): string {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function decorateVerse(sentence: string): string {
+export function decorateVerse(sentence: string): string {
   const capitalized = sentence
     .split(" / ")
     .map((line) => capitalizeFirst(line.trim()))
@@ -342,11 +338,11 @@ function decorateVerse(sentence: string): string {
   return linked.replace(/ \/ /g, "<br/>");
 }
 
-function decorateSentence(sentence: string): string {
+export function decorateSentence(sentence: string): string {
   return addDexLinks(capitalizeFirst(sentence.trim()));
 }
 
-function decorateDefinition(sentence: string): string {
+export function decorateDefinition(sentence: string): string {
   return addDexLinks(sentence);
 }
 
@@ -460,6 +456,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  if (!supabase) {
+    return res.status(500).json({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" });
+  }
 
   const minR = Math.max(1, Math.min(5, Number(req.query.minRarity) || 1));
   const maxR = Math.max(1, Math.min(5, Number(req.query.rarity) || 2));
