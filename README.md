@@ -12,17 +12,19 @@ Generator de propozitii hazoase in limba romana (Romanian funny sentence generat
 | Component | Technology | Hosting |
 |-----------|------------|---------|
 | Backend | Kotlin + Quarkus 3.17 (JVM) | [Render.com](https://propozitii-nostime.onrender.com/q/health) |
+| Fallback API | Vercel Serverless Function (Node.js Lambda proxy) | [Vercel](https://propozitii-nostime.vercel.app/api/all) |
 | Frontend | Static HTML/CSS/JS | [GitHub Pages](https://fabian20ro.github.io/propozitii-nostime/) |
 | Database | PostgreSQL ([Supabase](https://supabase.com)) | Supabase Free Tier |
 | Dictionary | [dexonline.ro](https://dexonline.ro) Scrabble word list | Loaded into Supabase |
 
 ### Zero-cost stack
 
-All three services run on free tiers: Render.com (backend), Supabase (database), and GitHub Pages (frontend).
+All services run on free tiers: Render.com (backend), Vercel (fallback API lambda), Supabase (database), and GitHub Pages (frontend).
 
 The Romanian Scrabble dictionary (~80K words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
 
 The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 60 seconds; the frontend health-polls and shows a loading message until the backend is ready.
+For user-facing cold starts, the frontend also has a Vercel fallback API (`FALLBACK_API_BASE` in `frontend/app.js`) that proxies `/api/all` while Render wakes in the background.
 
 ## API Endpoints
 
@@ -38,6 +40,23 @@ The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take
 All sentence endpoints accept optional query parameter `rarity=1..5` (default `2`):
 - `1` = very common words
 - `5` = very rare/archaic/regional words
+
+## Vercel Lambda Fallback Contract
+
+Frontend behavior in `frontend/app.js`:
+- primary: `API_BASE = https://propozitii-nostime.onrender.com/api`
+- fallback: `FALLBACK_API_BASE = https://propozitii-nostime.vercel.app/api`
+- health polling: `GET https://propozitii-nostime.onrender.com/q/health`
+
+Required fallback endpoint contract:
+- `GET /api/all?minRarity=1..5&rarity=1..5`
+- returns JSON with all keys as strings: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
+- supports CORS for `https://fabian20ro.github.io` (or `*`) because frontend is hosted on GitHub Pages
+
+Recommended Vercel env vars:
+- `UPSTREAM_API_BASE=https://propozitii-nostime.onrender.com/api`
+- `UPSTREAM_HEALTH_URL=https://propozitii-nostime.onrender.com/q/health`
+- `ALLOWED_ORIGIN=https://fabian20ro.github.io`
 
 ## Local Development
 

@@ -5,7 +5,10 @@ Source of truth: `render.yaml`, `Dockerfile`, `src/main/resources/application.pr
 ## Architecture
 
 ```text
-GitHub Pages (frontend) -> Render.com (backend, Quarkus JVM uber-jar) -> Supabase (PostgreSQL)
+GitHub Pages (frontend)
+  -> Render.com (primary backend, Quarkus JVM uber-jar)
+  -> Vercel Serverless Function (fallback `/api/all` proxy to Render)
+Render.com -> Supabase (PostgreSQL)
 ```
 
 ## Deployment
@@ -26,6 +29,20 @@ GitHub Pages (frontend) -> Render.com (backend, Quarkus JVM uber-jar) -> Supabas
 - Trigger: push to `master` with changes under `frontend/**`, or manual workflow dispatch.
 - Workflow: `.github/workflows/frontend.yml`
 
+### Fallback API (Vercel Lambda)
+
+- Frontend fallback target is hardcoded in `frontend/app.js`:
+  - `FALLBACK_API_BASE = https://propozitii-nostime.vercel.app/api`
+- Function contract used by frontend:
+  - `GET /api/all?minRarity=1..5&rarity=1..5`
+  - response keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
+- Required CORS response header for GitHub Pages callers:
+  - `Access-Control-Allow-Origin: https://fabian20ro.github.io` (or `*`)
+- Recommended env vars in Vercel project:
+  - `UPSTREAM_API_BASE=https://propozitii-nostime.onrender.com/api`
+  - `UPSTREAM_HEALTH_URL=https://propozitii-nostime.onrender.com/q/health`
+  - `ALLOWED_ORIGIN=https://fabian20ro.github.io`
+
 ### Database (Supabase)
 
 - Schema migrations via Flyway files in `src/main/resources/db/migration/`.
@@ -44,6 +61,11 @@ curl https://propozitii-nostime.onrender.com/q/health
 Expected healthy response:
 ```json
 {"status":"UP"}
+```
+
+Fallback API check:
+```bash
+curl "https://propozitii-nostime.vercel.app/api/all?minRarity=1&rarity=2"
 ```
 
 ### Logs
