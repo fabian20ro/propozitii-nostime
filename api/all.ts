@@ -1,5 +1,18 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+interface VercelRequestLike {
+  method?: string;
+  query: Record<string, string | string[] | undefined>;
+  headers: Record<string, string | string[] | undefined>;
+}
+
+interface VercelResponseLike {
+  setHeader(name: string, value: string): void;
+  status(code: number): {
+    end(): unknown;
+    json(body: unknown): unknown;
+  };
+}
 
 // --- Environment validation (deferred for testability) ---
 
@@ -511,7 +524,7 @@ async function genTautogram(minR: number, maxR: number): Promise<string> {
 
 // --- Main handler ---
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequestLike, res: VercelResponseLike) {
   const reqOrigin = Array.isArray(req.headers.origin)
     ? req.headers.origin[0]
     : req.headers.origin;

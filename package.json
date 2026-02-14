@@ -10,7 +10,6 @@
     "@supabase/supabase-js": "^2.49.1"
   },
   "devDependencies": {
-    "@vercel/node": "^5.1.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
   }

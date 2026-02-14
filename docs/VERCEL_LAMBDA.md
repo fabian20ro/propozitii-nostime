@@ -10,7 +10,7 @@ It is not a proxy to Render. It generates sentences directly from Supabase and r
 - `vercel.json` - function limits + route headers
 - `package.json` - dependencies used by function runtime:
   - `@supabase/supabase-js`
-  - `@vercel/node`
+  - `typescript` and `vitest` for local checks
 
 ## Runtime Contract
 
