@@ -15,7 +15,7 @@ Supabase PostgreSQL (words dictionary table)
 ## Runtime Components
 
 - Frontend: `frontend/`
-- Backend endpoint code: `src/main/kotlin/scrabble/phrases/`
+- Backend endpoint: `src/main/kotlin/scrabble/phrases/`
 - Migrations: `src/main/resources/db/migration/`
 - Deployment config:
 - `render.yaml`
