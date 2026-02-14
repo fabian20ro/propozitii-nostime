@@ -56,7 +56,34 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
     }
 }
 
+def npmCommand = System.getProperty("os.name").toLowerCase().contains("win") ? "npm.cmd" : "npm"
+def hasPackageLock = file("package-lock.json").exists()
+
+tasks.register("npmInstall", Exec) {
+    workingDir = projectDir
+    commandLine npmCommand, hasPackageLock ? "ci" : "install"
+    inputs.file("package.json")
+    if (hasPackageLock) {
+        inputs.file("package-lock.json")
+    }
+    outputs.dir("node_modules")
+}
+
+tasks.register("testVercelFallback", Exec) {
+    dependsOn "npmInstall"
+    workingDir = projectDir
+    commandLine npmCommand, "test"
+    inputs.file("package.json")
+    if (hasPackageLock) {
+        inputs.file("package-lock.json")
+    }
+    inputs.files(fileTree("api") { include("**/*.ts") })
+    // Always execute like JVM tests to avoid stale pass caching.
+    outputs.upToDateWhen { false }
+}
+
 test {
+    dependsOn "testVercelFallback"
     systemProperty 'java.util.logging.manager', 'org.jboss.logmanager.LogManager'
     systemProperty 'file.encoding', 'UTF-8'
     useJUnitPlatform()

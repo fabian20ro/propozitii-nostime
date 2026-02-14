@@ -50,6 +50,7 @@ Hardcoded API endpoints:
 - `API_BASE = https://propozitii-nostime.onrender.com/api` (Render primary)
 - `FALLBACK_API_BASE = https://propozitii-nostime.vercel.app/api` (Vercel serverless fallback)
 - `HEALTH_URL = https://propozitii-nostime.onrender.com/q/health`
+- Vercel fallback implementation lives in `api/all.ts` and queries Supabase directly.
 
 Rarity UI/storage contract:
 - min slider id: `rarity-min`

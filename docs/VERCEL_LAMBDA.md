@@ -1,131 +1,92 @@
 # Vercel Lambda Fallback
 
-This project's frontend can fall back to a Vercel Serverless Function when Render is cold.
+This project deploys a Vercel Serverless Function from `api/all.ts`.
 
-Source contract in code: `frontend/app.js`
-- primary backend: `https://propozitii-nostime.onrender.com/api`
-- fallback backend: `https://propozitii-nostime.vercel.app/api`
-- required fallback route: `GET /api/all?minRarity=1..5&rarity=1..5`
+It is not a proxy to Render. It generates sentences directly from Supabase and returns the same JSON shape as backend `GET /api/all`.
 
-## Required Behavior
+## Files Used In Deployment
 
-The fallback must:
-- accept `GET /api/all`
-- preserve query params `minRarity` and `rarity`
-- call Render upstream `/api/all`
-- return JSON keys expected by frontend:
-  - `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
-- return CORS headers for GitHub Pages (`https://fabian20ro.github.io`)
+- `api/all.ts` - main Vercel handler (`export default async function handler(...)`)
+- `vercel.json` - function limits + route headers
+- `package.json` - dependencies used by function runtime:
+  - `@supabase/supabase-js`
+  - `@vercel/node`
 
-## Minimal Function Files
+## Runtime Contract
 
-Create `api/all.js`:
+Endpoint:
+- `GET /api/all?minRarity=1..5&rarity=1..5`
 
-```js
-const UPSTREAM_API_BASE = process.env.UPSTREAM_API_BASE || 'https://propozitii-nostime.onrender.com/api';
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://fabian20ro.github.io';
+Response keys (all strings):
+- `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 
-function clampRarity(raw, fallback) {
-  const parsed = Number.parseInt(raw, 10);
-  if (Number.isNaN(parsed)) return fallback;
-  return Math.max(1, Math.min(5, parsed));
-}
+CORS:
+- Handler sets:
+  - `Access-Control-Allow-Origin: <allowed origin>`
+  - `Vary: Origin`
+  - `Access-Control-Allow-Methods: GET, OPTIONS`
+  - `Access-Control-Allow-Headers: Content-Type`
 
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
+Frontend coupling:
+- `frontend/app.js` fallback base is `https://propozitii-nostime.vercel.app/api`
 
-module.exports = async (req, res) => {
-  setCors(res);
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+## Required Environment Variables (Vercel Project)
 
-  try {
-    const minRarity = clampRarity(req.query.minRarity, 1);
-    const rarity = clampRarity(req.query.rarity, 2);
-    const query = new URLSearchParams({
-      minRarity: String(Math.min(minRarity, rarity)),
-      rarity: String(Math.max(minRarity, rarity))
-    });
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY` (preferred)
 
-    const upstream = await fetch(`${UPSTREAM_API_BASE}/all?${query.toString()}`, {
-      headers: { Accept: 'application/json' }
-    });
+Optional:
+- `SUPABASE_READ_KEY` (read-only key alternative)
+- `ALLOWED_ORIGINS` (comma-separated origin allowlist, defaults to `https://fabian20ro.github.io`)
+- `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` (explicit opt-in only)
 
-    const body = await upstream.text();
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(upstream.status).send(body);
-  } catch (err) {
-    return res.status(502).json({ error: 'Upstream unavailable', details: String(err) });
-  }
-};
-```
+If required env vars are missing or insecure-only fallback is blocked, `api/all.ts` returns:
+- HTTP `500`
+- JSON error with actionable key guidance.
 
-Optional health proxy `api/health.js`:
+## First-Time Deploy Tutorial (Dashboard)
 
-```js
-const UPSTREAM_HEALTH_URL = process.env.UPSTREAM_HEALTH_URL || 'https://propozitii-nostime.onrender.com/q/health';
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://fabian20ro.github.io';
+1. Ensure these files are present on `master`:
+   - `api/all.ts`
+   - `vercel.json`
+   - `package.json`
 
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
+2. In Vercel, create a new project:
+   - `Add New -> Project -> Import Git Repository`
+   - select `fabian20ro/propozitii-nostime`
 
-module.exports = async (req, res) => {
-  setCors(res);
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
-
-  try {
-    const upstream = await fetch(UPSTREAM_HEALTH_URL, { headers: { Accept: 'application/json' } });
-    const body = await upstream.text();
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(upstream.status).send(body);
-  } catch (err) {
-    return res.status(502).json({ error: 'Health upstream unavailable', details: String(err) });
-  }
-};
-```
-
-Optional `vercel.json`:
-
-```json
-{
-  "functions": {
-    "api/*.js": {
-      "maxDuration": 10
-    }
-  }
-}
-```
-
-## First Deploy (Dashboard Flow)
-
-1. Commit and push `api/all.js` (and optional `api/health.js`, `vercel.json`) to `master`.
-2. In Vercel, click **Add New... -> Project -> Import Git Repository** and select this repo.
-3. Keep:
+3. Configure project:
    - Framework Preset: `Other`
-   - Root Directory: repository root
-   - Build Command: empty
-   - Output Directory: empty
-4. Add environment variables:
-   - `UPSTREAM_API_BASE=https://propozitii-nostime.onrender.com/api`
-   - `UPSTREAM_HEALTH_URL=https://propozitii-nostime.onrender.com/q/health`
-   - `ALLOWED_ORIGIN=https://fabian20ro.github.io`
+   - Root Directory: repo root
+   - Build Command: leave empty
+   - Output Directory: leave empty
+   - Install Command: default (`npm install`)
+
+4. Add environment variables in Vercel:
+   - `SUPABASE_URL=https://<project-ref>.supabase.co`
+   - `SUPABASE_ANON_KEY=<your-anon-key>`
+   - optional: `ALLOWED_ORIGINS=https://fabian20ro.github.io`
+   Add them for `Production` (and optionally `Preview`/`Development`).
+
 5. Deploy.
-6. Verify:
+
+6. Verify after deploy:
    - `https://<your-vercel-domain>/api/all?minRarity=1&rarity=2`
-   - `https://<your-vercel-domain>/api/health` (if implemented)
-7. If you use a custom domain, update `FALLBACK_API_BASE` in `frontend/app.js` to that domain.
+   - expect HTTP `200` and JSON containing all six keys.
 
-## Operational Notes
+7. If using a different Vercel domain, update:
+   - `frontend/app.js` -> `FALLBACK_API_BASE`
+   Then redeploy frontend (GitHub Pages workflow).
 
-- Keep fallback response shape identical to Render `/api/all`.
-- Do not sanitize sentence HTML in Lambda; frontend sanitizer is the single render-time guard.
-- If frontend hosting changes from GitHub Pages, update `ALLOWED_ORIGIN`.
+## Smoke Checks
+
+1. Missing env check:
+   - temporarily unset env in Preview and call `/api/all`
+   - verify clear `500` error message above.
+
+2. Contract check:
+   - verify each response key exists and is a string.
+
+3. HTML contract check:
+   - verify output still contains dexonline `<a href="https://dexonline.ro/definitie/...">`
+   - verify verses use `<br/>`.

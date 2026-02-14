@@ -5,8 +5,12 @@ on:
     branches: [master]
     paths:
       - 'src/**'
+      - 'api/**'
       - 'build.gradle'
+      - 'package.json'
+      - 'package-lock.json'
       - 'settings.gradle'
+      - 'vercel.json'
       - 'Dockerfile'
       - 'gradle/**'
       - '.github/workflows/backend.yml'
@@ -14,8 +18,13 @@ on:
     branches: [master]
     paths:
       - 'src/**'
+      - 'api/**'
       - 'build.gradle'
+      - 'package.json'
+      - 'package-lock.json'
       - 'settings.gradle'
+      - 'vercel.json'
+      - '.github/workflows/backend.yml'
 
 jobs:
   build:
@@ -48,6 +57,12 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew

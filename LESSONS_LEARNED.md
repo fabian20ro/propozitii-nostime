@@ -87,3 +87,5 @@
 - 2026-02-12: Step 5 recursive split can create a hard prompt/schema conflict if prompt text keeps the original count (for example `EXACT 6`) while sub-batches expect 3/2/1; rebind count placeholders per request or keep count only in schema.
 - 2026-02-12: For unstable local models, Step 5 is more robust with IDs-only sparse output (`[local_id,...]`) than object output that forces the model to regenerate words and increases malformed-token failures.
 - 2026-02-12: Before splitting a failed Step 5 batch, one strict repair pass on the same batch can recover exact-count selection and avoid expensive retry cascades.
+- 2026-02-14: Collaboration default for this repo: when the user asks to "run commands", interpret it as "run the relevant automated tests" and report explicit pass/fail outcomes.
+- 2026-02-14: Local Node `v25` + npm `11` can fail `npm ci` with `Exit handler never called!`; run JS fallback tests under Node `20` (same as CI) to keep `api/__tests__` execution stable.

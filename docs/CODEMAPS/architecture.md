@@ -85,7 +85,8 @@ Operational safeguards:
 - Backend image is JVM-based (Temurin 21), not native.
 - Render deploys using `render.yaml` (Docker runtime).
 - Frontend deploys via GitHub Actions Pages workflow.
-- Fallback API runs as a Vercel Serverless Function and must preserve `/api/all` response shape.
+- Fallback API runs as Vercel `api/all.ts` and must preserve `/api/all` response shape.
+- Vercel fallback reads directly from Supabase (`SUPABASE_URL` + `SUPABASE_ANON_KEY` preferred; optional read key), not from Render.
 - Flyway is on by default in dev/test and explicitly off in `%prod`.
 
 ## Critical Contracts Between Layers

@@ -4,11 +4,72 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 // --- Environment validation (deferred for testability) ---
 
 const supabaseUrl = process.env.SUPABASE_URL ?? "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+export const DEFAULT_ALLOWED_ORIGINS = ["https://fabian20ro.github.io"];
 
-const supabase: SupabaseClient = supabaseUrl && supabaseKey
-  ? createClient(supabaseUrl, supabaseKey)
+export interface SupabaseKeyResolution {
+  key: string;
+  source: "anon" | "read" | "service-role" | "none";
+  error?: string;
+}
+
+export function resolveSupabaseKey(
+  env: Record<string, string | undefined>
+): SupabaseKeyResolution {
+  const anon = (env.SUPABASE_ANON_KEY ?? "").trim();
+  if (anon) return { key: anon, source: "anon" };
+
+  const readOnly = (env.SUPABASE_READ_KEY ?? "").trim();
+  if (readOnly) return { key: readOnly, source: "read" };
+
+  const serviceRole = (env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+  const allowServiceFallback =
+    (env.ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK ?? "").toLowerCase() === "true";
+  if (serviceRole && allowServiceFallback) {
+    return { key: serviceRole, source: "service-role" };
+  }
+  if (serviceRole) {
+    return {
+      key: "",
+      source: "none",
+      error:
+        "SUPABASE_SERVICE_ROLE_KEY is set but disabled for this public endpoint. " +
+        "Use SUPABASE_ANON_KEY (preferred) or SUPABASE_READ_KEY.",
+    };
+  }
+  return {
+    key: "",
+    source: "none",
+    error: "Missing SUPABASE_ANON_KEY (preferred) or SUPABASE_READ_KEY.",
+  };
+}
+
+export function parseAllowedOrigins(raw: string | undefined): string[] {
+  if (!raw || raw.trim().length === 0) return DEFAULT_ALLOWED_ORIGINS;
+  const origins = raw
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  return origins.length > 0 ? origins : DEFAULT_ALLOWED_ORIGINS;
+}
+
+export function resolveCorsOrigin(origin: string | undefined, allowlist: string[]): string {
+  if (allowlist.includes("*")) return "*";
+  if (origin && allowlist.includes(origin)) return origin;
+  return allowlist[0];
+}
+
+const keyResolution = resolveSupabaseKey(process.env);
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+
+const supabase: SupabaseClient = supabaseUrl && keyResolution.key
+  ? createClient(supabaseUrl, keyResolution.key)
   : (null as unknown as SupabaseClient); // null when imported in test environment
+
+if (keyResolution.source === "service-role") {
+  console.warn(
+    "[security] api/all.ts uses SUPABASE_SERVICE_ROLE_KEY fallback; prefer SUPABASE_ANON_KEY."
+  );
+}
 
 export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
 const UNSATISFIABLE =
@@ -451,18 +512,28 @@ async function genTautogram(minR: number, maxR: number): Promise<string> {
 // --- Main handler ---
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const reqOrigin = Array.isArray(req.headers.origin)
+    ? req.headers.origin[0]
+    : req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", resolveCorsOrigin(reqOrigin, allowedOrigins));
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
 
   if (!supabase) {
-    return res.status(500).json({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" });
+    return res.status(500).json({
+      error: keyResolution.error ?? "Missing SUPABASE_URL or Supabase API key",
+    });
   }
 
-  const minR = Math.max(1, Math.min(5, Number(req.query.minRarity) || 1));
-  const maxR = Math.max(1, Math.min(5, Number(req.query.rarity) || 2));
+  const minCandidate = Math.max(1, Math.min(5, Number(req.query.minRarity) || 1));
+  const maxCandidate = Math.max(1, Math.min(5, Number(req.query.rarity) || 2));
+  const minR = Math.min(minCandidate, maxCandidate);
+  const maxR = Math.max(minCandidate, maxCandidate);
 
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {

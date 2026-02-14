@@ -7,6 +7,9 @@ import {
   decorateSentence,
   decorateDefinition,
   adjForGender,
+  parseAllowedOrigins,
+  resolveCorsOrigin,
+  resolveSupabaseKey,
   DEXONLINE_URL,
   type Adjective,
 } from "../all";
@@ -191,5 +194,71 @@ describe("parity contract", () => {
     expect(result).toMatch(/target="_blank"/);
     expect(result).toMatch(/rel="noopener"/);
     expect(result).toMatch(/data-word="test"/);
+  });
+});
+
+// --- Security/env helpers ---
+
+describe("resolveSupabaseKey", () => {
+  it("prefers SUPABASE_ANON_KEY over any other key", () => {
+    const resolved = resolveSupabaseKey({
+      SUPABASE_ANON_KEY: "anon",
+      SUPABASE_READ_KEY: "read",
+      SUPABASE_SERVICE_ROLE_KEY: "service",
+    });
+    expect(resolved.source).toBe("anon");
+    expect(resolved.key).toBe("anon");
+  });
+
+  it("falls back to SUPABASE_READ_KEY when anon key is missing", () => {
+    const resolved = resolveSupabaseKey({
+      SUPABASE_READ_KEY: "read",
+    });
+    expect(resolved.source).toBe("read");
+    expect(resolved.key).toBe("read");
+  });
+
+  it("rejects service-role fallback by default", () => {
+    const resolved = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "service",
+    });
+    expect(resolved.source).toBe("none");
+    expect(resolved.key).toBe("");
+    expect(resolved.error).toContain("SUPABASE_SERVICE_ROLE_KEY is set but disabled");
+  });
+
+  it("allows service-role only when explicitly enabled", () => {
+    const resolved = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "service",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "true",
+    });
+    expect(resolved.source).toBe("service-role");
+    expect(resolved.key).toBe("service");
+  });
+});
+
+describe("CORS origin helpers", () => {
+  it("uses default allowlist when env value is empty", () => {
+    expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("parses comma-separated allowlist", () => {
+    expect(
+      parseAllowedOrigins("https://a.example, https://b.example")
+    ).toEqual(["https://a.example", "https://b.example"]);
+  });
+
+  it("reflects request origin when it is allowed", () => {
+    const allowed = ["https://a.example", "https://b.example"];
+    expect(resolveCorsOrigin("https://b.example", allowed)).toBe("https://b.example");
+  });
+
+  it("falls back to first allowlist origin when request origin is not allowed", () => {
+    const allowed = ["https://a.example", "https://b.example"];
+    expect(resolveCorsOrigin("https://evil.example", allowed)).toBe("https://a.example");
+  });
+
+  it("supports explicit wildcard allowlist", () => {
+    expect(resolveCorsOrigin("https://anything.example", ["*"])).toBe("*");
   });
 });

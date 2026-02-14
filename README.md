@@ -12,7 +12,7 @@ Generator de propozitii hazoase in limba romana (Romanian funny sentence generat
 | Component | Technology | Hosting |
 |-----------|------------|---------|
 | Backend | Kotlin + Quarkus 3.17 (JVM) | [Render.com](https://propozitii-nostime.onrender.com/q/health) |
-| Fallback API | Vercel Serverless Function (Node.js Lambda proxy) | [Vercel](https://propozitii-nostime.vercel.app/api/all) |
+| Fallback API | Vercel Serverless Function (`api/all.ts`) | [Vercel](https://propozitii-nostime.vercel.app/api/all) |
 | Frontend | Static HTML/CSS/JS | [GitHub Pages](https://fabian20ro.github.io/propozitii-nostime/) |
 | Database | PostgreSQL ([Supabase](https://supabase.com)) | Supabase Free Tier |
 | Dictionary | [dexonline.ro](https://dexonline.ro) Scrabble word list | Loaded into Supabase |
@@ -24,7 +24,7 @@ All services run on free tiers: Render.com (backend), Vercel (fallback API lambd
 The Romanian Scrabble dictionary (~80K words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
 
 The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 60 seconds; the frontend health-polls and shows a loading message until the backend is ready.
-For user-facing cold starts, the frontend also has a Vercel fallback API (`FALLBACK_API_BASE` in `frontend/app.js`) that proxies `/api/all` while Render wakes in the background.
+For user-facing cold starts, the frontend also has a Vercel fallback API (`FALLBACK_API_BASE` in `frontend/app.js`) implemented in `api/all.ts`. The fallback generates the same `/api/all` response directly from Supabase.
 
 ## API Endpoints
 
@@ -52,11 +52,16 @@ Required fallback endpoint contract:
 - `GET /api/all?minRarity=1..5&rarity=1..5`
 - returns JSON with all keys as strings: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - supports CORS for `https://fabian20ro.github.io` (or `*`) because frontend is hosted on GitHub Pages
+- preserves backend HTML contract (dexonline anchors + verse `<br/>`)
 
-Recommended Vercel env vars:
-- `UPSTREAM_API_BASE=https://propozitii-nostime.onrender.com/api`
-- `UPSTREAM_HEALTH_URL=https://propozitii-nostime.onrender.com/q/health`
-- `ALLOWED_ORIGIN=https://fabian20ro.github.io`
+Required Vercel env vars for `api/all.ts`:
+- `SUPABASE_URL=https://<project-ref>.supabase.co`
+- `SUPABASE_ANON_KEY=<anon-public-key>` (preferred)
+
+Optional:
+- `SUPABASE_READ_KEY=<dedicated-readonly-key>`
+- `ALLOWED_ORIGINS=https://fabian20ro.github.io,https://<your-other-origin>`
+- `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` only for explicit emergency fallback
 
 ## Local Development
 
@@ -199,6 +204,8 @@ Extended runbook for full 77k campaigns:
 ```bash
 ./gradlew test
 ```
+
+`./gradlew test` now also runs the Vercel fallback unit tests from `api/__tests__/all.test.ts` (via `npm test`) before JVM tests.
 
 ## Developer Onboarding Docs
 

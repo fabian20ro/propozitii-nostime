@@ -204,7 +204,7 @@ A self-contained TypeScript function that mirrors the Kotlin `/api/all` endpoint
 
 ### Structure
 
-- Supabase client init + env validation (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
+- Supabase client init + env validation (`SUPABASE_URL`, `SUPABASE_ANON_KEY` preferred; optional `SUPABASE_READ_KEY`; service-role fallback only via explicit opt-in flag)
 - Word types: `Noun`, `Adjective`, `Verb`
 - Generic `randomRow<T>` helper: count query + random offset
 - Six provider functions matching Kotlin providers: `comparison`, `definition`, `distih`, `haiku`, `mirror`, `tautogram`
@@ -222,8 +222,8 @@ Total: 3 Supabase queries instead of up to 60 sequential probes.
 
 ### Mirror Rhyme Strategy
 
-- Fetches verb rhyme groups with `GROUP BY rhyme HAVING COUNT(*) >= 2`
-- Up to 15 retries to find 2 valid groups
+- Picks random verbs and validates each rhyme by count query (`COUNT >= 2`)
+- Up to 15 attempts to collect 2 distinct valid rhyme groups
 
 ### Parity Contract
 

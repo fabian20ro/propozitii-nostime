@@ -7,7 +7,7 @@ Source of truth: `render.yaml`, `Dockerfile`, `src/main/resources/application.pr
 ```text
 GitHub Pages (frontend)
   -> Render.com (primary backend, Quarkus JVM uber-jar)
-  -> Vercel Serverless Function (fallback `/api/all` proxy to Render)
+  -> Vercel Serverless Function (fallback `/api/all`, direct Supabase-backed generation)
 Render.com -> Supabase (PostgreSQL)
 ```
 
@@ -33,15 +33,20 @@ Render.com -> Supabase (PostgreSQL)
 
 - Frontend fallback target is hardcoded in `frontend/app.js`:
   - `FALLBACK_API_BASE = https://propozitii-nostime.vercel.app/api`
+- Function implementation:
+  - `api/all.ts` (TypeScript Vercel function)
 - Function contract used by frontend:
   - `GET /api/all?minRarity=1..5&rarity=1..5`
   - response keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - Required CORS response header for GitHub Pages callers:
-  - `Access-Control-Allow-Origin: https://fabian20ro.github.io` (or `*`)
-- Recommended env vars in Vercel project:
-  - `UPSTREAM_API_BASE=https://propozitii-nostime.onrender.com/api`
-  - `UPSTREAM_HEALTH_URL=https://propozitii-nostime.onrender.com/q/health`
-  - `ALLOWED_ORIGIN=https://fabian20ro.github.io`
+  - `Access-Control-Allow-Origin: <allowed origin from ALLOWED_ORIGINS>`
+- Required env vars in Vercel project:
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY` (preferred)
+- Optional env vars:
+  - `SUPABASE_READ_KEY`
+  - `ALLOWED_ORIGINS` (comma-separated)
+  - `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` (explicit opt-in only)
 
 ### Database (Supabase)
 
