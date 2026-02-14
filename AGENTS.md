@@ -5,8 +5,9 @@ This file is the operating guide for agentic contributors in this repository.
 ## Mission
 
 Build and maintain a Romanian funny sentence generator with:
-- backend: Kotlin + Quarkus REST API
-- data: PostgreSQL (`words` table, dictionary-derived)
+- primary backend: Kotlin + Quarkus REST API (Render)
+- serverless fallback: TypeScript Vercel function (cold-start bypass)
+- data: PostgreSQL (`words` table, dictionary-derived, Supabase-hosted)
 - frontend: static HTML/CSS/JS on GitHub Pages
 
 Primary quality target: keep sentence generation constraints correct (rhyme, syllables, morphology) while preserving safe HTML rendering and stable API behavior.
@@ -45,6 +46,8 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
 - Dictionary loader CLI: `src/main/kotlin/scrabble/phrases/tools/LoadDictionary.kt`
 - Rarity pipeline entrypoint: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
 - Rarity pipeline modules: `src/main/kotlin/scrabble/phrases/tools/rarity/`
+- Vercel serverless fallback: `api/all.ts` (mirrors Kotlin `/api/all`)
+- Vercel config: `vercel.json`
 - Frontend app:
   - `frontend/index.html`
   - `frontend/app.js`
@@ -82,6 +85,12 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - Step 2 is CSV-only and must keep exclusive file lock + guarded final rewrite.
    - Step 4 default upload mode is `partial`; global fallback writes must require explicit `--mode full-fallback`.
 
+7. **Dual-backend parity contract:**
+   - Both Render (Kotlin) and Vercel (`api/all.ts`) must return the same `/api/all` response shape (6 keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`).
+   - Both must produce dexonline `<a>` links and `" / "` verse delimiters.
+   - Both accept `?minRarity=&rarity=` query parameters.
+   - When adding/changing a sentence type or decorator, update **both** backends.
+
 ## How To Add A New Sentence Type
 
 1. Add provider in `src/main/kotlin/scrabble/phrases/providers/` implementing `ISentenceProvider`.
@@ -90,8 +99,9 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - sentence: `FirstSentenceLetterCapitalizer -> DexonlineLinkAdder`
    - verse: `VerseLineCapitalizer -> DexonlineLinkAdder -> HtmlVerseBreaker`
 4. Extend `/api/all` response contract if the frontend should display it.
-5. Update frontend `FIELD_MAP` and add a card in `frontend/index.html` (include `.card-header` wrapper, `<h2>`, `.copy-btn`, and `.explain-btn` with `data-target`).
-6. Add/adjust integration assertions in `src/test/kotlin/scrabble/phrases/PhraseResourceTest.kt`.
+5. Add matching provider function in `api/all.ts` (Vercel fallback) — **dual-backend parity**.
+6. Update frontend `FIELD_MAP` and add a card in `frontend/index.html` (include `.card-header` wrapper, `<h2>`, `.copy-btn`, and `.explain-btn` with `data-target`).
+7. Add/adjust integration assertions in `src/test/kotlin/scrabble/phrases/PhraseResourceTest.kt`.
 
 ## How To Change Dictionary/Data Rules
 
@@ -113,7 +123,8 @@ Before handing off:
 
 ## Deployment Notes
 
-- Backend deploy target is Render via `render.yaml`.
+- Primary backend: Render via `render.yaml` (Docker/JVM). Subject to cold-start on free tier.
+- Serverless fallback: Vercel via `vercel.json` (`api/all.ts`). Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` env vars in Vercel project settings.
 - Frontend deploy target is GitHub Pages via `.github/workflows/frontend.yml`.
 - Backend CI is `.github/workflows/backend.yml`.
 
@@ -124,6 +135,7 @@ Before handing off:
 - Introducing new provider constraints that test seed data cannot satisfy.
 - Updating migration files in-place instead of adding a new versioned migration.
 - Forgetting that `/api/all` is the frontend's primary fetch path.
+- Adding/changing a sentence type in Kotlin without mirroring in `api/all.ts` (or vice versa).
 
 ## New Agent Ramp
 

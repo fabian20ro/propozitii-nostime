@@ -1,6 +1,6 @@
 # Data Codemap
 
-Freshness: 2026-02-11
+Freshness: 2026-02-13
 
 ## Database Schema
 
@@ -91,7 +91,9 @@ The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before ext
 
 ## Data Consumers
 
-`WordRepository` drives all runtime queries:
+### Kotlin backend (`WordRepository`)
+
+Drives all runtime queries:
 - by type
 - by rhyme
 - by syllable count
@@ -99,6 +101,14 @@ The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before ext
 - by 2-letter prefix
 
 With exclusion sets, repository switches to `NOT IN (...) ORDER BY RANDOM()` to preserve uniqueness.
+
+### Vercel serverless fallback (`api/all.ts`)
+
+Queries the same `words` table via Supabase PostgREST (JS client):
+- uses `randomRow` (count + random offset) for single-word selection
+- uses `.or()` multi-prefix filter for batch tautogram prefix probing
+- uses `GROUP BY rhyme HAVING COUNT(*) >= 2` RPC-style query for mirror rhyme groups
+- no startup caches; all queries are per-request
 
 ## Provider Data Requirements
 

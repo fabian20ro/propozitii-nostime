@@ -87,4 +87,3 @@
 - 2026-02-12: Step 5 recursive split can create a hard prompt/schema conflict if prompt text keeps the original count (for example `EXACT 6`) while sub-batches expect 3/2/1; rebind count placeholders per request or keep count only in schema.
 - 2026-02-12: For unstable local models, Step 5 is more robust with IDs-only sparse output (`[local_id,...]`) than object output that forces the model to regenerate words and increases malformed-token failures.
 - 2026-02-12: Before splitting a failed Step 5 batch, one strict repair pass on the same batch can recover exact-count selection and avoid expensive retry cascades.
-- 2026-02-14: `gitleaks` can false-positive on long source paths inside docs (for example `src/main/kotlin/scrabble/phrases/`) under `generic-api-key`; keep `.gitleaksignore` fingerprints for known historical false positives so CI secret scanning remains strict for new leaks.

@@ -8,9 +8,9 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="48x48" href="img/icon_48.png">
     <link rel="apple-touch-icon" sizes="192x192" href="img/icon_192.png">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src https://dexonline.ro; img-src 'self' https://github.com; connect-src https://propozitii-nostime.onrender.com; object-src 'none'; base-uri 'self'; form-action 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src https://dexonline.ro; img-src 'self' https://github.com; connect-src https://propozitii-nostime.onrender.com https://propozitii-nostime.vercel.app; object-src 'none'; base-uri 'self'; form-action 'none';">
     <meta name="theme-color" content="#5a8a7a">
-    <meta name="description" content="Generator de propoziții hazlii în limba română">
+    <meta name="description" content="Propoziții formate din cuvinte aleatoare, mereu absurde, uneori nostime.">
 </head>
 <body>
     <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
@@ -21,7 +21,8 @@
     <main class="container">
         <header>
             <h1>Propoziții absurde</h1>
-            <p class="subtitle">Generator de propoziții hazlii în limba română</p>
+            <p class="subtitle">Propoziții formate din cuvinte aleatoare, mereu absurde, uneori nostime.</p>
+            <p class="subtitle subtitle-hint">Pentru a vedea definiția unui cuvânt, apasă pe el.</p>
         </header>
 
         <div class="grid">
@@ -126,7 +127,7 @@
         <div class="controls">
             <label class="rarity-label">Raritate cuvinte</label>
             <div class="rarity-row">
-                <span class="scale-label">1 Foarte comun</span>
+                <span class="scale-label">1<span class="scale-text"> Foarte comun</span></span>
                 <div class="dual-range">
                     <input
                         id="rarity-min"
@@ -148,7 +149,7 @@
                     >
                     <div class="dual-range-track"></div>
                 </div>
-                <span class="scale-label">5 Foarte rar</span>
+                <span class="scale-label">5<span class="scale-text"> Foarte rar</span></span>
             </div>
             <p id="rarity-value" class="rarity-value">1 (Foarte comun) – 2 (Uzual extins)</p>
         </div>

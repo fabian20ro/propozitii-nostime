@@ -72,10 +72,15 @@ function sanitizeHtml(html) {
 
 // API configuration
 const API_BASE = 'https://propozitii-nostime.onrender.com/api';
+const FALLBACK_API_BASE = 'https://propozitii-nostime.vercel.app/api';
 const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
 const HEALTH_TIMEOUT = 5000;
+const FETCH_TIMEOUT = 8000;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
+
+// Track whether Render backend is known to be up
+let renderIsHealthy = false;
 const RARITY_MIN_KEY = 'rarity-min';
 const RARITY_MAX_KEY = 'rarity-max';
 const OLD_RARITY_KEY = 'rarity-level';
@@ -121,10 +126,12 @@ function rarityLabel(level) {
 }
 
 function updateRangeTrack() {
-    const min = Number(rarityMinSlider.value);
-    const max = Number(rarityMaxSlider.value);
-    const pctMin = ((min - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
-    const pctMax = ((max - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
+    const a = Number(rarityMinSlider.value);
+    const b = Number(rarityMaxSlider.value);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const pctMin = ((lo - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
+    const pctMax = ((hi - RARITY_FLOOR) / (RARITY_CEIL - RARITY_FLOOR)) * 100;
     dualRangeTrack.style.background =
         `linear-gradient(to right, var(--border-color) ${pctMin}%, var(--primary-color) ${pctMin}%, var(--primary-color) ${pctMax}%, var(--border-color) ${pctMax}%)`;
 }
@@ -147,10 +154,9 @@ function setRarityRange(min, max) {
 }
 
 function getCurrentRarityRange() {
-    return {
-        min: clampRarity(rarityMinSlider.value, DEFAULT_RARITY_MIN),
-        max: clampRarity(rarityMaxSlider.value, DEFAULT_RARITY_MAX)
-    };
+    const a = clampRarity(rarityMinSlider.value, DEFAULT_RARITY_MIN);
+    const b = clampRarity(rarityMaxSlider.value, DEFAULT_RARITY_MAX);
+    return { min: Math.min(a, b), max: Math.max(a, b) };
 }
 
 function initRarity() {
@@ -221,15 +227,21 @@ async function waitForBackend() {
 }
 
 /**
- * Fetch all sentences in a single request
+ * Fetch all sentences from a given API base URL with a timeout
+ * @param {string} baseUrl
+ * @param {{ min: number, max: number }} range
+ * @param {number} timeout
  * @returns {Promise<Object>} Parsed JSON with all sentence fields
  */
-async function fetchAllSentences({ min, max }) {
+async function fetchFrom(baseUrl, { min, max }, timeout) {
     const query = new URLSearchParams({
         minRarity: String(clampRarity(min, DEFAULT_RARITY_MIN)),
         rarity: String(clampRarity(max, DEFAULT_RARITY_MAX))
     });
-    const response = await fetch(`${API_BASE}/all?${query.toString()}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(`${baseUrl}/all?${query.toString()}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -241,6 +253,64 @@ async function fetchAllSentences({ min, max }) {
     }
     return data;
 }
+
+/**
+ * Fetch all sentences — tries Render first; on failure, falls back to Vercel serverless
+ * and wakes Render in the background.
+ * @returns {Promise<Object>} Parsed JSON with all sentence fields
+ */
+async function fetchAllSentences(range) {
+    // If Render is known healthy, go straight to it
+    if (renderIsHealthy) {
+        try {
+            return await fetchFrom(API_BASE, range, FETCH_TIMEOUT);
+        } catch (err) {
+            console.warn('Render backend unavailable:', err.message);
+            renderIsHealthy = false;
+            // fall through to fallback
+        }
+    }
+
+    // Try Render with a short timeout — if it responds quickly, great
+    try {
+        const data = await fetchFrom(API_BASE, range, FETCH_TIMEOUT);
+        renderIsHealthy = true;
+        return data;
+    } catch (err) {
+        console.warn('Render backend cold, falling back to Vercel:', err.message);
+    }
+
+    // Wake Render in background (fire-and-forget health poll)
+    wakeRenderInBackground();
+
+    // Serve from Vercel fallback
+    try {
+        return await fetchFrom(FALLBACK_API_BASE, range, FETCH_TIMEOUT);
+    } catch (err) {
+        console.error('Both backends failed:', err.message);
+        throw new Error('Service temporarily unavailable');
+    }
+}
+
+/**
+ * Polls Render health in background so it's warm for next request.
+ */
+function wakeRenderInBackground() {
+    if (wakeRenderInBackground._running) return;
+    wakeRenderInBackground._running = true;
+    (async () => {
+        try {
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                const up = await checkHealth();
+                if (up) { renderIsHealthy = true; break; }
+                await new Promise(r => setTimeout(r, RETRY_DELAY));
+            }
+        } finally {
+            wakeRenderInBackground._running = false;
+        }
+    })();
+}
+wakeRenderInBackground._running = false;
 
 /**
  * Show loading state
@@ -315,34 +385,13 @@ async function refresh() {
     const range = getCurrentRarityRange();
 
     try {
-        // Try fetching directly — no health check on warm backend
         const data = await fetchAllSentences(range);
         applySentences(data);
     } catch {
-        // Fetch failed — backend likely cold-starting
-        showInfo('Backend-ul pornește... Render.com Free Tier poate dura până la 60s la prima accesare.');
-        const ready = await waitForBackend();
-        hideMessage();
-
-        if (!ready) {
-            showError('Backend-ul nu a pornit. Încercați din nou mai târziu.');
-            FIELD_IDS.forEach(id => {
-                document.getElementById(id).textContent = 'Timeout';
-            });
-            setButtonsDisabled(false);
-            return;
-        }
-
-        // Backend is up — retry once
-        try {
-            const data = await fetchAllSentences(range);
-            applySentences(data);
-        } catch {
-            showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
-            FIELD_IDS.forEach(id => {
-                document.getElementById(id).textContent = 'Eroare';
-            });
-        }
+        showError('Eroare la încărcarea propozițiilor. Încercați din nou.');
+        FIELD_IDS.forEach(id => {
+            document.getElementById(id).textContent = 'Eroare';
+        });
     } finally {
         setButtonsDisabled(false);
     }
@@ -526,14 +575,18 @@ document.querySelector('.grid').addEventListener('click', function (e) {
 
 // Rarity slider event listeners
 function onRarityInput() {
-    let min = Number(rarityMinSlider.value);
-    let max = Number(rarityMaxSlider.value);
-    if (min > max) {
-        [min, max] = [max, min];
-        rarityMinSlider.value = String(min);
-        rarityMaxSlider.value = String(max);
+    const a = Number(rarityMinSlider.value);
+    const b = Number(rarityMaxSlider.value);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    if (lo === hi) {
+        rarityValue.textContent = `${lo} (${rarityLabel(lo)})`;
+    } else {
+        rarityValue.textContent = `${lo} (${rarityLabel(lo)}) – ${hi} (${rarityLabel(hi)})`;
     }
-    setRarityRange(min, max);
+    localStorage.setItem(RARITY_MIN_KEY, String(lo));
+    localStorage.setItem(RARITY_MAX_KEY, String(hi));
+    updateRangeTrack();
 }
 
 refreshBtn.addEventListener('click', refresh);
