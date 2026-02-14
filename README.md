@@ -205,6 +205,7 @@ Extended runbook for full 77k campaigns:
 - Agent operating guide: `AGENTS.md`
 - New contributor ramp-up: `docs/ONBOARDING.md`
 - Codemap index: `docs/CODEMAPS/README.md`
+- Vercel fallback lambda guide: `docs/VERCEL_LAMBDA.md`
 
 ### Building
 
