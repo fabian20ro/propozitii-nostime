@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-13
+Freshness: 2026-02-14
 
 ## File Map
 
@@ -48,7 +48,7 @@ Any non-allowed tags/attrs are removed before rendering.
 
 Hardcoded API endpoints:
 - `API_BASE = https://propozitii-nostime.onrender.com/api` (Render primary)
-- `FALLBACK_API_BASE = /api` (Vercel serverless, relative path)
+- `FALLBACK_API_BASE = https://propozitii-nostime.vercel.app/api` (Vercel serverless fallback)
 - `HEALTH_URL = https://propozitii-nostime.onrender.com/q/health`
 
 Rarity UI/storage contract:
@@ -61,6 +61,7 @@ Rarity UI/storage contract:
 
 Response field mapping:
 - `FIELD_MAP` expects keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
+- Vercel fallback `/api/all` must return the same six keys as strings.
 
 If backend adds/removes sentence types, update both:
 - `FIELD_MAP` in `app.js`

@@ -1,12 +1,14 @@
 # Architecture Codemap
 
-Freshness: 2026-02-12
+Freshness: 2026-02-14
 
 ## System Topology
 
 ```text
 GitHub Pages (frontend static SPA)
-  -> HTTPS GET /api/all?minRarity=1..5&rarity=1..5, /q/health
+  -> primary: Render `/api/all?minRarity=1..5&rarity=1..5`
+  -> fallback: Vercel `/api/all?minRarity=1..5&rarity=1..5`
+  -> health probe: Render `/q/health`
 Render.com (Quarkus JVM backend)
   -> JDBC
 Supabase PostgreSQL (words dictionary table)
@@ -20,20 +22,22 @@ Supabase PostgreSQL (words dictionary table)
 - Deployment config:
 - `render.yaml`
 - `Dockerfile`
+- Vercel fallback API endpoint (external deployment): `https://propozitii-nostime.vercel.app/api/all`
 
 ## Request Flow (Primary Path)
 
 1. User clicks `Generează altele` in frontend.
-2. `frontend/app.js` calls `GET https://propozitii-nostime.onrender.com/api/all?minRarity=<1..5>&rarity=<1..5>`.
-3. `PhraseResource.getAll()` internally calls all six endpoint methods.
-4. Each endpoint:
+2. `frontend/app.js` first tries `GET https://propozitii-nostime.onrender.com/api/all?minRarity=<1..5>&rarity=<1..5>` with an 8s timeout.
+3. If Render fails/times out, frontend falls back to `GET https://propozitii-nostime.vercel.app/api/all?...` and starts background Render health polling.
+4. Render path: `PhraseResource.getAll()` internally calls all six endpoint methods.
+5. Each endpoint:
 - creates provider
 - wraps provider in decorators
 - returns `SentenceResponse` or field in `AllSentencesResponse`
-5. Providers query `WordRepository` for random words under constraints.
+6. Providers query `WordRepository` for random words under constraints.
    - all runtime selections apply `rarity_level BETWEEN minRarity AND rarity`.
-6. `DexonlineLinkAdder` injects `<a href="https://dexonline.ro/definitie/...">` around words.
-7. Frontend sanitizes returned HTML and renders into cards.
+7. `DexonlineLinkAdder` injects `<a href="https://dexonline.ro/definitie/...">` around words.
+8. Frontend sanitizes returned HTML and renders into cards.
 
 ## Cross-Cutting Backend Behaviors
 
@@ -80,7 +84,8 @@ Operational safeguards:
 
 - Backend image is JVM-based (Temurin 21), not native.
 - Render deploys using `render.yaml` (Docker runtime).
-- Frontend deploys separately via GitHub Actions Pages workflow.
+- Frontend deploys via GitHub Actions Pages workflow.
+- Fallback API runs as a Vercel Serverless Function and must preserve `/api/all` response shape.
 - Flyway is on by default in dev/test and explicitly off in `%prod`.
 
 ## Critical Contracts Between Layers
@@ -96,6 +101,7 @@ Operational safeguards:
 3. API contract:
 - Frontend relies primarily on `/api/all` keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`.
 - Rarity control contract: `rarity=1..5` (default `2`, max) and `minRarity=1..5` (default `1`, min) across all sentence endpoints. Backend-compatible: `minRarity` is optional.
+- Fallback API contract: Vercel `/api/all` must forward the same two query params and return the same six keys as strings.
 
 ## Where To Extend
 
