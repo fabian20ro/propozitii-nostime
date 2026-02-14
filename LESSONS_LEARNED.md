@@ -4,92 +4,15 @@
 - Append one short bullet whenever a blocker appears or behavior is different than expected.
 
 ## Entries
-- 2026-02-07: `./gradlew test` failed locally because Testcontainers could not start Ryuk with Colima Docker socket mount (`operation not supported`).
-- 2026-02-07: Full integration test reliability depends on local Docker/Testcontainers setup; use unit-test subsets for quick validation when container runtime is broken.
-- 2026-02-07: Restricting generation to only the top 5000 common words is likely to break rhyme/prefix constraints in `Mirror` and `Tautogram`.
-- 2026-02-07: `AGENTS.md` should stay minimal as an activation/index file; `CLAUDE.md` is only a pointer to `AGENTS.md`.
-- 2026-02-07: LMStudio OpenAI-compatible `/v1/chat/completions` can reject `response_format: {"type":"json_object"}` with HTTP 400; Step 2 must fallback to plain text JSON prompting when this happens.
-- 2026-02-07: In this setup, Java `HttpClient` calls to `127.0.0.1:1234` timed out while `curl` worked; use direct `HttpURLConnection` + explicit timeouts for LMStudio calls.
-- 2026-02-07: Legacy `step4Upload` full update behavior can look like "lost data" on partial CSV input because missing `word_id` rows become `fallback_4`.
-- 2026-02-07: `step2` can lose previously scored rows if multiple processes write the same run CSV and a final rewrite runs from stale in-memory state; use an exclusive file lock and merge latest on-disk rows before rewrite.
-- 2026-02-07: Silent row skipping in CSV loading masks corruption and can shrink resume state; fail fast on malformed rows instead of ignoring them.
-- 2026-02-07: `step4Upload` now defaults to partial mode; `--mode full-fallback` is explicit to avoid accidental global fallback writes.
-- 2026-02-07: API/frontend naming drift caused confusion; standardize on `rarity`/`raritate` (query param, slider IDs/localStorage key, docs, tests) and avoid legacy term mixing.
-- 2026-02-07: Keeping rarity logic modular (`RarityStep1..4`, `RunCsvRepository`, `UploadMarkerWriter`, `LmStudioClient`) makes overwrite/resume failures easier to reason about than a monolithic pipeline file.
-- 2026-02-07: Docs must track operational defaults (`step4` partial mode, Step2 lock + guarded rewrite) or operators can misinterpret partial outputs as data loss.
-- 2026-02-07: Run-scoped `response_format` fallback removes repeated HTTP 400 overhead, but gpt-oss can still emit truncated/malformed JSON that forces split retries and shrinks effective batch size.
-- 2026-02-08: Running `step4Upload` markers on the same run CSV before `step2` final rewrite can break resume/rewrite due mixed column counts (9 vs 13); use a separate upload copy or wait for step2 to fully finish.
-- 2026-02-07: `JsonRepair` must run close-structures BEFORE remove-trailing-commas; otherwise a trailing comma at truncation point (`2,`) becomes `2,}` which still has the comma.
-- 2026-02-07: LM diacritical misspellings (e.g. `abreviațiune` -> `abrevițiune`) are not just diacritics swaps but character deletions; pure normalization is insufficient, Levenshtein distance <= 2 on normalized forms is needed.
-- 2026-02-07: When recording metrics in both a parser and its caller, double-counting inflates batch counts; record only at one level (prefer the caller).
-- 2026-02-08: Large Step 2 batches become stable only if LM output is matched by `word_id`; relying on positional parsing makes partial/truncated JSON collapse effective batch size.
-- 2026-02-08: Treating partial parses as success and retrying only unresolved rows in-process preserves throughput better than immediately splitting whole batches.
-- 2026-02-08: Adaptive batch control should use success ratio (not strict all-or-nothing) and a higher floor (`max(5, initial/5)`) to avoid long runs dominated by tiny batches.
-- 2026-02-08: Step 2 append logic must serialize against existing CSV headers; otherwise adding Step 4 marker columns can corrupt resumed writes even with lock/guard protections.
-- 2026-02-08: Current practical Step 2 knobs for this repo are `--batch-size 50` + `--max-tokens 8000`; lower defaults were a major contributor to 12h full-run time.
-- 2026-02-08: Step 2 completion state must report `pending` as unresolved-after-run (`failed`) rather than the initial pending input size, otherwise operators get false completion signals.
-- 2026-02-08: Some local models return valid top-level JSON arrays or `items`/`data` envelopes instead of `{results:[...]}`; parser must accept these shapes to avoid false batch failures.
-- 2026-02-08: GLM/OpenAI-compatible endpoints may reject reasoning-control fields (`reasoning_effort`, `chat_template_kwargs`); cache unsupported capability once and continue without per-batch retries.
-- 2026-02-08: `max_tokens` should be treated as an upper bound, not a floor; using dynamic per-batch estimates reduces long "thinking" outputs and improves Step 2 throughput.
-- 2026-02-08: `LmStudioClient.kt` crossed maintainability limits and caused duplicate-line regressions during fast edits; keep LMStudio flow split by concern (`LmClient`, request builder, response parser, HTTP gateway) and keep single classes under ~500 lines.
-- 2026-02-08: Model tuning drifts quickly when spread across conditionals; keep per-model sampling/reasoning defaults in dedicated constants files plus a registry to avoid hidden behavior changes.
-- 2026-02-08: A single malformed object inside `results` (e.g. missing `:`/extra brace) can break full JSON parse for the whole batch; parser must salvage valid top-level objects and retry only unresolved words.
-- 2026-02-08: GLM 4.7 can fail mid-run with LMStudio "insufficient system resources" guardrail; treat this as capacity limitation and prefer lighter fallback models over repeated retries.
-- 2026-02-08: For local models with weak JSON discipline, asking for a top-level array and keeping parser envelope-tolerant (`array` + `results/items/data`) improves throughput and reduces full-batch parse failures.
-- 2026-02-08: Step 3 needed explicit merge strategy support (`median` vs `any-extremes`) to operationalize multi-model consensus rules without ad-hoc post-processing scripts.
-- 2026-02-08: `scoreBatchResilient` binary-split retry had no recursion depth bound; a worst-case batch of 50 can recurse ~6 levels, but adversarial partial results could go deeper. Cap at 10 and log exceeded words to failed log.
-- 2026-02-08: `Files.readAllLines(path)` uses platform default charset, not UTF-8; Romanian diacritics silently corrupt on non-UTF-8 JVMs. Always pass `Charsets.UTF_8` explicitly.
-- 2026-02-08: Duplicate serialization paths (positional vs header-driven) in `RunCsvRepository` caused subtle column-order bugs when CSV headers evolved; unify to a single `serializeForHeaders` path.
-- 2026-02-08: Duplicated JSON in-string/escaped state tracking across `JsonRepair` and `LmStudioResponseParser` (~100 lines) was a maintenance risk; extracted shared `walkJsonChars` inline function.
-- 2026-02-08: `LmClient.scoreBatchResilient` had 12 parameters that grew with each feature; consolidating into `ScoringContext` data class made the interface stable and test doubles simpler.
-- 2026-02-08: Scattered `@Volatile` fields + `synchronized` blocks for capability degradation were error-prone; extracting `CapabilityState` data class with immutable `copy()` updates is both clearer and equally thread-safe for single-threaded scorer loops.
-- 2026-02-08: Nested if/else chains in parser fallback logic (`parseContentJson`) are hard to audit for coverage; converting to linear early-return style made each fallback path independently testable.
-- 2026-02-08: Some local models satisfy `json_schema` by emitting `[]`; requiring per-batch `minItems/maxItems` and disabling `response_format` after repeated empty parses prevents whole-run stalls.
-- 2026-02-08: TOON format is promising for token compression, but in this pipeline the dominant failures were model/runtime stability (`[]`, timeouts, connection drops), so JSON remains the safer default and TOON should be tested only via controlled A/B smoke runs.
-- 2026-02-08: High-stochastic decoding profiles (temperature>0, restrictive `top_p`/`min_p`) caused structured-output drift (`word_id` corruption, invalid ranges) and severe retry amplification; deterministic defaults (`temperature=0`, `top_p=1`) restored Step 2 stability.
-- 2026-02-08: `json_schema` can degrade into partially valid batches; auto-disabling `response_format` when unresolved ratio is high avoids prolonged batch collapse to size 1/2.
-- 2026-02-08: New Step 5 rebalance operates on Step2-style CSVs and must enforce single-pass semantics: each `word_id` can be sent to LM at most once per run, even with multiple transitions.
-- 2026-02-08: Step 5 transition mode `from=to` means split+promote, not no-op: target ratio stays at `to`, while remaining words are reassigned to `to+1`.
-- 2026-02-08: Rebalance prompts must encode hard-count invariants explicitly (`exact TARGET_COUNT`, only two allowed levels, no duplicate `word_id`, no extra text); vague wording leads gpt-oss to drift from target ratios.
-- 2026-02-08: Distribution logging should live in a shared helper (`RarityDistribution`) used by both Step 2 and Step 5; duplicated counters/formatters drift quickly during iteration.
-- 2026-02-08: It is useful to print level distribution at merge/upload boundaries too (Step 3 `final_level`, Step 4 input/uploaded levels) to catch skew before DB writes.
-- 2026-02-09: For Step 5 ratio targets, `floor(batch*ratio)` causes systematic under-allocation (e.g., `60*0.3333 -> 19`); use rounded target counts to keep 1/3 batches at 20.
-- 2026-02-09: Step 5 should support exact equal split for keep+promote transitions (`from=to`, `lower-ratio=0.5`), e.g. batch 60 -> 30 stay + 30 promoted.
-- 2026-02-09: Prompt clarity improves stability: explicitly state in all rarity prompts that lower numeric levels mean more common words and higher numeric levels mean rarer words.
-- 2026-02-09: Step 5 needs both single-source and pair-source transitions (`2:1` and `2-3:2`) to rebalance distribution predictably; prevent overlapping source levels in one run to keep semantics deterministic.
-- 2026-02-09: Pair-source Step 5 rebalancing is more stable when each batch keeps the initial source-bucket mix (stratified sampling), rather than random pooling across both levels.
-- 2026-02-09: For local `gpt-oss` runs, prompt compliance improves when JSON-only constraints are explicit (`no markdown/code fences`, `no null/missing fields`) and refusal is explicitly disallowed even for vulgar/offensive words.
-- 2026-02-09: Child-safety objective needs explicit prompt policy: vulgar/obscene terms should be biased to higher rarity levels (never 1/2; usually 4, 5 only for extreme cases).
-- 2026-02-09: Step 5 operational debugging is clearer with a dedicated switched-words JSONL log that records only changed bucket assignments (`previous_level != new_level`).
-- 2026-02-10: Step 5 resumability should checkpoint after each completed batch (not only at step end) so long chains can resume exactly from the last LM response batch.
-- 2026-02-10: For Step 5 pair transitions, prompting the model to return only the target subset (sparse output) is more robust than full-batch relabeling; keep exact-target enforcement in code and auto-assign non-returned items to the companion level.
-- 2026-02-11: Rarity prompts must have a single source of truth in `docs/rarity-prompts/*.txt`; Step 2/5 load prompt content from files by default (CLI can override), and `.kt` should never embed full prompt strings.
-- 2026-02-11: Step 5 is most stable when the model returns only selected `word_id`s (JSON array of ints) rather than full per-word objects; strict exact-count enforcement must account for recursive batch splits by rebalancing expected items across sub-batches.
-- 2026-02-11: `roundToInt()` (Kotlin/IEEE 754) uses banker's rounding (half-to-even); `Math.round()` uses half-up. For 2-run Step 3 median where runs disagree by 1 level, banker's rounding silently downscores half the edge cases.
-- 2026-02-11: Kotlin `require()` lazily evaluates its lambda only for the error message string; embedding side-effects (like `channel.close()`) inside that lambda is fragile and easy to break during refactoring.
-- 2026-02-11: Regex-based JSON trailing-comma removal (`Regex(",\\s*}")`) doesn't respect string boundaries; commas inside quoted values like `"value,"` get corrupted. Use character-walking with `inString` tracking instead.
-- 2026-02-11: Broad `catch (Exception)` in atomic-move fallback masks real I/O errors (disk full, permissions); narrow to `AtomicMoveNotSupportedException` + `UnsupportedOperationException` only.
-- 2026-02-11: `LmStudioErrorClassifier` had zero unit tests despite driving runtime capability negotiation (response_format fallback, reasoning controls); classifiers with string-matching heuristics need explicit test coverage for each branch.
-- 2026-02-12: Adding `minRarity` to WordRepository required changing every SQL from `rarity_level <= ?` to `rarity_level BETWEEN ? AND ?`; the cumulative count caches still work because `count(min..max) = cumulative(max) - cumulative(min-1)`. Rhyme/prefix caches bypass to DB when `minRarity > 1`.
-- 2026-02-12: Kotlin default parameters (`minRarity: Int = 1`) make the API change fully backward-compatible without touching any existing callers or tests.
-- 2026-02-12: CSS dual-range slider (two overlapping `<input type="range">`) requires `pointer-events: none` on the inputs and `pointer-events: auto` on the thumb pseudo-elements only; the track is a separate div with a dynamic gradient background.
-- 2026-02-12: When migrating localStorage keys (old `rarity-level` to new `rarity-min`/`rarity-max`), check that the new key doesn't already exist before migrating, to avoid overwriting user-set values on repeat visits.
-- 2026-02-12: Two rarity CSVs can have identical global level distribution and still differ heavily per-word; one comparison showed 48,159 level changes while preserving the same 1..5 totals, so always diff by `word_id`, not only by histogram.
-- 2026-02-12: For `level 1` comparisons between runs, skip-common analysis is operationally useful (set difference on `word_id`) and often reveals large drift even when both runs keep the same target count (e.g., 2500/2500 with only a small overlap).
-- 2026-02-12: `zai-org/glm-4.7-flash` in LMStudio may fail repeatedly with "insufficient system resources"; retries/splitting do not solve capacity limits, so abort early and switch to a smaller model.
-- 2026-02-12: For deterministic cross-run set diffs in shell tools (`join`), sort by `word_id` under `LC_ALL=C`; locale/encoding-sensitive sorts can produce incorrect intersections.
-- 2026-02-12: Step 5 selection output now works better operationally as lightweight objects (`word_id` + `word`) instead of raw ints only; parser can recover by exact word match when model returns invalid IDs.
-- 2026-02-12: Step 5 terminal switched-word logs are easier to audit with compact directional markers (`selected` / `not`, `(+)/(-)`, 7 entries per line) instead of verbose `old->new` tuples.
-- 2026-02-12: Chain rebalance schedule is now intentionally asymmetric (3x `1+2->1`, 2x `2+3->2`, 2x `3+4->3`, 1x `4+5->4`) and resume discovery must scan all 8 generated step files.
-- 2026-02-12: Overly long `run_base` values can truncate `run_slug` step suffixes after sanitization length limits; keep `run_base` short to preserve transition identity in logs/artifacts.
-- 2026-02-12: Rebalance prompt compliance degrades when model has to "reconstruct" selected entries; requiring exact copy of selected input objects (`word_id` + `word`) reduces invented IDs (`0`, large random ids) and malformed words.
-- 2026-02-12: Step 5 selection parser should normalize minor punctuation noise in returned `word` values (`?`, `...`) before fallback matching; otherwise valid selections are dropped and batch split/retry rate increases.
-- 2026-02-12: Step 5 recursive split can create a hard prompt/schema conflict if prompt text keeps the original count (for example `EXACT 6`) while sub-batches expect 3/2/1; rebind count placeholders per request or keep count only in schema.
-- 2026-02-12: For unstable local models, Step 5 is more robust with IDs-only sparse output (`[local_id,...]`) than object output that forces the model to regenerate words and increases malformed-token failures.
-- 2026-02-12: Before splitting a failed Step 5 batch, one strict repair pass on the same batch can recover exact-count selection and avoid expensive retry cascades.
-- 2026-02-14: Collaboration default for this repo: when the user asks to "run commands", interpret it as "run the relevant automated tests" and report explicit pass/fail outcomes.
-- 2026-02-14: Local Node `v25` + npm `11` can fail `npm ci` with `Exit handler never called!`; run JS fallback tests under Node `20` (same as CI) to keep `api/__tests__` execution stable.
-- 2026-02-14: Matching target histogram is not a valid acceptance criterion for rarity quality; L1 set stability (Jaccard) and anchor precision must gate uploads.
-- 2026-02-14: Step 5 parser auto-top-up of invalid/partial selections can silently inject random bias; strict exact-count enforcement is safer even if it increases retries.
-- 2026-02-14: Step 5 selection schema needs explicit `maximum=batch_size` and `uniqueItems=true`; `minimum=1` alone allows malformed IDs (`0`, huge IDs, duplicates) to leak into parsing paths.
-- 2026-02-14: Prompt contract and parser contract must match exactly (`local_id`, exact count, no duplicates). Backward-compatibility paths for alternate id semantics (`word_id`) destabilize multi-hour rebalance chains.
+- 2026-02-07: `./gradlew test` can fail locally when Testcontainers cannot start Ryuk with Colima Docker socket mount (`operation not supported`).
+- 2026-02-07: Full integration-test reliability depends on local Docker/Testcontainers health; use targeted subsets when container runtime is unstable.
+- 2026-02-07: Restricting runtime generation to only the top ~5000 words risks breaking rhyme/prefix constraints in `Mirror` and `Tautogram`.
+- 2026-02-07: `AGENTS.md` should stay an operational index, not a dumping ground for deep implementation notes.
+- 2026-02-11: Kotlin `require()` lazily evaluates its message lambda; avoid side effects in that lambda.
+- 2026-02-11: Broad exception catches in file/IO critical paths hide real failures; catch only expected exception types.
+- 2026-02-12: Adding `minRarity` required repository-wide SQL updates from `<=` to range filtering (`BETWEEN min AND max`) and careful cache handling.
+- 2026-02-12: Kotlin default parameters (`minRarity: Int = 1`) are useful for backward-compatible API expansion.
+- 2026-02-12: Dual-range slider UX requires careful pointer-events handling for overlapping range inputs.
+- 2026-02-12: LocalStorage key migrations must be idempotent and must not overwrite already-migrated values.
+- 2026-02-12: For deterministic shell joins/diffs by `word_id`, use `LC_ALL=C` when sorting.
+- 2026-02-14: Local Node `v25` + npm `11` may break `npm ci` with `Exit handler never called!`; use Node `20` for stable JS fallback tests.

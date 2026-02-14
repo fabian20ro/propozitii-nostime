@@ -1,6 +1,6 @@
 # Architecture Codemap
 
-Freshness: 2026-02-14
+Freshness: 2026-02-15
 
 ## System Topology
 
@@ -57,28 +57,16 @@ Supabase PostgreSQL (words dictionary table)
 
 These caches support fast random-offset queries and avoid repeated group scans.
 
-## Offline Rarity Pipeline
+## External Rarity Classification
 
-`RarityPipeline` (`src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`) delegates to modular steps in `src/main/kotlin/scrabble/phrases/tools/rarity/`:
-- Step 1: DB export -> `build/rarity/step1_words.csv`
-- Step 2: LMStudio scoring -> `build/rarity/runs/<run>.csv` + JSONL logs
-- Step 3: local compare -> `build/rarity/step3_comparison.csv`
-- Step 4: upload final levels -> `words.rarity_level`
-- Step 5 (optional): LM rebalance on Step2/Step3 CSV -> rebalanced local CSV (`final_level`)
-- Step 2 internals are split by concern: `LmStudioClient` (orchestration), `LmStudioRequestSupport` (payload assembly + `LmStudioErrorClassifier`), `LmStudioResponseParser` (lenient parse/matching), `LmStudioHttpGateway` (transport/endpoints), plus model-config registry/constants for per-model defaults
+This repository no longer contains offline rarity classification tooling.
+It consumes `words.rarity_level` at runtime for filtering only.
 
-Operational safeguards:
-- exclusive file lock per run CSV (`<run>.csv.lock`)
-- guarded final rewrite (abort on shrink)
-- strict CSV parsing (malformed rows fail fast)
-- recursion depth guard (max 10) on batch split/retry
-- step state trace in `build/rarity/runs/<run>.state.json`
-- step5 traces in `build/rarity/rebalance/runs/<run>.jsonl` and `build/rarity/rebalance/failed_batches/<run>.failed.jsonl`
-- run-scoped fallback when `response_format` is unsupported
-- run-scoped fallback when model-specific reasoning controls are unsupported
-- `word_id`-first parsing + in-process retry for unresolved partial LM outputs
-- Step 3 supports a third run CSV (`--run-c-csv`) and configurable merge strategy (`--merge-strategy median|any-extremes`)
-- Step 3 `median()` uses `Math.round()` (half-up rounding), not Kotlin `roundToInt()` (banker's rounding)
+The classifier now lives in:
+- https://github.com/fabian20ro/word-rarity-classifier
+
+Overview document:
+- `docs/rarity-classification-system.md`
 
 ## Deployment Reality
 

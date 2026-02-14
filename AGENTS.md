@@ -44,8 +44,6 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
 - DB access + startup caches: `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 - Word model + morphology/syllables: `src/main/kotlin/scrabble/phrases/words/`
 - Dictionary loader CLI: `src/main/kotlin/scrabble/phrases/tools/LoadDictionary.kt`
-- Rarity pipeline entrypoint: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
-- Rarity pipeline modules: `src/main/kotlin/scrabble/phrases/tools/rarity/`
 - Vercel serverless fallback: `api/all.ts` (mirrors Kotlin `/api/all`)
 - Vercel config: `vercel.json`
 - Frontend app:
@@ -80,10 +78,9 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - Prod (`%prod`): auto-migration is off; schema changes are manual.
    - Never edit already-applied migration files for production history; add a new `V*.sql` migration.
 
-6. **Rarity contracts:**
+6. **Rarity filter contract:**
    - Public query parameters are `rarity` (`1..5`, default `2`, max) and `minRarity` (`1..5`, default `1`, min) on sentence endpoints.
-   - Step 2 is CSV-only and must keep exclusive file lock + guarded final rewrite.
-   - Step 4 default upload mode is `partial`; global fallback writes must require explicit `--mode full-fallback`.
+   - This repo does runtime filtering only; offline rarity classification is maintained in a separate repository.
 
 7. **Dual-backend parity contract:**
    - Both Render (Kotlin) and Vercel (`api/all.ts`) must return the same `/api/all` response shape (6 keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`).

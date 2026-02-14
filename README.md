@@ -97,100 +97,16 @@ In local dev/test, Quarkus Dev Services auto-provisions PostgreSQL via Docker, s
 ./gradlew loadDictionary
 ```
 
-### Rarity scoring pipeline (LMStudio, resumable)
+### Rarity Classification Scope
 
-```bash
-# Step 1: export source words from Supabase
-./gradlew rarityStep1Export
+This repository no longer includes the offline rarity classification pipeline.
+It only consumes `words.rarity_level` at runtime for sentence filtering (`minRarity`/`rarity` query params).
 
-# Prompts:
-# - Step 2 / Step 5 load defaults from `docs/rarity-prompts/*.txt`.
-# - `--system-prompt-file` / `--user-template-file` are optional overrides.
+The classification system now lives in a separate project:
+- https://github.com/fabian20ro/word-rarity-classifier
 
-# Step 2a: score model A into local CSV (repeatable/resumable)
-# recommended throughput knobs: batch-size=50, max-tokens=8000, timeout=120, max-retries=2
-./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
-
-# Optional retry subset from failed JSONL (model A)
-./scripts/rarity_build_retry_input.sh build/rarity/failed_batches/campaign_20260207_a_gptoss20b.failed.jsonl build/rarity/step1_words.csv build/rarity/retry_inputs/campaign_20260207_a_retry.csv
-./gradlew rarityStep2Score --args="--run campaign_20260207_a_gptoss20b_retry --model openai/gpt-oss-20b --base-csv build/rarity/step1_words.csv --input build/rarity/retry_inputs/campaign_20260207_a_retry.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 3 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
-
-# Early upload from model A (partial mode only: updates only scored IDs)
-./gradlew rarityStep4Upload --args="--final-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv"
-
-# Step 2b: score model B later (same machine, sequential run)
-./gradlew rarityStep2Score --args="--run campaign_20260207_b_glm47flash --model zai-org/glm-4.7-flash --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
-
-# Step 2c: optional third model (EuroLLM 22B MLX 4bit)
-./gradlew rarityStep2Score --args="--run campaign_20260207_c_eurollm22b --model mlx-community/EuroLLM-22B-Instruct-2512-mlx-4bit --base-csv build/rarity/step1_words.csv --output-csv build/rarity/runs/campaign_20260207_c_eurollm22b.csv --batch-size 50 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/system_prompt_ro.txt --user-template-file docs/rarity-prompts/user_prompt_template_ro.txt"
-
-# Step 3: local comparison + outliers CSV (2-run median, or 3-run any-extremes)
-./gradlew rarityStep3Compare --args="--run-a-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --run-b-csv build/rarity/runs/campaign_20260207_b_glm47flash.csv --run-c-csv build/rarity/runs/campaign_20260207_c_eurollm22b.csv --merge-strategy any-extremes --output-csv build/rarity/step3_comparison.csv --outliers-csv build/rarity/step3_outliers.csv --outlier-threshold 2"
-
-# Step 5 (optional): rebalance a Step2/Step3 CSV in batches, then upload or compare
-# Example A: downgrade split (from=3, target lower=2, rest remain 3)
-./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_3_to_2 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 3 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2 --system-prompt-file docs/rarity-prompts/rebalance_system_prompt_ro.txt --user-template-file docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
-# Example B: keep+promote split (from=2,to=2 => 1/3 remain 2, 2/3 move to 3)
-./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 2 --to-level 2 --batch-size 60 --lower-ratio 0.3333 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
-# Example C: equal split (from=4,to=4 => 30 remain 4, 30 move to 5 for batch-size 60)
-./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_4_equal_split --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced.csv --from-level 4 --to-level 4 --batch-size 60 --lower-ratio 0.5 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
-# Example D: pair split on consecutive levels (2+3 pooled, 25% to level 2, 75% to level 3)
-./gradlew rarityStep5Rebalance --args="--run campaign_20260208_rebalance_2_3_pair_25_75 --model openai/gpt-oss-20b --step2-csv build/rarity/runs/campaign_20260207_a_gptoss20b.csv --output-csv build/rarity/runs/campaign_20260207_a_gptoss20b.rebalanced_pair.csv --from-level 2 --from-level-high 3 --to-level 2 --batch-size 60 --lower-ratio 0.25 --max-tokens 8000 --timeout-seconds 120 --max-retries 2"
-# Equivalent shorthand:
-# --transitions \"2-3:2\"
-
-# Step 4: upload final CSV to Supabase (default mode=partial, only IDs present in final CSV)
-./gradlew rarityStep4Upload --args="--final-csv build/rarity/step3_comparison.csv"
-```
-
-Artifacts:
-- `build/rarity/runs/<run>.jsonl` raw LMStudio request/response log
-- `build/rarity/runs/<run>.csv` normalized per-word run output
-- `build/rarity/runs/<run>.state.json` step2 runtime state (pid/host/start/end/status)
-  - `pending` in state = unresolved words remaining after the run
-- `build/rarity/failed_batches/<run>.failed.jsonl` failures after retries/split
-- `build/rarity/step3_comparison.csv` and `build/rarity/step3_outliers.csv`
-- `build/rarity/rebalance/runs/<run>.jsonl` step5 raw LM requests/responses
-- `build/rarity/rebalance/failed_batches/<run>.failed.jsonl` step5 unresolved errors
-- `build/rarity/rebalance/switched_words/<run>.switched.jsonl` step5 words that changed bucket (`previous_level != new_level`)
-- `build/rarity/rebalance/checkpoints/<run>.checkpoint.jsonl` step5 per-batch resume checkpoints
-- `build/rarity/step4_upload_report.csv`
-- marker columns are written back into `--final-csv` (`uploaded_at`, `uploaded_level`, `upload_status`, `upload_batch_id`)
-  - if input CSV is read-only, marker output goes to `<final-csv>.upload_markers.csv`
-
-Resume tip:
-- Rerun the same `rarityStep2Score` command with the same `--output-csv`; already scored `word_id`s are skipped.
-- Step2 takes an exclusive lock on `<run>.csv.lock`; a second writer to the same output file fails fast.
-- Step2 guarded rewrite aborts if a rewrite would shrink row cardinality.
-- Step2 now caches endpoint capability: once `response_format` is rejected, it is disabled for the rest of that process run.
-- Step2 now sends `word_id` in LM input and can retry only unresolved items from partial LM outputs (helps large batches).
-- Step2 prompt/schema now asks for a plain JSON array (simpler for weaker local models); parser still accepts both array and object envelopes.
-
-Step5 integration tips:
-- Input can be provided as `--step2-csv` (preferred) or `--input-csv` alias.
-- `--lower-ratio` supports `0.01..0.99`.
-- Pair mode is available via `--from-level <n> --from-level-high <n+1> --to-level <n|n+1>`.
-- Transition string supports pair tokens too (example: `--transitions "2-3:2"`).
-- Pair mode batches are sampled using the initial source mix (for example, 25/75 source buckets keep ~25/75 sampling per batch).
-- Step5 prompt is sparse by design: LM returns only the selected subset as a JSON array of batch-local `local_id` integers (the most common words in the batch). The remaining batch words are assigned automatically to the companion level.
-- Step5 now treats selection as strict contract data: invalid/incomplete `local_id` selections fail and are retried/split instead of being silently auto-filled.
-- New quality-gate helper for pre-upload checks: `node scripts/rarity_quality_audit.cjs --candidate-csv <csv> [--reference-csv <csv>] [--anchor-l1-file docs/rarity-anchor-l1-ro.txt --min-l1-jaccard 0.80 --min-anchor-l1-precision 0.90]`
-- Rebalance output can feed directly into:
-  - `step3` as a run CSV (if source was a Step2 run CSV),
-  - or `step4` upload (uses `final_level` when present).
-- Each `word_id` is processed by Step5 at most once per run.
-- Step5 outputs are loop-friendly (you can chain Step5 runs).
-- Step5 is resumable at batch granularity: rerunning the same command with the same `--run` resumes from the last completed batch using checkpoint JSONL.
-
-Steps 2 and 3 are fully local (CSV-only). Supabase writes happen only in step 4 upload.
-
-Safety rule for iterative campaigns:
-- Use default `partial` uploads only.
-- Do **not** run `--mode full-fallback` unless you explicitly want global fallback-to-4 writes for missing IDs.
-
-Extended runbook for full 77k campaigns:
-- `docs/rarity-runbook.md`
-- `docs/rarity-recovery-handover-20260214.md` (postmortem + gated recovery procedure)
+For a system-level overview and lessons learned from classification campaigns, see:
+- `docs/rarity-classification-system.md`
 
 ### Running locally
 
@@ -233,8 +149,7 @@ propozitii-nostime/
 │   ├── repository/                  # WordRepository (SQL queries to Supabase)
 │   ├── providers/                   # Sentence generators (6 types)
 │   ├── decorators/                  # Sentence decorators (links, formatting)
-│   └── tools/                       # LoadDictionary + RarityPipeline entrypoint
-│       └── rarity/                  # Modular rarity pipeline implementation
+│   └── tools/                       # LoadDictionary entrypoint
 ├── frontend/                        # Static frontend for GitHub Pages
 ├── Dockerfile                       # JVM uber-jar multi-stage build
 ├── render.yaml                      # Render deployment config

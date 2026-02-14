@@ -1,6 +1,6 @@
 # Data Codemap
 
-Freshness: 2026-02-13
+Freshness: 2026-02-15
 
 ## Database Schema
 
@@ -47,47 +47,18 @@ Pipeline:
 3. Derive computed fields using domain rules (`WordUtils`, `Noun`, `Adjective`, `Verb`).
 4. Bulk insert rows into `words`.
 
-### Rarity scoring pipeline
-
-Entry point: `src/main/kotlin/scrabble/phrases/tools/RarityPipeline.kt`
-Implementation package: `src/main/kotlin/scrabble/phrases/tools/rarity/`
-
-- Step 1: export words from `words` table to local `step1_words.csv`
-- Step 2: score with LMStudio into local run CSVs (resumable by `word_id`)
-- Step 3: compare 2 or 3 run CSVs locally, compute median/outliers/final level
-  - `median()` uses `Math.round()` (half-up), not Kotlin `roundToInt()` (banker's rounding)
-  - merge strategy is configurable (`median` or `any-extremes`)
-- Step 4: upload final CSV levels into `words.rarity_level`
-  - default mode: `partial` (updates only IDs present in final CSV)
-  - optional mode: `full-fallback` (updates all words, missing IDs become `4`)
-- Step 5 (optional): rebalance a Step2/Step3 CSV locally with LM prompts and write adjusted `final_level`
-  - supports transitions like `3:2` (downgrade 1/3 to 2) and `2:2` (keep 1/3 at 2, move 2/3 to 3)
-  - each `word_id` is processed at most once per run
-
-Step 2 artifacts and guards:
-- `build/rarity/runs/<run>.csv` (scored rows)
-- `build/rarity/runs/<run>.jsonl` (raw request/response log)
-- `build/rarity/runs/<run>.state.json` (runtime state)
-- `<run>.csv.lock` exclusive writer lock
-- final guarded atomic rewrite with anti-shrink checks
-
-Step 2 resilience:
-- `LmStudioClient` orchestrates retries/split/failure logging (max recursion depth 10), while request/parse/HTTP concerns are split into dedicated classes
-- `LmClient` interface uses `ScoringContext` parameter object; `CapabilityState` tracks run-scoped degradation
-- model configs are registry-driven; per-model defaults live in dedicated files and include all generation knobs (`temperature`, `top_k`, `top_p`, `min_p`, penalties, reasoning controls)
-- `JsonRepair` fixes truncated/malformed LM JSON before parsing; trailing-comma removal is JSON-string-aware via `walkJsonChars`
-- `BatchSizeAdapter` adapts by success ratio (not all-or-nothing), with runtime floor `max(5, initial/5)`
-- `FuzzyWordMatcher` accepts diacritical misspellings from LM (Levenshtein distance <= 2)
-- `Step2Metrics` tracks WPM, ETA, error breakdown by category (TRUNCATED_JSON, MODEL_CRASH, etc.)
-- parser matches returned rows by `word_id` first (then `word/type` + fuzzy fallback)
-- parser accepts top-level arrays and object envelopes (`results`, `items`, `data`)
-- prompt/schema request a top-level JSON array to reduce invalid outputs from weaker models
-- lenient result extraction: partial batch results accepted, unresolved rows are retried in-process
-- run-scoped `response_format` capability cache avoids repeated HTTP 400 on unsupported endpoints
-- run-scoped reasoning-controls cache (GLM profile) disables unsupported thinking flags after first rejection
-- dynamic `max_tokens` is estimated from batch size and capped by `--max-tokens` (+ model cap when present)
-
 The Gradle task `downloadDictionary` validates dictionary ZIP SHA-256 before extracting.
+
+### External rarity classifier
+
+Offline rarity classification is now maintained outside this repository.
+This project uses existing `words.rarity_level` values for runtime filtering only.
+
+External repository:
+- https://github.com/fabian20ro/word-rarity-classifier
+
+Overview document in this repo:
+- `docs/rarity-classification-system.md`
 
 ## Data Consumers
 
@@ -143,5 +114,4 @@ When changing lexical rules/schema:
 2. Update loader logic (if computed fields changed).
 3. Update repository query/caches if new dimensions are queried frequently.
 4. Update seed data to satisfy provider constraints.
-5. If rarity pipeline behavior changes, update docs + tooling tests (`src/test/kotlin/scrabble/phrases/tools/rarity/`).
-6. Run `./gradlew test`.
+5. Run `./gradlew test`.

@@ -12,7 +12,6 @@ You are working on a sentence-generation system with a strict split:
 Read first:
 - `README.md`
 - `AGENTS.md`
-- `docs/rarity-runbook.md` (if your change touches rarity Step 2/3/4/5 behavior)
 
 ## 1. Run Locally (10 min)
 
@@ -38,14 +37,12 @@ Follow this exact path:
 3. `src/main/kotlin/scrabble/phrases/decorators/`
 4. `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 5. `src/main/kotlin/scrabble/phrases/words/`
-6. `src/main/kotlin/scrabble/phrases/tools/rarity/`
-7. `frontend/app.js`
+6. `frontend/app.js`
 
 Mental model:
 - provider = language logic
 - decorator = formatting/linking
 - repository = DB random selection + constraints
-- rarity tools = offline scoring workflow (CSV-first; DB write only on upload)
 - frontend = `/api/all` fetch, sanitize, render
 
 ## 3. Understand Data Guarantees (10 min)
@@ -77,11 +74,6 @@ Avoid for first change:
 Always before handoff:
 ```bash
 ./gradlew test
-```
-
-If your change touches rarity tooling:
-```bash
-./gradlew test --tests 'scrabble.phrases.tools.rarity.*'
 ```
 
 Then manually verify:
