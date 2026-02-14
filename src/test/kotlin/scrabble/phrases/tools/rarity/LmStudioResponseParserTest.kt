@@ -229,24 +229,23 @@ class LmStudioResponseParserTest {
     }
 
     @Test
-    fun selection_mode_tops_up_partial_valid_ids_to_expected_count() {
+    fun selection_mode_throws_when_partial_ids_do_not_reach_expected_count() {
         val content = """[0,1,1,2]"""
         val response = chatResponseRawJson(content)
-        val result = parser.parse(
-            batch(
-                Triple(10, "a", "N"),
-                Triple(11, "b", "N"),
-                Triple(12, "c", "N"),
-                Triple(13, "d", "N")
-            ),
-            response,
-            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
-            forcedRarityLevel = 3,
-            expectedItems = 3
-        )
-
-        assertEquals(3, result.scores.size)
-        assertEquals(setOf(10, 11, 12), result.scores.map { it.wordId }.toSet())
+        assertThrows<IllegalStateException> {
+            parser.parse(
+                batch(
+                    Triple(10, "a", "N"),
+                    Triple(11, "b", "N"),
+                    Triple(12, "c", "N"),
+                    Triple(13, "d", "N")
+                ),
+                response,
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 3,
+                expectedItems = 3
+            )
+        }
     }
 
     @Test
@@ -282,19 +281,18 @@ class LmStudioResponseParserTest {
     }
 
     @Test
-    fun selection_mode_keeps_backward_compatibility_for_word_id_field() {
-        val content = """{"results":[{"word_id":1,"word":"apa"},{"word_id":2,"word":"brad"}]}"""
+    fun selection_mode_rejects_word_id_only_payload_in_strict_local_id_mode() {
+        val content = """{"results":[{"word_id":101},{"word_id":102}]}"""
         val response = chatResponseRawJson(content)
-        val result = parser.parse(
-            batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
-            response,
-            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
-            forcedRarityLevel = 2,
-            expectedItems = 2
-        )
-
-        assertEquals(2, result.scores.size)
-        assertEquals(listOf(1, 2), result.scores.map { it.wordId }.sorted())
+        assertThrows<IllegalStateException> {
+            parser.parse(
+                batch(Triple(1, "apa", "N"), Triple(2, "brad", "N")),
+                response,
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 2,
+                expectedItems = 2
+            )
+        }
     }
 
     @Test
@@ -314,23 +312,22 @@ class LmStudioResponseParserTest {
     }
 
     @Test
-    fun selection_mode_accepts_index_lists_as_fallback() {
+    fun selection_mode_rejects_index_lists_when_they_conflict_with_local_id_contract() {
         val content = """[0,2]"""
         val response = chatResponseRawJson(content)
-        val result = parser.parse(
-            batch(Triple(121026, "monarhic", "A"), Triple(120934, "molecular", "A"), Triple(110947, "instrui", "V")),
-            response,
-            outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
-            forcedRarityLevel = 1,
-            expectedItems = 2
-        )
-
-        assertEquals(2, result.scores.size)
-        assertEquals(setOf(121026, 120934), result.scores.map { it.wordId }.toSet())
+        assertThrows<IllegalStateException> {
+            parser.parse(
+                batch(Triple(121026, "monarhic", "A"), Triple(120934, "molecular", "A"), Triple(110947, "instrui", "V")),
+                response,
+                outputMode = ScoringOutputMode.SELECTED_WORD_IDS,
+                forcedRarityLevel = 1,
+                expectedItems = 2
+            )
+        }
     }
 
     @Test
-    fun selection_mode_accepts_one_based_index_lists_as_fallback() {
+    fun selection_mode_accepts_one_based_index_lists_when_unambiguous() {
         val content = """[1,3]"""
         val response = chatResponseRawJson(content)
         val result = parser.parse(

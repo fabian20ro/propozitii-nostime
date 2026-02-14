@@ -17,7 +17,12 @@ Usage:
     [--timeout-seconds <int>] \
     [--max-retries <int>] \
     [--system-prompt-file <path>] \
-    [--user-template-file <path>]
+    [--user-template-file <path>] \
+    [--reference-csv <path>] \
+    [--anchor-l1-file <path>] \
+    [--min-l1-jaccard <float>] \
+    [--min-anchor-l1-precision <float>] \
+    [--min-anchor-l1-recall <float>]
 
 Target distribution (fixed, as requested):
   level1=2500, level2=7500, level3=15000, level4=22698, level5=30000
@@ -235,6 +240,11 @@ TIMEOUT_SECONDS=120
 MAX_RETRIES=2
 SYSTEM_PROMPT_FILE="docs/rarity-prompts/rebalance_system_prompt_ro.txt"
 USER_TEMPLATE_FILE="docs/rarity-prompts/rebalance_user_prompt_template_ro.txt"
+REFERENCE_CSV=""
+ANCHOR_L1_FILE=""
+MIN_L1_JACCARD=""
+MIN_ANCHOR_L1_PRECISION=""
+MIN_ANCHOR_L1_RECALL=""
 INPUT_CSV=""
 LAST_COMPLETED_STEP=0
 TOTAL_STEPS=8
@@ -255,6 +265,11 @@ while [[ $# -gt 0 ]]; do
     --max-retries) MAX_RETRIES="$2"; shift 2 ;;
     --system-prompt-file) SYSTEM_PROMPT_FILE="$2"; shift 2 ;;
     --user-template-file) USER_TEMPLATE_FILE="$2"; shift 2 ;;
+    --reference-csv) REFERENCE_CSV="$2"; shift 2 ;;
+    --anchor-l1-file) ANCHOR_L1_FILE="$2"; shift 2 ;;
+    --min-l1-jaccard) MIN_L1_JACCARD="$2"; shift 2 ;;
+    --min-anchor-l1-precision) MIN_ANCHOR_L1_PRECISION="$2"; shift 2 ;;
+    --min-anchor-l1-recall) MIN_ANCHOR_L1_RECALL="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -269,6 +284,12 @@ fi
 require_file "$INPUT_CSV"
 require_file "$SYSTEM_PROMPT_FILE"
 require_file "$USER_TEMPLATE_FILE"
+if [[ -n "$REFERENCE_CSV" ]]; then
+  require_file "$REFERENCE_CSV"
+fi
+if [[ -n "$ANCHOR_L1_FILE" ]]; then
+  require_file "$ANCHOR_L1_FILE"
+fi
 mkdir -p "$RUNS_DIR"
 RUN_BASE="$(sanitize_slug "$RUN_BASE")"
 if [[ -z "$STATE_FILE" ]]; then
@@ -307,6 +328,10 @@ echo "batch_size=$BATCH_SIZE"
 echo "max_tokens=$MAX_TOKENS timeout_seconds=$TIMEOUT_SECONDS max_retries=$MAX_RETRIES"
 echo "current_csv=$CURRENT_CSV"
 echo "$(print_distribution "$CURRENT_CSV")"
+if [[ -n "$REFERENCE_CSV" || -n "$ANCHOR_L1_FILE" ]]; then
+  echo "quality_audit reference_csv=${REFERENCE_CSV:-<none>} anchor_l1_file=${ANCHOR_L1_FILE:-<none>}"
+  echo "quality_audit thresholds l1_jaccard=${MIN_L1_JACCARD:-<none>} anchor_precision=${MIN_ANCHOR_L1_PRECISION:-<none>} anchor_recall=${MIN_ANCHOR_L1_RECALL:-<none>}"
+fi
 
 TARGET_L1=2500
 TARGET_L2=7500
@@ -344,3 +369,24 @@ fi
 
 write_state "$LAST_COMPLETED_STEP" "$CURRENT_CSV"
 echo "Final $(print_distribution "$CURRENT_CSV")"
+
+if [[ -n "$REFERENCE_CSV" || -n "$ANCHOR_L1_FILE" ]]; then
+  AUDIT_CMD=(node scripts/rarity_quality_audit.cjs --candidate-csv "$CURRENT_CSV")
+  if [[ -n "$REFERENCE_CSV" ]]; then
+    AUDIT_CMD+=(--reference-csv "$REFERENCE_CSV")
+  fi
+  if [[ -n "$ANCHOR_L1_FILE" ]]; then
+    AUDIT_CMD+=(--anchor-l1-file "$ANCHOR_L1_FILE")
+  fi
+  if [[ -n "$MIN_L1_JACCARD" ]]; then
+    AUDIT_CMD+=(--min-l1-jaccard "$MIN_L1_JACCARD")
+  fi
+  if [[ -n "$MIN_ANCHOR_L1_PRECISION" ]]; then
+    AUDIT_CMD+=(--min-anchor-l1-precision "$MIN_ANCHOR_L1_PRECISION")
+  fi
+  if [[ -n "$MIN_ANCHOR_L1_RECALL" ]]; then
+    AUDIT_CMD+=(--min-anchor-l1-recall "$MIN_ANCHOR_L1_RECALL")
+  fi
+  echo "Running quality audit: ${AUDIT_CMD[*]}"
+  "${AUDIT_CMD[@]}"
+fi

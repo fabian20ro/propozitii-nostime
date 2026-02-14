@@ -172,7 +172,9 @@ Step5 integration tips:
 - Pair mode is available via `--from-level <n> --from-level-high <n+1> --to-level <n|n+1>`.
 - Transition string supports pair tokens too (example: `--transitions "2-3:2"`).
 - Pair mode batches are sampled using the initial source mix (for example, 25/75 source buckets keep ~25/75 sampling per batch).
-- Step5 prompt is sparse by design: LM returns only the selected subset as a JSON array of `word_id` integers (the most common words in the batch). The remaining batch words are assigned automatically to the companion level.
+- Step5 prompt is sparse by design: LM returns only the selected subset as a JSON array of batch-local `local_id` integers (the most common words in the batch). The remaining batch words are assigned automatically to the companion level.
+- Step5 now treats selection as strict contract data: invalid/incomplete `local_id` selections fail and are retried/split instead of being silently auto-filled.
+- New quality-gate helper for pre-upload checks: `node scripts/rarity_quality_audit.cjs --candidate-csv <csv> [--reference-csv <csv>] [--anchor-l1-file docs/rarity-anchor-l1-ro.txt --min-l1-jaccard 0.80 --min-anchor-l1-precision 0.90]`
 - Rebalance output can feed directly into:
   - `step3` as a run CSV (if source was a Step2 run CSV),
   - or `step4` upload (uses `final_level` when present).
@@ -188,6 +190,7 @@ Safety rule for iterative campaigns:
 
 Extended runbook for full 77k campaigns:
 - `docs/rarity-runbook.md`
+- `docs/rarity-recovery-handover-20260214.md` (postmortem + gated recovery procedure)
 
 ### Running locally
 

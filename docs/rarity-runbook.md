@@ -12,6 +12,27 @@ This runbook is for full rebuild campaigns where rarity is regenerated from scra
 
 If model B does not fit memory on your machine, replace it with `ministral-3-8b-instruct-2512-mixed-8-6-bit` or skip directly to model C.
 
+## 2026-02-14 postmortem (why last upload is not trusted)
+
+Measurements from the latest uploaded chain (`build/rarity/runs/chain_gptoss_rerun_0213_0044_step8.csv` uploaded via `build/rarity/step4_upload_report.csv` on 2026-02-13):
+
+- Uploaded distribution hit fixed targets exactly (`1:2500 2:7500 3:15000 4:22698 5:30000`), but lexical quality was unstable.
+- L1 set instability across the same chain:
+  - `step1` vs `step8` L1 overlap: `425 / 2500`
+  - L1 Jaccard: `0.0929`
+- Rebalance changed too much relative to source:
+  - `step1` vs `step8` changed levels: `52088 / 77698` (`67.04%`)
+- Step5 malformed selection behavior (same chain, 8-step JSONL logs):
+  - expected selections: `75198`
+  - valid unique local ids returned by model: `58145`
+  - implicit fill pressure (invalid/duplicate/out-of-range fallout): `17053` (`22.7%`)
+  - worst stage (`s8_45to4`): malformed selection batches `97.4%`
+- Cross-model drift at L1 remained high even with equal quotas:
+  - `chain_eurollm_rerun_0211_080057_step4.csv` vs `chain_gptoss_rerun_0213_0044_step8.csv`
+  - L1 overlap: `450 / 2500` (`18%`)
+
+Operational decision: treat the 2026-02-13 upload as non-production-quality for L1 semantics. Restart from a clean Step2 campaign using strict Step5 contract checks and explicit quality gates (Jaccard + anchor precision) before any upload.
+
 ## Naming convention
 
 Use unique run slugs and output files for each campaign:
@@ -103,6 +124,7 @@ Step5 notes:
 - Level source precedence is `final_level`, then `rarity_level`, then `median_level`.
 - Each `word_id` is processed at most once per step5 run, even if later transitions would match.
 - Step 5 prompt mode is sparse: LM returns only the selected subset as a JSON array of batch-local `local_id` integers (the most common words in the batch), and the pipeline auto-assigns non-returned words to the companion level.
+- Step5 selection contract is strict: invalid/incomplete selection payloads fail and are retried/split; they are no longer silently topped-up.
 - For recursive split retries in Step 5, expected selection count is rebound per sub-batch (`expectedJsonItems`) before each LM call.
 - If Step 5 gets a count-mismatch response (`Expected exactly ... selected`), it runs one strict repair pass on the same batch before splitting.
 - Multi-transition mode is available via `--transitions "2:1,3:2,4:3"`.
@@ -116,7 +138,33 @@ Pipeline integration patterns:
 - Final-only normalization:
   - `step2(*) -> step3 -> step5(on step3_comparison.csv) -> step4`
 
+Chained rebalance helper (8-step target-distribution schedule + optional quality gates):
+
+```bash
+scripts/rarity_rebalance_target_distribution.sh \
+  --input-csv build/rarity/runs/<input>.csv \
+  --run-base <slug> \
+  --model openai/gpt-oss-20b \
+  --reference-csv build/rarity/runs/<reference>.csv \
+  --anchor-l1-file docs/rarity-anchor-l1-ro.txt \
+  --min-l1-jaccard 0.80 \
+  --min-anchor-l1-precision 0.90
+```
+
 ## Verification gates
+
+Mandatory pre-upload quality gate (run this before `step4Upload`):
+
+```bash
+node scripts/rarity_quality_audit.cjs \
+  --candidate-csv build/rarity/runs/<candidate>.csv \
+  --reference-csv build/rarity/runs/<reference>.csv \
+  --anchor-l1-file docs/rarity-anchor-l1-ro.txt \
+  --min-l1-jaccard 0.80 \
+  --min-anchor-l1-precision 0.90
+```
+
+If this gate fails, do not upload. Re-run Step2/Step5 calibration first.
 
 Coverage:
 

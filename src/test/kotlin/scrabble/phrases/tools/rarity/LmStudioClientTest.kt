@@ -394,8 +394,14 @@ class LmStudioClientTest {
                 .path("json_schema")
                 .path("schema")
                 .path("items")
+            val rootSchema = requestJson
+                .path("response_format")
+                .path("json_schema")
+                .path("schema")
             assertEquals("integer", itemSchema.path("type").asText())
             assertEquals(1, itemSchema.path("minimum").asInt())
+            assertEquals(60, itemSchema.path("maximum").asInt())
+            assertTrue(rootSchema.path("uniqueItems").asBoolean())
         } finally {
             server.stop(0)
         }

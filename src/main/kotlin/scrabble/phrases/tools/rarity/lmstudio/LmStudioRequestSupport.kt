@@ -120,7 +120,10 @@ class LmStudioRequestBuilder(
                 val effectiveExpected = expectedItems ?: batch.size
                 payload["response_format"] = when (schemaKind) {
                     JsonSchemaKind.SCORE_RESULTS -> buildScoreResultsJsonSchemaResponseFormat(effectiveExpected)
-                    JsonSchemaKind.SELECTED_WORD_IDS -> buildSelectedWordIdsJsonSchemaResponseFormat(effectiveExpected)
+                    JsonSchemaKind.SELECTED_WORD_IDS -> buildSelectedWordIdsJsonSchemaResponseFormat(
+                        expectedItems = effectiveExpected,
+                        maxLocalId = batch.size
+                    )
                 }
             }
         }
@@ -168,16 +171,22 @@ class LmStudioRequestBuilder(
         )
     }
 
-    private fun buildSelectedWordIdsJsonSchemaResponseFormat(expectedItems: Int): Map<String, Any> {
+    private fun buildSelectedWordIdsJsonSchemaResponseFormat(
+        expectedItems: Int,
+        maxLocalId: Int
+    ): Map<String, Any> {
         val boundedExpectedItems = expectedItems.coerceAtLeast(1)
+        val boundedMaxLocalId = maxLocalId.coerceAtLeast(1)
         val responseSchema = mapOf(
             "type" to "array",
             "items" to mapOf(
                 "type" to "integer",
-                "minimum" to 1
+                "minimum" to 1,
+                "maximum" to boundedMaxLocalId
             ),
             "minItems" to boundedExpectedItems,
-            "maxItems" to boundedExpectedItems
+            "maxItems" to boundedExpectedItems,
+            "uniqueItems" to true
         )
 
         return mapOf(

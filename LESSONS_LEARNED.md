@@ -89,3 +89,7 @@
 - 2026-02-12: Before splitting a failed Step 5 batch, one strict repair pass on the same batch can recover exact-count selection and avoid expensive retry cascades.
 - 2026-02-14: Collaboration default for this repo: when the user asks to "run commands", interpret it as "run the relevant automated tests" and report explicit pass/fail outcomes.
 - 2026-02-14: Local Node `v25` + npm `11` can fail `npm ci` with `Exit handler never called!`; run JS fallback tests under Node `20` (same as CI) to keep `api/__tests__` execution stable.
+- 2026-02-14: Matching target histogram is not a valid acceptance criterion for rarity quality; L1 set stability (Jaccard) and anchor precision must gate uploads.
+- 2026-02-14: Step 5 parser auto-top-up of invalid/partial selections can silently inject random bias; strict exact-count enforcement is safer even if it increases retries.
+- 2026-02-14: Step 5 selection schema needs explicit `maximum=batch_size` and `uniqueItems=true`; `minimum=1` alone allows malformed IDs (`0`, huge IDs, duplicates) to leak into parsing paths.
+- 2026-02-14: Prompt contract and parser contract must match exactly (`local_id`, exact count, no duplicates). Backward-compatibility paths for alternate id semantics (`word_id`) destabilize multi-hour rebalance chains.

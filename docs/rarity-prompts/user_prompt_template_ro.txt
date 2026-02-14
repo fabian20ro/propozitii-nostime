@@ -22,12 +22,10 @@ Cerințe:
 - Clasifică inclusiv termeni vulgari/obsceni; nu îi exclude.
 - Termenii vulgari/obsceni/insultători/sexual-expliciți nu pot fi nivel 1 sau 2.
 - Pentru astfel de termeni, alege minim nivel 4 (sau 5 dacă sunt extremi).
-- 1/2 doar când există indicii de vocabular de bază/uzual general.
-- Țintă soft pe rulări mari: aproximativ 2% nivel 1 și 8% nivel 2.
-- Pentru batch-uri de 50, reper orientativ: ~1 nivel 1 și ~4 nivel 2.
-- Dacă nu există semnal clar de frecvență mare, preferă 3 sau 4.
+- Nivelul 1 este foarte strict: doar vocabular nucleu cunoscut aproape universal.
+- Dacă ești la limită între 1 și 2, preferă 2.
+- Dacă ești la limită între 2 și 3, preferă 3 (cu excepția cuvintelor clar uzuale general).
 - Dacă ești la limită între 3 și 4, preferă 4.
-- Dacă ești la limită între 2 și 3, preferă 2.
 - Dacă ești la limită între 4 și 5, preferă 4.
 - Fără text înainte/după JSON, fără comentarii.
 
