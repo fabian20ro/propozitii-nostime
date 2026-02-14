@@ -56,10 +56,9 @@ Required fallback endpoint contract:
 
 Required Vercel env vars for `api/all.ts`:
 - `SUPABASE_URL=https://<project-ref>.supabase.co`
-- `SUPABASE_ANON_KEY=<anon-public-key>` (preferred)
+- `SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...>` (preferred)
 
 Optional:
-- `SUPABASE_READ_KEY=<dedicated-readonly-key>`
 - `ALLOWED_ORIGINS=https://fabian20ro.github.io,https://<your-other-origin>`
 - `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` only for explicit emergency fallback
 

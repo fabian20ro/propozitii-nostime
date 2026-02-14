@@ -42,9 +42,8 @@ Render.com -> Supabase (PostgreSQL)
   - `Access-Control-Allow-Origin: <allowed origin from ALLOWED_ORIGINS>`
 - Required env vars in Vercel project:
   - `SUPABASE_URL`
-  - `SUPABASE_ANON_KEY` (preferred)
+  - `SUPABASE_PUBLISHABLE_KEY` (preferred)
 - Optional env vars:
-  - `SUPABASE_READ_KEY`
   - `ALLOWED_ORIGINS` (comma-separated)
   - `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` (explicit opt-in only)
 

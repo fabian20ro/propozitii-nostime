@@ -204,7 +204,7 @@ A self-contained TypeScript function that mirrors the Kotlin `/api/all` endpoint
 
 ### Structure
 
-- Supabase client init + env validation (`SUPABASE_URL`, `SUPABASE_ANON_KEY` preferred; optional `SUPABASE_READ_KEY`; service-role fallback only via explicit opt-in flag)
+- Supabase client init + env validation (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`; service-role fallback only via explicit opt-in flag)
 - Word types: `Noun`, `Adjective`, `Verb`
 - Generic `randomRow<T>` helper: count query + random offset
 - Six provider functions matching Kotlin providers: `comparison`, `definition`, `distih`, `haiku`, `mirror`, `tautogram`

@@ -86,7 +86,7 @@ Operational safeguards:
 - Render deploys using `render.yaml` (Docker runtime).
 - Frontend deploys via GitHub Actions Pages workflow.
 - Fallback API runs as Vercel `api/all.ts` and must preserve `/api/all` response shape.
-- Vercel fallback reads directly from Supabase (`SUPABASE_URL` + `SUPABASE_ANON_KEY` preferred; optional read key), not from Render.
+- Vercel fallback reads directly from Supabase (`SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY`), not from Render.
 - Flyway is on by default in dev/test and explicitly off in `%prod`.
 
 ## Critical Contracts Between Layers

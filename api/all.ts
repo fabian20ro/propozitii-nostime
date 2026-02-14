@@ -21,18 +21,15 @@ export const DEFAULT_ALLOWED_ORIGINS = ["https://fabian20ro.github.io"];
 
 export interface SupabaseKeyResolution {
   key: string;
-  source: "anon" | "read" | "service-role" | "none";
+  source: "publishable" | "service-role" | "none";
   error?: string;
 }
 
 export function resolveSupabaseKey(
   env: Record<string, string | undefined>
 ): SupabaseKeyResolution {
-  const anon = (env.SUPABASE_ANON_KEY ?? "").trim();
-  if (anon) return { key: anon, source: "anon" };
-
-  const readOnly = (env.SUPABASE_READ_KEY ?? "").trim();
-  if (readOnly) return { key: readOnly, source: "read" };
+  const publishable = (env.SUPABASE_PUBLISHABLE_KEY ?? "").trim();
+  if (publishable) return { key: publishable, source: "publishable" };
 
   const serviceRole = (env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
   const allowServiceFallback =
@@ -46,13 +43,13 @@ export function resolveSupabaseKey(
       source: "none",
       error:
         "SUPABASE_SERVICE_ROLE_KEY is set but disabled for this public endpoint. " +
-        "Use SUPABASE_ANON_KEY (preferred) or SUPABASE_READ_KEY.",
+        "Use SUPABASE_PUBLISHABLE_KEY (preferred).",
     };
   }
   return {
     key: "",
     source: "none",
-    error: "Missing SUPABASE_ANON_KEY (preferred) or SUPABASE_READ_KEY.",
+    error: "Missing SUPABASE_PUBLISHABLE_KEY.",
   };
 }
 
@@ -80,7 +77,7 @@ const supabase: SupabaseClient = supabaseUrl && keyResolution.key
 
 if (keyResolution.source === "service-role") {
   console.warn(
-    "[security] api/all.ts uses SUPABASE_SERVICE_ROLE_KEY fallback; prefer SUPABASE_ANON_KEY."
+    "[security] api/all.ts uses SUPABASE_SERVICE_ROLE_KEY fallback; prefer SUPABASE_PUBLISHABLE_KEY."
   );
 }
 

@@ -33,10 +33,9 @@ Frontend coupling:
 ## Required Environment Variables (Vercel Project)
 
 - `SUPABASE_URL`
-- `SUPABASE_ANON_KEY` (preferred)
+- `SUPABASE_PUBLISHABLE_KEY` (preferred)
 
 Optional:
-- `SUPABASE_READ_KEY` (read-only key alternative)
 - `ALLOWED_ORIGINS` (comma-separated origin allowlist, defaults to `https://fabian20ro.github.io`)
 - `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` (explicit opt-in only)
 
@@ -64,7 +63,7 @@ If required env vars are missing or insecure-only fallback is blocked, `api/all.
 
 4. Add environment variables in Vercel:
    - `SUPABASE_URL=https://<project-ref>.supabase.co`
-   - `SUPABASE_ANON_KEY=<your-anon-key>`
+   - `SUPABASE_PUBLISHABLE_KEY=<your-sb_publishable-key>`
    - optional: `ALLOWED_ORIGINS=https://fabian20ro.github.io`
    Add them for `Production` (and optionally `Preview`/`Development`).
 

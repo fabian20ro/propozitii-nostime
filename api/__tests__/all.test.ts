@@ -200,22 +200,20 @@ describe("parity contract", () => {
 // --- Security/env helpers ---
 
 describe("resolveSupabaseKey", () => {
-  it("prefers SUPABASE_ANON_KEY over any other key", () => {
+  it("uses SUPABASE_PUBLISHABLE_KEY when provided", () => {
     const resolved = resolveSupabaseKey({
-      SUPABASE_ANON_KEY: "anon",
-      SUPABASE_READ_KEY: "read",
+      SUPABASE_PUBLISHABLE_KEY: "publishable",
       SUPABASE_SERVICE_ROLE_KEY: "service",
     });
-    expect(resolved.source).toBe("anon");
-    expect(resolved.key).toBe("anon");
+    expect(resolved.source).toBe("publishable");
+    expect(resolved.key).toBe("publishable");
   });
 
-  it("falls back to SUPABASE_READ_KEY when anon key is missing", () => {
-    const resolved = resolveSupabaseKey({
-      SUPABASE_READ_KEY: "read",
-    });
-    expect(resolved.source).toBe("read");
-    expect(resolved.key).toBe("read");
+  it("requires publishable key when service-role fallback is not enabled", () => {
+    const resolved = resolveSupabaseKey({});
+    expect(resolved.source).toBe("none");
+    expect(resolved.key).toBe("");
+    expect(resolved.error).toContain("Missing SUPABASE_PUBLISHABLE_KEY");
   });
 
   it("rejects service-role fallback by default", () => {
