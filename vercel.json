@@ -1,6 +1,7 @@
 {
   "functions": {
     "api/all.ts": {
+      "runtime": "nodejs20.x",
       "memory": 512,
       "maxDuration": 10
     }

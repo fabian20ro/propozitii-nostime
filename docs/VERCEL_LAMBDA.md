@@ -8,6 +8,7 @@ It is not a proxy to Render. It generates sentences directly from Supabase and r
 
 - `api/all.ts` - main Vercel handler (`export default async function handler(...)`)
 - `vercel.json` - function limits + route headers
+  - runtime pinned to `nodejs20.x` to avoid Node 22 deprecation noise (`DEP0169`) from dependencies/runtime internals
 - `package.json` - dependencies used by function runtime:
   - `"type": "module"` (ensures Vercel Node runtime loads transpiled handler as ESM)
   - `@supabase/supabase-js`

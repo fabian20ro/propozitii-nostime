@@ -135,6 +135,17 @@ export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
 const UNSATISFIABLE =
   "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
 
+class ConstraintUnsatisfiedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConstraintUnsatisfiedError";
+  }
+}
+
+function failConstraint(message: string): never {
+  throw new ConstraintUnsatisfiedError(message);
+}
+
 // --- Types ---
 
 export interface Noun {
@@ -229,7 +240,7 @@ async function randomNoun(
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
   ]);
-  if (!row) throw new Error("No nouns found");
+  if (!row) failConstraint("No nouns found");
   return row;
 }
 
@@ -263,7 +274,7 @@ async function randomAdj(
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
   ]);
-  if (!row) throw new Error("No adjectives found");
+  if (!row) failConstraint("No adjectives found");
   return row;
 }
 
@@ -295,7 +306,7 @@ async function randomVerb(
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
   ]);
-  if (!row) throw new Error("No verbs found");
+  if (!row) failConstraint("No verbs found");
   return row;
 }
 
@@ -526,9 +537,9 @@ async function genHaiku(minR: number, maxR: number): Promise<string> {
     (await randomNoun(minR, maxR));
   const adjSyl = noun.gender === "F" ? 3 : 4;
   const adj = await randomAdjBySyllables(adjSyl, minR, maxR);
-  if (!adj) throw new Error("No adj with required syllables");
+  if (!adj) failConstraint("No adj with required syllables");
   const verb = await randomVerbBySyllables(3, minR, maxR);
-  if (!verb) throw new Error("No verb with 3 syllables");
+  if (!verb) failConstraint("No verb with 3 syllables");
   const noun2 =
     (await randomNounByArticulatedSyllables(5, minR, maxR, [noun.word])) ||
     (await randomNoun(minR, maxR, [noun.word]));
@@ -538,7 +549,7 @@ async function genHaiku(minR: number, maxR: number): Promise<string> {
 
 async function genMirror(minR: number, maxR: number): Promise<string> {
   const rhymes = await findTwoVerbRhymeGroups(minR, maxR);
-  if (!rhymes) throw new Error("No rhyme groups");
+  if (!rhymes) failConstraint("No rhyme groups");
   const [rhymeA, rhymeB] = rhymes;
 
   const usedN: string[] = [];
@@ -551,7 +562,7 @@ async function genMirror(minR: number, maxR: number): Promise<string> {
     const a = await randomAdj(minR, maxR, usedA);
     usedA.push(a.word);
     const v = await randomVerbByRhyme(rhyme, minR, maxR, usedV);
-    if (!v) throw new Error(`No verb for rhyme ${rhyme}`);
+    if (!v) failConstraint(`No verb for rhyme ${rhyme}`);
     usedV.push(v.word);
     return `${n.articulated} ${adjForGender(a, n.gender)} ${v.word}${punct}`;
   }
@@ -565,15 +576,15 @@ async function genMirror(minR: number, maxR: number): Promise<string> {
 
 async function genTautogram(minR: number, maxR: number): Promise<string> {
   const prefix = await randomPrefixWithAllTypes(minR, maxR);
-  if (!prefix) throw new Error("No valid prefix");
+  if (!prefix) failConstraint("No valid prefix");
   const n1 = await randomNounByPrefix(prefix, minR, maxR);
-  if (!n1) throw new Error("No noun for prefix");
+  if (!n1) failConstraint("No noun for prefix");
   const adj = await randomAdjByPrefix(prefix, minR, maxR);
-  if (!adj) throw new Error("No adj for prefix");
+  if (!adj) failConstraint("No adj for prefix");
   const verb = await randomVerbByPrefix(prefix, minR, maxR);
-  if (!verb) throw new Error("No verb for prefix");
+  if (!verb) failConstraint("No verb for prefix");
   const n2 = await randomNounByPrefix(prefix, minR, maxR, [n1.word]);
-  if (!n2) throw new Error("No 2nd noun for prefix");
+  if (!n2) failConstraint("No 2nd noun for prefix");
   const raw = `${n1.articulated} ${adjForGender(adj, n1.gender)} ${verb.word} ${n2.articulated}.`;
   return decorateSentence(raw);
 }
@@ -608,6 +619,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     try {
       return await fn();
     } catch (err) {
+      if (err instanceof ConstraintUnsatisfiedError) return UNSATISFIABLE;
       console.error("Sentence generation failed:", err);
       return UNSATISFIABLE;
     }
