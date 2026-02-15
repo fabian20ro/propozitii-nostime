@@ -17,3 +17,4 @@
 - 2026-02-12: For deterministic shell joins/diffs by `word_id`, use `LC_ALL=C` when sorting.
 - 2026-02-14: Local Node `v25` + npm `11` may break `npm ci` with `Exit handler never called!`; use Node `20` for stable JS fallback tests.
 - 2026-02-15: Initializing Supabase at module import can hard-crash Vercel (`FUNCTION_INVOCATION_FAILED`) when `SUPABASE_URL` is malformed (e.g., JDBC URL); validate and lazily init inside request path.
+- 2026-02-15: Vercel can execute transpiled `api/all.js` as CommonJS unless package mode is explicit; keep `"type": "module"` in `package.json` for ESM imports.

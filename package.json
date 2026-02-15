@@ -1,6 +1,7 @@
 {
   "name": "propozitii-nostime-fallback",
   "private": true,
+  "type": "module",
   "description": "Vercel serverless fallback for Render cold-start",
   "scripts": {
     "test": "vitest run",
