@@ -28,7 +28,7 @@ Supabase PostgreSQL (words dictionary table)
 
 1. User clicks `Generează altele` in frontend.
 2. `frontend/app.js` first tries `GET https://propozitii-nostime.onrender.com/api/all?minRarity=<1..5>&rarity=<1..5>` with an 8s timeout.
-3. If Render fails/times out, frontend falls back to `GET https://propozitii-nostime.vercel.app/api/all?...` and starts background Render health polling.
+3. If Render is not already healthy, frontend starts Render immediately and starts Vercel fallback after a short hedge delay; the first successful response is used, and Render health polling continues in background when fallback is used.
 4. Render path: `PhraseResource.getAll()` internally calls all six endpoint methods.
 5. Each endpoint:
 - creates provider

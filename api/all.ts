@@ -16,7 +16,6 @@ interface VercelResponseLike {
 
 // --- Environment validation (deferred for testability) ---
 
-const supabaseUrl = process.env.SUPABASE_URL ?? "";
 export const DEFAULT_ALLOWED_ORIGINS = ["https://fabian20ro.github.io"];
 
 export interface SupabaseKeyResolution {
@@ -68,17 +67,68 @@ export function resolveCorsOrigin(origin: string | undefined, allowlist: string[
   return allowlist[0];
 }
 
-const keyResolution = resolveSupabaseKey(process.env);
+export function validateSupabaseUrl(raw: string | undefined): string | undefined {
+  const supabaseUrl = (raw ?? "").trim();
+  if (!supabaseUrl) return "Missing SUPABASE_URL.";
+  try {
+    const parsed = new URL(supabaseUrl);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return "Invalid SUPABASE_URL: must use http/https.";
+    }
+  } catch {
+    return "Invalid SUPABASE_URL: must be a valid HTTP or HTTPS URL.";
+  }
+  return undefined;
+}
+
+export interface SupabaseInitResolution {
+  keyResolution: SupabaseKeyResolution;
+  error?: string;
+}
+
+export function resolveSupabaseInit(
+  env: Record<string, string | undefined>
+): SupabaseInitResolution {
+  const keyResolution = resolveSupabaseKey(env);
+  const urlError = validateSupabaseUrl(env.SUPABASE_URL);
+  if (urlError) return { keyResolution, error: urlError };
+  if (!keyResolution.key) {
+    return {
+      keyResolution,
+      error: keyResolution.error ?? "Missing Supabase API key.",
+    };
+  }
+  return { keyResolution };
+}
+
+const initResolution = resolveSupabaseInit(process.env);
 const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 
-const supabase: SupabaseClient = supabaseUrl && keyResolution.key
-  ? createClient(supabaseUrl, keyResolution.key)
-  : (null as unknown as SupabaseClient); // null when imported in test environment
+let supabase: SupabaseClient | null = null;
+let supabaseError = initResolution.error;
+let supabaseInitAttempted = false;
 
-if (keyResolution.source === "service-role") {
-  console.warn(
-    "[security] api/all.ts uses SUPABASE_SERVICE_ROLE_KEY fallback; prefer SUPABASE_PUBLISHABLE_KEY."
-  );
+function getSupabaseClient(): SupabaseClient | null {
+  if (supabaseInitAttempted) return supabase;
+  supabaseInitAttempted = true;
+
+  if (initResolution.keyResolution.source === "service-role") {
+    console.warn(
+      "[security] api/all.ts uses SUPABASE_SERVICE_ROLE_KEY fallback; prefer SUPABASE_PUBLISHABLE_KEY."
+    );
+  }
+
+  if (supabaseError) return null;
+
+  try {
+    const supabaseUrl = (process.env.SUPABASE_URL ?? "").trim();
+    supabase = createClient(supabaseUrl, initResolution.keyResolution.key);
+    return supabase;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "unknown error";
+    supabaseError = `Supabase client initialization failed: ${msg}`;
+    return null;
+  }
 }
 
 export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
@@ -126,15 +176,18 @@ async function randomRow<T extends WordRow>(
   select: string,
   filters: QueryFilter[]
 ): Promise<T | null> {
+  const client = getSupabaseClient();
+  if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
+
   // 1) Count
-  let countQ = supabase.from("words").select("word", { count: "exact", head: true });
+  let countQ = client.from("words").select("word", { count: "exact", head: true });
   for (const f of filters) countQ = applyFilter(countQ, f);
   const { count } = await countQ;
   if (!count) return null;
 
   // 2) Fetch one at random offset
   const offset = Math.floor(Math.random() * count);
-  let dataQ = supabase.from("words").select(select).range(offset, offset).limit(1);
+  let dataQ = client.from("words").select(select).range(offset, offset).limit(1);
   for (const f of filters) dataQ = applyFilter(dataQ, f);
   const { data } = await dataQ;
   if (!data || data.length === 0) return null;
@@ -284,14 +337,17 @@ const PREFIX_SAMPLE_SIZE = 5;
 async function randomPrefixWithAllTypes(
   minR: number, maxR: number
 ): Promise<string | null> {
+  const client = getSupabaseClient();
+  if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
+
   // 1) Pick a few random nouns to get candidate two-letter prefixes
-  const { count: nounTotal } = await supabase
+  const { count: nounTotal } = await client
     .from("words").select("word", { count: "exact", head: true })
     .eq("type", "N").gte("rarity_level", minR).lte("rarity_level", maxR);
   if (!nounTotal) return null;
 
   const offset = Math.floor(Math.random() * Math.max(1, nounTotal - PREFIX_SAMPLE_SIZE));
-  const { data: sampleNouns } = await supabase
+  const { data: sampleNouns } = await client
     .from("words").select("word")
     .eq("type", "N").gte("rarity_level", minR).lte("rarity_level", maxR)
     .range(offset, offset + PREFIX_SAMPLE_SIZE - 1).limit(PREFIX_SAMPLE_SIZE);
@@ -304,7 +360,7 @@ async function randomPrefixWithAllTypes(
 
   // 2) Single query: fetch type + prefix for all words matching any candidate prefix
   const orFilter = prefixes.map((p) => `word.like.${p}%`).join(",");
-  const { data: candidates } = await supabase
+  const { data: candidates } = await client
     .from("words").select("word, type")
     .gte("rarity_level", minR).lte("rarity_level", maxR)
     .or(orFilter);
@@ -336,6 +392,9 @@ const MAX_RHYME_ATTEMPTS = 15;
 async function findTwoVerbRhymeGroups(
   minR: number, maxR: number
 ): Promise<[string, string] | null> {
+  const client = getSupabaseClient();
+  if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
+
   // Strategy: pick random verbs, check if their rhyme has 2+ members.
   // Collect two distinct rhyme groups.
   const foundRhymes: string[] = [];
@@ -347,7 +406,7 @@ async function findTwoVerbRhymeGroups(
     if (foundRhymes.includes(rhyme)) continue;
 
     // Check if at least 2 verbs share this rhyme
-    const { count } = await supabase
+    const { count } = await client
       .from("words")
       .select("word", { count: "exact", head: true })
       .eq("type", "V")
@@ -534,9 +593,9 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
 
-  if (!supabase) {
+  if (!getSupabaseClient()) {
     return res.status(500).json({
-      error: keyResolution.error ?? "Missing SUPABASE_URL or Supabase API key",
+      error: supabaseError ?? "Missing SUPABASE_URL or Supabase API key",
     });
   }
 

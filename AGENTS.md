@@ -121,7 +121,7 @@ Before handing off:
 ## Deployment Notes
 
 - Primary backend: Render via `render.yaml` (Docker/JVM). Subject to cold-start on free tier.
-- Serverless fallback: Vercel via `vercel.json` (`api/all.ts`). Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` env vars in Vercel project settings.
+- Serverless fallback: Vercel via `vercel.json` (`api/all.ts`). Requires `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` env vars in Vercel project settings.
 - Frontend deploy target is GitHub Pages via `.github/workflows/frontend.yml`.
 - Backend CI is `.github/workflows/backend.yml`.
 

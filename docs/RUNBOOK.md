@@ -43,6 +43,7 @@ Render.com -> Supabase (PostgreSQL)
 - Required env vars in Vercel project:
   - `SUPABASE_URL`
   - `SUPABASE_PUBLISHABLE_KEY` (preferred)
+- `SUPABASE_URL` must be `https://<project-ref>.supabase.co` (HTTP API URL), not a JDBC URL.
 - Optional env vars:
   - `ALLOWED_ORIGINS` (comma-separated)
   - `ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK=true` (explicit opt-in only)

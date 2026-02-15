@@ -10,6 +10,8 @@ import {
   parseAllowedOrigins,
   resolveCorsOrigin,
   resolveSupabaseKey,
+  resolveSupabaseInit,
+  validateSupabaseUrl,
   DEXONLINE_URL,
   type Adjective,
 } from "../all";
@@ -232,6 +234,27 @@ describe("resolveSupabaseKey", () => {
     });
     expect(resolved.source).toBe("service-role");
     expect(resolved.key).toBe("service");
+  });
+});
+
+describe("Supabase init validation", () => {
+  it("accepts a valid https SUPABASE_URL", () => {
+    expect(validateSupabaseUrl("https://example.supabase.co")).toBeUndefined();
+  });
+
+  it("rejects invalid SUPABASE_URL values", () => {
+    expect(validateSupabaseUrl("jdbc:postgresql://db.example.com/postgres")).toContain(
+      "Invalid SUPABASE_URL"
+    );
+  });
+
+  it("returns actionable init error for malformed URL even when key exists", () => {
+    const resolved = resolveSupabaseInit({
+      SUPABASE_URL: "jdbc:postgresql://db.example.com/postgres",
+      SUPABASE_PUBLISHABLE_KEY: "publishable",
+    });
+    expect(resolved.error).toContain("Invalid SUPABASE_URL");
+    expect(resolved.keyResolution.source).toBe("publishable");
   });
 });
 

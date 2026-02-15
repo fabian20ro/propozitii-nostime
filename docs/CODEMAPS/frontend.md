@@ -25,8 +25,8 @@ Each card uses a `.card-header` wrapper (flex row) containing the `<h2>` title, 
 1. `refresh()` is called on initial page load and refresh-button clicks.
 2. `fetchAllSentences(range)` implements dual-backend strategy:
    - If `renderIsHealthy` flag is set, go directly to Render (8s timeout).
-   - Otherwise try Render with 8s timeout; on success, set `renderIsHealthy = true`.
-   - On Render failure: fall back to Vercel (`FALLBACK_API_BASE`) and fire `wakeRenderInBackground()`.
+   - Otherwise start Render immediately and start Vercel (`FALLBACK_API_BASE`) after a 1.2s hedge delay; first successful response wins.
+   - If fallback wins, keep waking Render in the background via `wakeRenderInBackground()`.
 3. `wakeRenderInBackground()` polls Render health up to 12 times (5s apart). Once healthy, sets `renderIsHealthy` so next request bypasses fallback.
 4. Both backends use the shared `fetchFrom(baseUrl, range, timeout)` helper which validates the 6 expected keys.
 5. Success path: `applySentences(data)` sanitizes each field and writes to DOM.

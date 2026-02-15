@@ -43,6 +43,8 @@ If required env vars are missing or insecure-only fallback is blocked, `api/all.
 - HTTP `500`
 - JSON error with actionable key guidance.
 
+`SUPABASE_URL` must be the HTTP API URL (`https://<project-ref>.supabase.co`), not a JDBC connection string.
+
 ## First-Time Deploy Tutorial (Dashboard)
 
 1. Ensure these files are present on `master`:

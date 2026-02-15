@@ -76,6 +76,7 @@ const FALLBACK_API_BASE = 'https://propozitii-nostime.vercel.app/api';
 const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
 const HEALTH_TIMEOUT = 5000;
 const FETCH_TIMEOUT = 8000;
+const RENDER_HEDGE_DELAY = 1200;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
 
@@ -254,9 +255,31 @@ async function fetchFrom(baseUrl, { min, max }, timeout) {
     return data;
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function firstSuccessful(promises) {
+    return new Promise((resolve, reject) => {
+        let failures = 0;
+        let firstError = null;
+        const total = promises.length;
+
+        promises.forEach(promise => {
+            promise
+                .then(resolve)
+                .catch(err => {
+                    failures += 1;
+                    if (!firstError) firstError = err;
+                    if (failures === total) reject(firstError || new Error('All attempts failed'));
+                });
+        });
+    });
+}
+
 /**
- * Fetch all sentences — tries Render first; on failure, falls back to Vercel serverless
- * and wakes Render in the background.
+ * Fetch all sentences — prefers Render, but starts a delayed fallback attempt
+ * so the fastest successful backend wins.
  * @returns {Promise<Object>} Parsed JSON with all sentence fields
  */
 async function fetchAllSentences(range) {
@@ -271,22 +294,36 @@ async function fetchAllSentences(range) {
         }
     }
 
-    // Try Render with a short timeout — if it responds quickly, great
-    try {
-        const data = await fetchFrom(API_BASE, range, FETCH_TIMEOUT);
-        renderIsHealthy = true;
-        return data;
-    } catch (err) {
-        console.warn('Render backend cold, falling back to Vercel:', err.message);
-    }
+    const renderAttempt = fetchFrom(API_BASE, range, FETCH_TIMEOUT)
+        .then(data => ({ source: 'render', data }))
+        .catch(err => {
+            console.warn('Render backend attempt failed:', err.message);
+            throw err;
+        });
 
-    // Wake Render in background (fire-and-forget health poll)
-    wakeRenderInBackground();
+    const fallbackAttempt = (async () => {
+        await delay(RENDER_HEDGE_DELAY);
+        return fetchFrom(FALLBACK_API_BASE, range, FETCH_TIMEOUT);
+    })()
+        .then(data => ({ source: 'fallback', data }))
+        .catch(err => {
+            console.warn('Vercel fallback attempt failed:', err.message);
+            throw err;
+        });
 
-    // Serve from Vercel fallback
     try {
-        return await fetchFrom(FALLBACK_API_BASE, range, FETCH_TIMEOUT);
+        const winner = await firstSuccessful([renderAttempt, fallbackAttempt]);
+        if (winner.source === 'render') {
+            renderIsHealthy = true;
+            return winner.data;
+        }
+        wakeRenderInBackground();
+        renderAttempt
+            .then(() => { renderIsHealthy = true; })
+            .catch(() => { /* no-op */ });
+        return winner.data;
     } catch (err) {
+        wakeRenderInBackground();
         console.error('Both backends failed:', err.message);
         throw new Error('Service temporarily unavailable');
     }
