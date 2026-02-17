@@ -612,18 +612,7 @@ document.querySelector('.grid').addEventListener('click', function (e) {
 
 // Rarity slider event listeners
 function onRarityInput() {
-    const a = Number(rarityMinSlider.value);
-    const b = Number(rarityMaxSlider.value);
-    const lo = Math.min(a, b);
-    const hi = Math.max(a, b);
-    if (lo === hi) {
-        rarityValue.textContent = `${lo} (${rarityLabel(lo)})`;
-    } else {
-        rarityValue.textContent = `${lo} (${rarityLabel(lo)}) – ${hi} (${rarityLabel(hi)})`;
-    }
-    localStorage.setItem(RARITY_MIN_KEY, String(lo));
-    localStorage.setItem(RARITY_MAX_KEY, String(hi));
-    updateRangeTrack();
+    setRarityRange(Number(rarityMinSlider.value), Number(rarityMaxSlider.value));
 }
 
 refreshBtn.addEventListener('click', refresh);

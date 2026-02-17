@@ -32,42 +32,39 @@ class PhraseResource {
         return Pair(min, max)
     }
 
-    private fun generateVerse(rarity: Int?, minRarity: Int?, providerFactory: (Int, Int) -> ISentenceProvider): SentenceResponse {
+    private fun generate(
+        rarity: Int?, minRarity: Int?,
+        decorate: (ISentenceProvider) -> ISentenceProvider,
+        providerFactory: (Int, Int) -> ISentenceProvider
+    ): SentenceResponse {
         val (min, max) = rarityRange(rarity, minRarity)
-        return SentenceResponse(safeGenerate { decorateVerse(providerFactory(min, max)).getSentence() })
-    }
-
-    private fun generateSentence(rarity: Int?, minRarity: Int?, providerFactory: (Int, Int) -> ISentenceProvider): SentenceResponse {
-        val (min, max) = rarityRange(rarity, minRarity)
-        return SentenceResponse(safeGenerate { decorateSentence(providerFactory(min, max)).getSentence() })
+        return SentenceResponse(safeGenerate { decorate(providerFactory(min, max)).getSentence() })
     }
 
     @GET
     @Path("/haiku")
     fun getHaiku(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
-        generateVerse(rarity, minRarity) { min, max -> HaikuProvider(wordRepository, minRarity = min, maxRarity = max) }
+        generate(rarity, minRarity, ::decorateVerse) { min, max -> HaikuProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/distih")
     fun getDistih(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
-        generateVerse(rarity, minRarity) { min, max -> DistihProvider(wordRepository, minRarity = min, maxRarity = max) }
+        generate(rarity, minRarity, ::decorateVerse) { min, max -> DistihProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/comparison")
     fun getComparison(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
-        generateSentence(rarity, minRarity) { min, max -> ComparisonProvider(wordRepository, minRarity = min, maxRarity = max) }
+        generate(rarity, minRarity, ::decorateSentence) { min, max -> ComparisonProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/definition")
-    fun getDefinition(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse {
-        val (min, max) = rarityRange(rarity, minRarity)
-        return SentenceResponse(safeGenerate { DexonlineLinkAdder(DefinitionProvider(wordRepository, minRarity = min, maxRarity = max)).getSentence() })
-    }
+    fun getDefinition(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
+        generate(rarity, minRarity, ::DexonlineLinkAdder) { min, max -> DefinitionProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/tautogram")
     fun getTautogram(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
-        generateSentence(rarity, minRarity) { min, max -> TautogramProvider(wordRepository, minRarity = min, maxRarity = max) }
+        generate(rarity, minRarity, ::decorateSentence) { min, max -> TautogramProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/all")
@@ -84,7 +81,7 @@ class PhraseResource {
     @GET
     @Path("/mirror")
     fun getMirror(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
-        generateVerse(rarity, minRarity) { min, max -> MirrorProvider(wordRepository, minRarity = min, maxRarity = max) }
+        generate(rarity, minRarity, ::decorateVerse) { min, max -> MirrorProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     private fun safeGenerate(generator: () -> String): String =
         try {

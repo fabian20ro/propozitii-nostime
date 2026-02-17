@@ -10,26 +10,8 @@ class DexonlineLinkAdder(private val provider: ISentenceProvider) : ISentencePro
         private const val DEXONLINE_URL = "https://dexonline.ro/definitie/"
     }
 
-    override fun getSentence(): String {
-        val sentence = provider.getSentence()
-        val words = sentence.split(Regex("[^\\p{L}]+")).filter { it.isNotEmpty() }
-        val spaces = sentence.split(Regex("\\p{L}+"))
-        val buffer = StringBuilder()
-        var wordIndex = 0
-        var spaceIndex = 0
-
-        if (spaces.size > words.size) {
-            buffer.append(spaces[spaceIndex++])
-        }
-        while (wordIndex < words.size && spaceIndex < spaces.size) {
-            buffer.append(addHref(words[wordIndex++]))
-            buffer.append(spaces[spaceIndex++])
-        }
-        if (wordIndex < words.size) {
-            buffer.append(addHref(words[wordIndex]))
-        }
-        return buffer.toString()
-    }
+    override fun getSentence(): String =
+        provider.getSentence().replace(Regex("[\\p{L}]+")) { addHref(it.value) }
 
     private fun addHref(word: String): String {
         val encodedWord = URLEncoder.encode(word.lowercase(), StandardCharsets.UTF_8)

@@ -48,58 +48,43 @@ class WordRepository(private val dataSource: AgroalDataSource) {
                 }
             }
 
-            // Count per (type, syllables, maxRarity)
-            conn.prepareStatement("SELECT type, syllables, rarity_level, COUNT(*) AS cnt FROM words GROUP BY type, syllables, rarity_level").use { stmt ->
-                stmt.executeQuery().use { rs ->
-                    val buckets = mutableMapOf<Pair<String, Int>, MutableMap<Int, Int>>()
-                    while (rs.next()) {
-                        val type = rs.getString("type")
-                        val syllables = rs.getInt("syllables")
-                        val rarity = rs.getInt("rarity_level")
-                        val cnt = rs.getInt("cnt")
-                        buckets.computeIfAbsent(type to syllables) { mutableMapOf() }[rarity] = cnt
-                    }
-
-                    val map = mutableMapOf<Triple<String, Int, Int>, Int>()
-                    buckets.forEach { (key, rarityCounts) ->
-                        var running = 0
-                        for (rarity in 1..MAX_RARITY) {
-                            running += rarityCounts[rarity] ?: 0
-                            map[Triple(key.first, key.second, rarity)] = running
-                        }
-                    }
-                    countsByTypeSyllablesMaxRarity = map
-                }
-            }
-
-            // Count per (type, articulated_syllables, maxRarity)
-            conn.prepareStatement("SELECT type, articulated_syllables, rarity_level, COUNT(*) AS cnt FROM words WHERE articulated_syllables IS NOT NULL GROUP BY type, articulated_syllables, rarity_level").use { stmt ->
-                stmt.executeQuery().use { rs ->
-                    val buckets = mutableMapOf<Pair<String, Int>, MutableMap<Int, Int>>()
-                    while (rs.next()) {
-                        val type = rs.getString("type")
-                        val articulatedSyllables = rs.getInt("articulated_syllables")
-                        val rarity = rs.getInt("rarity_level")
-                        val cnt = rs.getInt("cnt")
-                        buckets.computeIfAbsent(type to articulatedSyllables) { mutableMapOf() }[rarity] = cnt
-                    }
-
-                    val map = mutableMapOf<Triple<String, Int, Int>, Int>()
-                    buckets.forEach { (key, rarityCounts) ->
-                        var running = 0
-                        for (rarity in 1..MAX_RARITY) {
-                            running += rarityCounts[rarity] ?: 0
-                            map[Triple(key.first, key.second, rarity)] = running
-                        }
-                    }
-                    countsByTypeArticulatedSyllablesMaxRarity = map
-                }
-            }
+            countsByTypeSyllablesMaxRarity = loadCumulativeDimensionCounts(
+                conn, "SELECT type, syllables, rarity_level, COUNT(*) AS cnt FROM words GROUP BY type, syllables, rarity_level", "syllables"
+            )
+            countsByTypeArticulatedSyllablesMaxRarity = loadCumulativeDimensionCounts(
+                conn, "SELECT type, articulated_syllables, rarity_level, COUNT(*) AS cnt FROM words WHERE articulated_syllables IS NOT NULL GROUP BY type, articulated_syllables, rarity_level", "articulated_syllables"
+            )
 
             nounRhymeGroupsMin2ByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadRhymeGroups("N", 2, rarity) }
             nounRhymeGroupsMin3ByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadRhymeGroups("N", 3, rarity) }
             verbRhymeGroupsMin2ByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadRhymeGroups("V", 2, rarity) }
             validPrefixesByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadValidPrefixes(rarity) }
+        }
+    }
+
+    private fun loadCumulativeDimensionCounts(
+        conn: java.sql.Connection, sql: String, dimColumn: String
+    ): Map<Triple<String, Int, Int>, Int> {
+        conn.prepareStatement(sql).use { stmt ->
+            stmt.executeQuery().use { rs ->
+                val buckets = mutableMapOf<Pair<String, Int>, MutableMap<Int, Int>>()
+                while (rs.next()) {
+                    val type = rs.getString("type")
+                    val dim = rs.getInt(dimColumn)
+                    val rarity = rs.getInt("rarity_level")
+                    val cnt = rs.getInt("cnt")
+                    buckets.computeIfAbsent(type to dim) { mutableMapOf() }[rarity] = cnt
+                }
+                val map = mutableMapOf<Triple<String, Int, Int>, Int>()
+                buckets.forEach { (key, rarityCounts) ->
+                    var running = 0
+                    for (rarity in 1..MAX_RARITY) {
+                        running += rarityCounts[rarity] ?: 0
+                        map[Triple(key.first, key.second, rarity)] = running
+                    }
+                }
+                return map
+            }
         }
     }
 
@@ -447,38 +432,20 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         }
     }
 
-    private fun queryNoun(sql: String, vararg params: Any): Noun? {
+    private fun <T> queryRow(sql: String, mapper: (java.sql.ResultSet) -> T, vararg params: Any): T? {
         dataSource.connection.use { conn ->
             conn.prepareStatement(sql).use { stmt ->
                 params.forEachIndexed { i, param -> stmt.setObject(i + 1, param) }
                 stmt.executeQuery().use { rs ->
-                    return if (rs.next()) mapNoun(rs) else null
+                    return if (rs.next()) mapper(rs) else null
                 }
             }
         }
     }
 
-    private fun queryAdjective(sql: String, vararg params: Any): Adjective? {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                params.forEachIndexed { i, param -> stmt.setObject(i + 1, param) }
-                stmt.executeQuery().use { rs ->
-                    return if (rs.next()) mapAdjective(rs) else null
-                }
-            }
-        }
-    }
-
-    private fun queryVerb(sql: String, vararg params: Any): Verb? {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                params.forEachIndexed { i, param -> stmt.setObject(i + 1, param) }
-                stmt.executeQuery().use { rs ->
-                    return if (rs.next()) mapVerb(rs) else null
-                }
-            }
-        }
-    }
+    private fun queryNoun(sql: String, vararg params: Any): Noun? = queryRow(sql, ::mapNoun, *params)
+    private fun queryAdjective(sql: String, vararg params: Any): Adjective? = queryRow(sql, ::mapAdjective, *params)
+    private fun queryVerb(sql: String, vararg params: Any): Verb? = queryRow(sql, ::mapVerb, *params)
 
     private fun mapNoun(rs: java.sql.ResultSet): Noun = Noun(
         word = rs.getString("word"),
