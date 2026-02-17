@@ -445,24 +445,10 @@ export function escapeHtml(text: string): string {
 }
 
 export function addDexLinks(sentence: string): string {
-  const words = sentence.match(/\p{L}+/gu) || [];
-  const spaces = sentence.split(/\p{L}+/u);
-  let result = "";
-  let wi = 0;
-  let si = 0;
-  if (spaces.length > words.length) result += spaces[si++];
-  while (wi < words.length && si < spaces.length) {
-    const w = words[wi++];
+  return sentence.replace(/\p{L}+/gu, (w) => {
     const encoded = encodeURIComponent(w.toLowerCase());
-    result += `<a href="${DEXONLINE_URL}${encoded}" target="_blank" rel="noopener" data-word="${encoded}">${escapeHtml(w)}</a>`;
-    result += spaces[si++];
-  }
-  if (wi < words.length) {
-    const w = words[wi];
-    const encoded = encodeURIComponent(w.toLowerCase());
-    result += `<a href="${DEXONLINE_URL}${encoded}" target="_blank" rel="noopener" data-word="${encoded}">${escapeHtml(w)}</a>`;
-  }
-  return result;
+    return `<a href="${DEXONLINE_URL}${encoded}" target="_blank" rel="noopener" data-word="${encoded}">${escapeHtml(w)}</a>`;
+  });
 }
 
 export function capitalizeFirst(s: string): string {
