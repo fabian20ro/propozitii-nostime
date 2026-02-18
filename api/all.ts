@@ -122,13 +122,31 @@ function getSupabaseClient(): SupabaseClient | null {
 
   try {
     const supabaseUrl = (process.env.SUPABASE_URL ?? "").trim();
-    supabase = createClient(supabaseUrl, initResolution.keyResolution.key);
+    supabase = createClient(supabaseUrl, initResolution.keyResolution.key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    });
     return supabase;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown error";
     supabaseError = `Supabase client initialization failed: ${msg}`;
     return null;
   }
+}
+
+// --- Per-generator timeout (prevents a single slow generator from exhausting maxDuration) ---
+
+const GENERATOR_TIMEOUT_MS = 7000;
+
+function withTimeout<T>(promise: Promise<T>, fallback: T, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([promise.finally(() => clearTimeout(timer)), timeout]);
 }
 
 export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
@@ -181,19 +199,39 @@ export function adjForGender(adj: Adjective, gender: string): string {
   return gender === "F" ? adj.feminine : adj.word;
 }
 
+// --- Per-request count cache (avoids redundant count queries for same filter combos) ---
+
+type CountCache = Map<string, number>;
+
+function countCacheKey(filters: QueryFilter[]): string {
+  return filters
+    .filter((f) => f.op !== "neq")
+    .map((f) => `${f.column}:${f.op}:${f.value}`)
+    .sort()
+    .join("|");
+}
+
 // --- Generic random-row helper (single count + single fetch) ---
 
 async function randomRow<T extends WordRow>(
   select: string,
-  filters: QueryFilter[]
+  filters: QueryFilter[],
+  cache?: CountCache
 ): Promise<T | null> {
   const client = getSupabaseClient();
   if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
 
-  // 1) Count
-  let countQ = client.from("words").select("word", { count: "exact", head: true });
-  for (const f of filters) countQ = applyFilter(countQ, f);
-  const { count } = await countQ;
+  // 1) Count — check cache first
+  const cKey = countCacheKey(filters);
+  let count: number | null | undefined = cache?.get(cKey);
+
+  if (count === undefined) {
+    let countQ = client.from("words").select("word", { count: "exact", head: true });
+    for (const f of filters) countQ = applyFilter(countQ, f);
+    const result = await countQ;
+    count = result.count;
+    if (count != null && cache) cache.set(cKey, count);
+  }
   if (!count) return null;
 
   // 2) Fetch one at random offset
@@ -233,112 +271,112 @@ const ADJ_SELECT = "word, syllables, rhyme, feminine";
 const VERB_SELECT = "word, syllables, rhyme";
 
 async function randomNoun(
-  minR: number, maxR: number, exclude: string[] = []
+  minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Noun> {
   const row = await randomRow<Noun>(NOUN_SELECT, [
     { column: "type", op: "eq", value: "N" },
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
-  ]);
+  ], cache);
   if (!row) failConstraint("No nouns found");
   return row;
 }
 
 async function randomNounByArticulatedSyllables(
-  syllables: number, minR: number, maxR: number, exclude: string[] = []
+  syllables: number, minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Noun | null> {
   return randomRow<Noun>(NOUN_SELECT, [
     { column: "type", op: "eq", value: "N" },
     { column: "articulated_syllables", op: "eq", value: syllables },
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
-  ]);
+  ], cache);
 }
 
 async function randomNounByPrefix(
-  prefix: string, minR: number, maxR: number, exclude: string[] = []
+  prefix: string, minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Noun | null> {
   return randomRow<Noun>(NOUN_SELECT, [
     { column: "type", op: "eq", value: "N" },
     { column: "word", op: "like", value: `${prefix}%` },
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
-  ]);
+  ], cache);
 }
 
 async function randomAdj(
-  minR: number, maxR: number, exclude: string[] = []
+  minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Adjective> {
   const row = await randomRow<Adjective>(ADJ_SELECT, [
     { column: "type", op: "eq", value: "A" },
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
-  ]);
+  ], cache);
   if (!row) failConstraint("No adjectives found");
   return row;
 }
 
 async function randomAdjBySyllables(
-  syllables: number, minR: number, maxR: number
+  syllables: number, minR: number, maxR: number, cache?: CountCache
 ): Promise<Adjective | null> {
   return randomRow<Adjective>(ADJ_SELECT, [
     { column: "type", op: "eq", value: "A" },
     { column: "syllables", op: "eq", value: syllables },
     ...rarityFilters(minR, maxR),
-  ]);
+  ], cache);
 }
 
 async function randomAdjByPrefix(
-  prefix: string, minR: number, maxR: number
+  prefix: string, minR: number, maxR: number, cache?: CountCache
 ): Promise<Adjective | null> {
   return randomRow<Adjective>(ADJ_SELECT, [
     { column: "type", op: "eq", value: "A" },
     { column: "word", op: "like", value: `${prefix}%` },
     ...rarityFilters(minR, maxR),
-  ]);
+  ], cache);
 }
 
 async function randomVerb(
-  minR: number, maxR: number, exclude: string[] = []
+  minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Verb> {
   const row = await randomRow<Verb>(VERB_SELECT, [
     { column: "type", op: "eq", value: "V" },
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
-  ]);
+  ], cache);
   if (!row) failConstraint("No verbs found");
   return row;
 }
 
 async function randomVerbBySyllables(
-  syllables: number, minR: number, maxR: number
+  syllables: number, minR: number, maxR: number, cache?: CountCache
 ): Promise<Verb | null> {
   return randomRow<Verb>(VERB_SELECT, [
     { column: "type", op: "eq", value: "V" },
     { column: "syllables", op: "eq", value: syllables },
     ...rarityFilters(minR, maxR),
-  ]);
+  ], cache);
 }
 
 async function randomVerbByRhyme(
-  rhyme: string, minR: number, maxR: number, exclude: string[] = []
+  rhyme: string, minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Verb | null> {
   return randomRow<Verb>(VERB_SELECT, [
     { column: "type", op: "eq", value: "V" },
     { column: "rhyme", op: "eq", value: rhyme },
     ...rarityFilters(minR, maxR),
     ...excludeFilters(exclude),
-  ]);
+  ], cache);
 }
 
 async function randomVerbByPrefix(
-  prefix: string, minR: number, maxR: number
+  prefix: string, minR: number, maxR: number, cache?: CountCache
 ): Promise<Verb | null> {
   return randomRow<Verb>(VERB_SELECT, [
     { column: "type", op: "eq", value: "V" },
     { column: "word", op: "like", value: `${prefix}%` },
     ...rarityFilters(minR, maxR),
-  ]);
+  ], cache);
 }
 
 // --- Tautogram: batch prefix probing (3 queries total) ---
@@ -396,9 +434,7 @@ async function randomPrefixWithAllTypes(
   return valid[Math.floor(Math.random() * valid.length)];
 }
 
-// --- Mirror: iterative rhyme group probing (no bulk fetch) ---
-
-const MAX_RHYME_ATTEMPTS = 15;
+// --- Mirror: bulk rhyme group discovery (1-2 queries instead of up to 45) ---
 
 async function findTwoVerbRhymeGroups(
   minR: number, maxR: number
@@ -406,32 +442,50 @@ async function findTwoVerbRhymeGroups(
   const client = getSupabaseClient();
   if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
 
-  // Strategy: pick random verbs, check if their rhyme has 2+ members.
-  // Collect two distinct rhyme groups.
-  const foundRhymes: string[] = [];
-
-  for (let i = 0; i < MAX_RHYME_ATTEMPTS && foundRhymes.length < 2; i++) {
-    const verb = await randomVerb(minR, maxR);
-    const rhyme = verb.rhyme;
-
-    if (foundRhymes.includes(rhyme)) continue;
-
-    // Check if at least 2 verbs share this rhyme
-    const { count } = await client
+  // Fetch all verb rhymes in rarity range in a single bulk query,
+  // then group client-side. Paginate to handle Supabase's 1000-row default.
+  const allRhymes: string[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await client
       .from("words")
-      .select("word", { count: "exact", head: true })
+      .select("rhyme")
       .eq("type", "V")
-      .eq("rhyme", rhyme)
       .gte("rarity_level", minR)
-      .lte("rarity_level", maxR);
+      .lte("rarity_level", maxR)
+      .range(from, from + pageSize - 1);
 
-    if (count && count >= 2) {
-      foundRhymes.push(rhyme);
-    }
+    if (error || !data || data.length === 0) break;
+    for (const row of data) allRhymes.push(row.rhyme);
+    if (data.length < pageSize) break;
+    from += pageSize;
   }
 
-  if (foundRhymes.length < 2) return null;
-  return [foundRhymes[0], foundRhymes[1]];
+  if (allRhymes.length === 0) return null;
+
+  // Count occurrences per rhyme
+  const rhymeCounts = new Map<string, number>();
+  for (const r of allRhymes) {
+    rhymeCounts.set(r, (rhymeCounts.get(r) ?? 0) + 1);
+  }
+
+  // Filter to rhymes with 2+ verbs
+  const validRhymes = [...rhymeCounts.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([rhyme]) => rhyme);
+
+  if (validRhymes.length < 2) return null;
+
+  // Pick two distinct rhymes at random
+  const i1 = Math.floor(Math.random() * validRhymes.length);
+  [validRhymes[i1], validRhymes[validRhymes.length - 1]] =
+    [validRhymes[validRhymes.length - 1], validRhymes[i1]];
+  const pick1 = validRhymes[validRhymes.length - 1];
+  const i2 = Math.floor(Math.random() * (validRhymes.length - 1));
+  const pick2 = validRhymes[i2];
+
+  return [pick1, pick2];
 }
 
 // --- Decorators ---
@@ -475,39 +529,47 @@ export function decorateDefinition(sentence: string): string {
 
 // --- Sentence providers ---
 
-async function genComparison(minR: number, maxR: number): Promise<string> {
-  const n1 = await randomNoun(minR, maxR);
-  const adj = await randomAdj(minR, maxR);
-  const n2 = await randomNoun(minR, maxR, [n1.word]);
+async function genComparison(minR: number, maxR: number, cache?: CountCache): Promise<string> {
+  const [n1, adj] = await Promise.all([
+    randomNoun(minR, maxR, [], cache),
+    randomAdj(minR, maxR, [], cache),
+  ]);
+  const n2 = await randomNoun(minR, maxR, [n1.word], cache);
   const raw = `${n1.articulated} e mai ${adjForGender(adj, n1.gender)} dec\u00e2t ${n2.articulated}.`;
   return decorateSentence(raw);
 }
 
-async function genDefinition(minR: number, maxR: number): Promise<string> {
-  const defined = await randomNoun(minR, maxR);
-  const noun = await randomNoun(minR, maxR, [defined.word]);
-  const adj = await randomAdj(minR, maxR);
-  const verb = await randomVerb(minR, maxR);
-  const obj = await randomNoun(minR, maxR, [defined.word, noun.word]);
+async function genDefinition(minR: number, maxR: number, cache?: CountCache): Promise<string> {
+  const [defined, adj, verb] = await Promise.all([
+    randomNoun(minR, maxR, [], cache),
+    randomAdj(minR, maxR, [], cache),
+    randomVerb(minR, maxR, [], cache),
+  ]);
+  const noun = await randomNoun(minR, maxR, [defined.word], cache);
+  const obj = await randomNoun(minR, maxR, [defined.word, noun.word], cache);
   const raw = `${defined.word.toUpperCase()}: ${noun.articulated} ${adjForGender(adj, noun.gender)} care ${verb.word} ${obj.articulated}.`;
   return decorateDefinition(raw);
 }
 
-async function genDistih(minR: number, maxR: number): Promise<string> {
+async function genDistih(minR: number, maxR: number, cache?: CountCache): Promise<string> {
   const usedN: string[] = [];
   const usedA: string[] = [];
   const usedV: string[] = [];
 
   async function buildLine() {
-    const n1 = await randomNoun(minR, maxR, usedN);
+    const [n1, a1, v] = await Promise.all([
+      randomNoun(minR, maxR, usedN, cache),
+      randomAdj(minR, maxR, usedA, cache),
+      randomVerb(minR, maxR, usedV, cache),
+    ]);
     usedN.push(n1.word);
-    const a1 = await randomAdj(minR, maxR, usedA);
     usedA.push(a1.word);
-    const v = await randomVerb(minR, maxR, usedV);
     usedV.push(v.word);
-    const n2 = await randomNoun(minR, maxR, usedN);
+    const [n2, a2] = await Promise.all([
+      randomNoun(minR, maxR, usedN, cache),
+      randomAdj(minR, maxR, usedA, cache),
+    ]);
     usedN.push(n2.word);
-    const a2 = await randomAdj(minR, maxR, usedA);
     usedA.push(a2.word);
     return `${n1.articulated} ${adjForGender(a1, n1.gender)} ${v.word} ${n2.articulated} ${adjForGender(a2, n2.gender)}.`;
   }
@@ -517,23 +579,25 @@ async function genDistih(minR: number, maxR: number): Promise<string> {
   return decorateVerse(`${l1} / ${l2}`);
 }
 
-async function genHaiku(minR: number, maxR: number): Promise<string> {
+async function genHaiku(minR: number, maxR: number, cache?: CountCache): Promise<string> {
   const noun =
-    (await randomNounByArticulatedSyllables(5, minR, maxR)) ||
-    (await randomNoun(minR, maxR));
+    (await randomNounByArticulatedSyllables(5, minR, maxR, [], cache)) ||
+    (await randomNoun(minR, maxR, [], cache));
   const adjSyl = noun.gender === "F" ? 3 : 4;
-  const adj = await randomAdjBySyllables(adjSyl, minR, maxR);
+  const [adj, verb, noun2] = await Promise.all([
+    randomAdjBySyllables(adjSyl, minR, maxR, cache),
+    randomVerbBySyllables(3, minR, maxR, cache),
+    randomNounByArticulatedSyllables(5, minR, maxR, [noun.word], cache).then(
+      (n2) => n2 || randomNoun(minR, maxR, [noun.word], cache)
+    ),
+  ]);
   if (!adj) failConstraint("No adj with required syllables");
-  const verb = await randomVerbBySyllables(3, minR, maxR);
   if (!verb) failConstraint("No verb with 3 syllables");
-  const noun2 =
-    (await randomNounByArticulatedSyllables(5, minR, maxR, [noun.word])) ||
-    (await randomNoun(minR, maxR, [noun.word]));
   const raw = `${noun.articulated} / ${adjForGender(adj, noun.gender)} ${verb.word} / ${noun2.articulated}.`;
   return decorateVerse(raw);
 }
 
-async function genMirror(minR: number, maxR: number): Promise<string> {
+async function genMirror(minR: number, maxR: number, cache?: CountCache): Promise<string> {
   const rhymes = await findTwoVerbRhymeGroups(minR, maxR);
   if (!rhymes) failConstraint("No rhyme groups");
   const [rhymeA, rhymeB] = rhymes;
@@ -543,12 +607,14 @@ async function genMirror(minR: number, maxR: number): Promise<string> {
   const usedV: string[] = [];
 
   async function buildLine(rhyme: string, punct: string): Promise<string> {
-    const n = await randomNoun(minR, maxR, usedN);
-    usedN.push(n.word);
-    const a = await randomAdj(minR, maxR, usedA);
-    usedA.push(a.word);
-    const v = await randomVerbByRhyme(rhyme, minR, maxR, usedV);
+    const [n, a, v] = await Promise.all([
+      randomNoun(minR, maxR, usedN, cache),
+      randomAdj(minR, maxR, usedA, cache),
+      randomVerbByRhyme(rhyme, minR, maxR, usedV, cache),
+    ]);
     if (!v) failConstraint(`No verb for rhyme ${rhyme}`);
+    usedN.push(n.word);
+    usedA.push(a.word);
     usedV.push(v.word);
     return `${n.articulated} ${adjForGender(a, n.gender)} ${v.word}${punct}`;
   }
@@ -560,16 +626,18 @@ async function genMirror(minR: number, maxR: number): Promise<string> {
   return decorateVerse(`${l1} / ${l2} / ${l3} / ${l4}`);
 }
 
-async function genTautogram(minR: number, maxR: number): Promise<string> {
+async function genTautogram(minR: number, maxR: number, cache?: CountCache): Promise<string> {
   const prefix = await randomPrefixWithAllTypes(minR, maxR);
   if (!prefix) failConstraint("No valid prefix");
-  const n1 = await randomNounByPrefix(prefix, minR, maxR);
+  const [n1, adj, verb] = await Promise.all([
+    randomNounByPrefix(prefix, minR, maxR, [], cache),
+    randomAdjByPrefix(prefix, minR, maxR, cache),
+    randomVerbByPrefix(prefix, minR, maxR, cache),
+  ]);
   if (!n1) failConstraint("No noun for prefix");
-  const adj = await randomAdjByPrefix(prefix, minR, maxR);
   if (!adj) failConstraint("No adj for prefix");
-  const verb = await randomVerbByPrefix(prefix, minR, maxR);
   if (!verb) failConstraint("No verb for prefix");
-  const n2 = await randomNounByPrefix(prefix, minR, maxR, [n1.word]);
+  const n2 = await randomNounByPrefix(prefix, minR, maxR, [n1.word], cache);
   if (!n2) failConstraint("No 2nd noun for prefix");
   const raw = `${n1.articulated} ${adjForGender(adj, n1.gender)} ${verb.word} ${n2.articulated}.`;
   return decorateSentence(raw);
@@ -603,7 +671,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
 
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {
-      return await fn();
+      return await withTimeout(fn(), UNSATISFIABLE, GENERATOR_TIMEOUT_MS);
     } catch (err) {
       if (err instanceof ConstraintUnsatisfiedError) return UNSATISFIABLE;
       console.error("Sentence generation failed:", err);
@@ -611,14 +679,16 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     }
   }
 
+  const cache: CountCache = new Map();
+
   const [haiku, distih, comparison, definition, tautogram, mirror] =
     await Promise.all([
-      safe(() => genHaiku(minR, maxR)),
-      safe(() => genDistih(minR, maxR)),
-      safe(() => genComparison(minR, maxR)),
-      safe(() => genDefinition(minR, maxR)),
-      safe(() => genTautogram(minR, maxR)),
-      safe(() => genMirror(minR, maxR)),
+      safe(() => genHaiku(minR, maxR, cache)),
+      safe(() => genDistih(minR, maxR, cache)),
+      safe(() => genComparison(minR, maxR, cache)),
+      safe(() => genDefinition(minR, maxR, cache)),
+      safe(() => genTautogram(minR, maxR, cache)),
+      safe(() => genMirror(minR, maxR, cache)),
     ]);
 
   return res.status(200).json({
