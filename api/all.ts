@@ -200,6 +200,9 @@ export function adjForGender(adj: Adjective, gender: string): string {
 }
 
 // --- Per-request count cache (avoids redundant count queries for same filter combos) ---
+// Cache key intentionally excludes `neq` (exclude) filters because exclude sets
+// are small (≤6 words) relative to the pool. If a cached count causes an offset
+// miss (data query returns null), randomRow retries once with a fresh count.
 
 type CountCache = Map<string, number>;
 
@@ -221,8 +224,8 @@ async function randomRow<T extends WordRow>(
   const client = getSupabaseClient();
   if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
 
-  // 1) Count — check cache first
   const cKey = countCacheKey(filters);
+  const usedCachedCount = cache?.has(cKey) ?? false;
   let count: number | null | undefined = cache?.get(cKey);
 
   if (count === undefined) {
@@ -234,11 +237,32 @@ async function randomRow<T extends WordRow>(
   }
   if (!count) return null;
 
-  // 2) Fetch one at random offset
+  // Fetch one at random offset
   const offset = Math.floor(Math.random() * count);
   let dataQ = client.from("words").select(select).range(offset, offset).limit(1);
   for (const f of filters) dataQ = applyFilter(dataQ, f);
   const { data } = await dataQ;
+
+  // If data miss and we used a cached count (possibly stale due to exclude
+  // filters), retry once with a fresh count to handle small-pool edge cases.
+  if ((!data || data.length === 0) && usedCachedCount) {
+    cache?.delete(cKey);
+    let freshQ = client.from("words").select("word", { count: "exact", head: true });
+    for (const f of filters) freshQ = applyFilter(freshQ, f);
+    const freshResult = await freshQ;
+    const freshCount = freshResult.count;
+    if (!freshCount) return null;
+    if (cache) cache.set(cKey, freshCount);
+    const retryOffset = Math.floor(Math.random() * freshCount);
+    let retryQ = client.from("words").select(select).range(retryOffset, retryOffset).limit(1);
+    for (const f of filters) retryQ = applyFilter(retryQ, f);
+    const { data: retryData } = await retryQ;
+    if (!retryData || retryData.length === 0) return null;
+    return retryData[0] as unknown as T;
+  }
+
+  if (!data || data.length === 0) return null;
+  return data[0] as unknown as T;
   if (!data || data.length === 0) return null;
   return data[0] as unknown as T;
 }
