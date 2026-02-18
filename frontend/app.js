@@ -200,34 +200,6 @@ async function checkHealth() {
 }
 
 /**
- * Wait for backend to be ready with visual feedback
- * @returns {Promise<boolean>} true if backend became ready, false if timed out
- */
-async function waitForBackend() {
-    for (let i = 0; i < MAX_RETRIES; i++) {
-        const isHealthy = await checkHealth();
-        if (isHealthy) {
-            return true;
-        }
-
-        const secondsWaited = (i + 1) * (RETRY_DELAY / 1000);
-        const message = `Backend-ul pornește... (${secondsWaited}s)`;
-
-        FIELD_IDS.forEach((id, idx) => {
-            const el = document.getElementById(id);
-            if (idx === 0) {
-                el.textContent = message;
-            } else {
-                el.textContent = 'Render.com Free Tier – pornire la rece';
-            }
-        });
-
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-    }
-    return false;
-}
-
-/**
  * Fetch all sentences from a given API base URL with a timeout
  * @param {string} baseUrl
  * @param {{ min: number, max: number }} range
@@ -571,7 +543,7 @@ function showCopyFeedback(button) {
     setTimeout(() => button.classList.remove('copied'), 1500);
 }
 
-const PLACEHOLDER_TEXTS = new Set(['Se încarcă...', 'Eroare', 'Timeout']);
+const PLACEHOLDER_TEXTS = new Set(['Se încarcă...', 'Eroare']);
 
 function getCardText(button) {
     const el = document.getElementById(button.dataset.target);

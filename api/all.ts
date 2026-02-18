@@ -16,9 +16,9 @@ interface VercelResponseLike {
 
 // --- Environment validation (deferred for testability) ---
 
-export const DEFAULT_ALLOWED_ORIGINS = ["https://fabian20ro.github.io"];
+const DEFAULT_ALLOWED_ORIGINS = ["https://fabian20ro.github.io"];
 
-export interface SupabaseKeyResolution {
+interface SupabaseKeyResolution {
   key: string;
   source: "publishable" | "service-role" | "none";
   error?: string;
@@ -81,7 +81,7 @@ export function validateSupabaseUrl(raw: string | undefined): string | undefined
   return undefined;
 }
 
-export interface SupabaseInitResolution {
+interface SupabaseInitResolution {
   keyResolution: SupabaseKeyResolution;
   error?: string;
 }
@@ -166,7 +166,7 @@ function failConstraint(message: string): never {
 
 // --- Types ---
 
-export interface Noun {
+interface Noun {
   word: string;
   gender: string;
   syllables: number;
@@ -181,7 +181,7 @@ export interface Adjective {
   feminine: string;
 }
 
-export interface Verb {
+interface Verb {
   word: string;
   syllables: number;
   rhyme: string;
@@ -261,8 +261,6 @@ async function randomRow<T extends WordRow>(
     return retryData[0] as unknown as T;
   }
 
-  if (!data || data.length === 0) return null;
-  return data[0] as unknown as T;
   if (!data || data.length === 0) return null;
   return data[0] as unknown as T;
 }
