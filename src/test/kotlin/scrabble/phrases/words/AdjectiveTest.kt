@@ -11,7 +11,7 @@ class AdjectiveTest {
     @CsvSource(
         "pitoresc, pitoreasc\u0103",
         "cite\u021B, citea\u021B\u0103",
-        "bor, boare",
+        "sonor, sonor\u0103",
         "frumos, frumoas\u0103",
         "zglobiu, zglobie",
         "st\u00e2ngaci, st\u00e2ngace",
