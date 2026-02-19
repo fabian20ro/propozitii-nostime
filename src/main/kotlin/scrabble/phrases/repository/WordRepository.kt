@@ -17,6 +17,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     private var countsByTypeMaxRarity: Map<Pair<String, Int>, Int> = emptyMap()
     private var countsByTypeSyllablesMaxRarity: Map<Triple<String, Int, Int>, Int> = emptyMap()
     private var countsByTypeArticulatedSyllablesMaxRarity: Map<Triple<String, Int, Int>, Int> = emptyMap()
+    private var countsByTypeFeminineSyllablesMaxRarity: Map<Triple<String, Int, Int>, Int> = emptyMap()
     private var nounRhymeGroupsMin2ByMaxRarity: Map<Int, List<String>> = emptyMap()
     private var nounRhymeGroupsMin3ByMaxRarity: Map<Int, List<String>> = emptyMap()
     private var verbRhymeGroupsMin2ByMaxRarity: Map<Int, List<String>> = emptyMap()
@@ -53,6 +54,9 @@ class WordRepository(private val dataSource: AgroalDataSource) {
             )
             countsByTypeArticulatedSyllablesMaxRarity = loadCumulativeDimensionCounts(
                 conn, "SELECT type, articulated_syllables, rarity_level, COUNT(*) AS cnt FROM words WHERE articulated_syllables IS NOT NULL GROUP BY type, articulated_syllables, rarity_level", "articulated_syllables"
+            )
+            countsByTypeFeminineSyllablesMaxRarity = loadCumulativeDimensionCounts(
+                conn, "SELECT type, feminine_syllables, rarity_level, COUNT(*) AS cnt FROM words WHERE feminine_syllables IS NOT NULL GROUP BY type, feminine_syllables, rarity_level", "feminine_syllables"
             )
 
             nounRhymeGroupsMin2ByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadRhymeGroups("N", 2, rarity) }
@@ -224,14 +228,14 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         if (exclude.isNotEmpty()) {
             val notIn = notInClause(exclude.size)
             return queryAdjective(
-                "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
+                "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
                 min, max, *exclude.toTypedArray()
             ) ?: throw IllegalStateException("No adjectives found in database for rarity ${rarityDesc(min, max)}")
         }
         val count = rangeCount(countsByTypeMaxRarity, "A", min, max)
         if (count == 0) throw IllegalStateException("No adjectives found in database for rarity ${rarityDesc(min, max)}")
         return queryAdjective(
-            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
+            "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             min,
             max,
             randomOffset(count)
@@ -244,8 +248,22 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val count = rangeCountTriple(countsByTypeSyllablesMaxRarity, "A", syllables, min, max)
         if (count == 0) return null
         return queryAdjective(
-            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
+            "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             syllables,
+            min,
+            max,
+            randomOffset(count)
+        )
+    }
+
+    fun getRandomAdjectiveByFeminineSyllables(feminineSyllables: Int, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Adjective? {
+        val min = clampRarity(minRarity)
+        val max = clampRarity(maxRarity)
+        val count = rangeCountTriple(countsByTypeFeminineSyllablesMaxRarity, "A", feminineSyllables, min, max)
+        if (count == 0) return null
+        return queryAdjective(
+            "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND feminine_syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
+            feminineSyllables,
             min,
             max,
             randomOffset(count)
@@ -354,7 +372,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val min = clampRarity(minRarity)
         val max = clampRarity(maxRarity)
         return queryAdjective(
-            "SELECT word, syllables, rhyme, feminine FROM words WHERE type='A' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
+            "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             "$prefix%",
             min,
             max
@@ -455,12 +473,18 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         articulated = rs.getString("articulated") ?: ""
     )
 
-    private fun mapAdjective(rs: java.sql.ResultSet): Adjective = Adjective(
-        word = rs.getString("word"),
-        syllables = rs.getInt("syllables"),
-        rhyme = rs.getString("rhyme"),
-        feminine = rs.getString("feminine") ?: ""
-    )
+    private fun mapAdjective(rs: java.sql.ResultSet): Adjective {
+        val feminine = rs.getString("feminine") ?: ""
+        val femSyl = rs.getObject("feminine_syllables")
+        return Adjective(
+            word = rs.getString("word"),
+            syllables = rs.getInt("syllables"),
+            rhyme = rs.getString("rhyme"),
+            feminine = feminine,
+            feminineSyllables = (femSyl as? Number)?.toInt()
+                ?: scrabble.phrases.words.WordUtils.computeSyllableNumber(feminine)
+        )
+    }
 
     private fun mapVerb(rs: java.sql.ResultSet): Verb = Verb(
         word = rs.getString("word"),

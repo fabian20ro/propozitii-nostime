@@ -179,6 +179,7 @@ export interface Adjective {
   syllables: number;
   rhyme: string;
   feminine: string;
+  feminine_syllables: number;
 }
 
 interface Verb {
@@ -289,7 +290,7 @@ function excludeFilters(exclude: string[]): QueryFilter[] {
 // --- Word query functions ---
 
 const NOUN_SELECT = "word, gender, syllables, rhyme, articulated";
-const ADJ_SELECT = "word, syllables, rhyme, feminine";
+const ADJ_SELECT = "word, syllables, rhyme, feminine, feminine_syllables";
 const VERB_SELECT = "word, syllables, rhyme";
 
 async function randomNoun(
@@ -344,6 +345,16 @@ async function randomAdjBySyllables(
   return randomRow<Adjective>(ADJ_SELECT, [
     { column: "type", op: "eq", value: "A" },
     { column: "syllables", op: "eq", value: syllables },
+    ...rarityFilters(minR, maxR),
+  ], cache);
+}
+
+async function randomAdjByFeminineSyllables(
+  feminineSyllables: number, minR: number, maxR: number, cache?: CountCache
+): Promise<Adjective | null> {
+  return randomRow<Adjective>(ADJ_SELECT, [
+    { column: "type", op: "eq", value: "A" },
+    { column: "feminine_syllables", op: "eq", value: feminineSyllables },
     ...rarityFilters(minR, maxR),
   ], cache);
 }
@@ -605,9 +616,12 @@ async function genHaiku(minR: number, maxR: number, cache?: CountCache): Promise
   const noun =
     (await randomNounByArticulatedSyllables(5, minR, maxR, [], cache)) ||
     (await randomNoun(minR, maxR, [], cache));
-  const adjSyl = noun.gender === "F" ? 3 : 4;
+  // Adjective form must be 4 syllables; query by feminine_syllables for feminine nouns
+  const adjPromise = noun.gender === "F"
+    ? randomAdjByFeminineSyllables(4, minR, maxR, cache)
+    : randomAdjBySyllables(4, minR, maxR, cache);
   const [adj, verb, noun2] = await Promise.all([
-    randomAdjBySyllables(adjSyl, minR, maxR, cache),
+    adjPromise,
     randomVerbBySyllables(3, minR, maxR, cache),
     randomNounByArticulatedSyllables(5, minR, maxR, [noun.word], cache).then(
       (n2) => n2 || randomNoun(minR, maxR, [noun.word], cache)
