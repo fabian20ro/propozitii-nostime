@@ -21,6 +21,8 @@ class AdjectiveTest {
         "frumos, frumoas\u0103",
         "zglobiu, zglobie",
         "st\u00e2ngaci, st\u00e2ngace",
+        "negru, neagr\u0103",
+        "integru, integr\u0103",
         "acru, acr\u0103",
         "u\u0219urel, u\u0219uric\u0103",
         "frumu\u0219el, frumu\u0219ic\u0103",
@@ -44,10 +46,27 @@ class AdjectiveTest {
         assertThat(adj.rhyme).isEqualTo("mos")
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        "frumos, 3",
+        "muncitor, 4",
+        "negru, 2",
+        "alb, 2",
+        "mare, 2",
+        "verde, 2",
+        "minunat, 4",
+        "superior, 4",
+    )
+    fun shouldComputeFeminineSyllables(masculine: String, expectedFeminineSyllables: Int) {
+        val adj = Adjective(masculine)
+        assertThat(adj.feminineSyllables).isEqualTo(expectedFeminineSyllables)
+    }
+
     @Test
     fun shouldProvideDataClassAccessors() {
         val adj = Adjective("mare")
         assertThat(adj.word).isEqualTo("mare")
         assertThat(adj.feminine).isEqualTo("mare")
+        assertThat(adj.feminineSyllables).isEqualTo(2)
     }
 }

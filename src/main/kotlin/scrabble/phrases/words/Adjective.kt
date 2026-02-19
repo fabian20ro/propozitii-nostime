@@ -4,7 +4,8 @@ data class Adjective(
     override val word: String,
     override val syllables: Int = WordUtils.computeSyllableNumber(word),
     override val rhyme: String = WordUtils.computeRhyme(word),
-    val feminine: String = computeFeminine(word)
+    val feminine: String = computeFeminine(word),
+    val feminineSyllables: Int = WordUtils.computeSyllableNumber(feminine)
 ) : Word {
 
     fun forGender(gender: NounGender): String =
@@ -20,6 +21,7 @@ data class Adjective(
             word.endsWith("os") -> word.substring(0, word.length - 1) + "asă"
             word.endsWith("iu") -> word.substring(0, word.length - 1) + "e"
             word.endsWith("ci") -> word.substring(0, word.length - 1) + "e"
+            word == "negru" -> "neagră"
             word.endsWith("ru") -> word.substring(0, word.length - 1) + "ă"
             word.endsWith("țel") || word.endsWith("șel") || word.endsWith("rel") ->
                 word.substring(0, word.length - 2) + "ică"
