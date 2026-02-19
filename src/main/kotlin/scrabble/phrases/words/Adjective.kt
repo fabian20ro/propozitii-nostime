@@ -21,6 +21,8 @@ data class Adjective(
             word.endsWith("iu") -> word.substring(0, word.length - 1) + "e"
             word.endsWith("ci") -> word.substring(0, word.length - 1) + "e"
             word.endsWith("ru") -> word.substring(0, word.length - 1) + "ă"
+            word.endsWith("țel") || word.endsWith("șel") || word.endsWith("rel") ->
+                word.substring(0, word.length - 2) + "ică"
             word.endsWith("e") || word.endsWith("o") || word.endsWith("i") -> word
             else -> word + "ă"
         }
