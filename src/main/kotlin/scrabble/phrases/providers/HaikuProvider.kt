@@ -13,10 +13,13 @@ class HaikuProvider(
         val noun = repo.getRandomNounByArticulatedSyllables(5, minRarity = minRarity, maxRarity = maxRarity)
             ?: repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
 
-        // Adjective syllables: 3 for feminine nouns (feminine form +1 syllable), 4 for masculine
-        val adjSyllables = if (noun.gender == NounGender.F) 3 else 4
-        val adj = repo.getRandomAdjectiveBySyllables(adjSyllables, minRarity = minRarity, maxRarity = maxRarity)
-            ?: throw IllegalStateException("No adjective with $adjSyllables syllables found")
+        // Adjective form in line 2 must be 4 syllables (+ verb 3 = 7 total).
+        // For feminine nouns the feminine form is used, so query by feminine_syllables.
+        val adj = if (noun.gender == NounGender.F) {
+            repo.getRandomAdjectiveByFeminineSyllables(4, minRarity = minRarity, maxRarity = maxRarity)
+        } else {
+            repo.getRandomAdjectiveBySyllables(4, minRarity = minRarity, maxRarity = maxRarity)
+        } ?: throw IllegalStateException("No adjective with 4 syllables found for gender ${noun.gender}")
 
         val adjForm = adj.forGender(noun.gender)
 
