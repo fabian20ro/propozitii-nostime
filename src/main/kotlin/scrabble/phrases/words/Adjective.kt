@@ -14,6 +14,9 @@ data class Adjective(
         fun computeFeminine(word: String): String = when {
             word.endsWith("esc") -> word.substring(0, word.length - 2) + "ască"
             word.endsWith("eț") -> word.substring(0, word.length - 1) + "ață"
+            word.endsWith("tor") -> word.substring(0, word.length - 2) + "oare"
+            word.endsWith("șor") -> word.substring(0, word.length - 2) + "oară"
+            word.endsWith("ior") -> word.substring(0, word.length - 2) + "oară"
             word.endsWith("os") -> word.substring(0, word.length - 1) + "asă"
             word.endsWith("iu") -> word.substring(0, word.length - 1) + "e"
             word.endsWith("ci") -> word.substring(0, word.length - 1) + "e"
