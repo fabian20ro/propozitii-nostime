@@ -10,6 +10,8 @@ Defined by:
 - `src/main/resources/db/migration/V1__create_words_table.sql`
 - `src/main/resources/db/migration/V2__add_articulated_syllables.sql`
 - `src/main/resources/db/migration/V3__rarity_level.sql`
+- `src/main/resources/db/migration/V4__fix_negru_feminine.sql`
+- `src/main/resources/db/migration/V5__add_feminine_syllables.sql`
 
 Columns:
 - `id` (PK)
@@ -22,6 +24,7 @@ Columns:
 - `articulated` (nouns)
 - `feminine` (adjectives)
 - `articulated_syllables` (nouns)
+- `feminine_syllables` (adjectives, nullable — backfilled by `loadDictionary`)
 - `rarity_level` (1..5, default 4)
 
 Indexes (important for random/filter lookups):
@@ -34,6 +37,7 @@ Indexes (important for random/filter lookups):
 - `(type, rarity_level, rhyme)`
 - `(type, rarity_level, articulated_syllables)`
 - `(type, rarity_level, first_letter)`
+- `(type, rarity_level, feminine_syllables)`
 
 ## Data Producers
 
@@ -85,7 +89,7 @@ Queries the same `words` table via Supabase PostgREST (JS client):
 
 | Provider | Required data shape |
 |---|---|
-| `HaikuProvider` | nouns with articulated syllables 5 preferred; adjectives with 3 or 4 syllables; verbs with 3 syllables |
+| `HaikuProvider` | nouns with articulated syllables 5 preferred; adjectives with 4 syllables (masculine) or 4 feminine_syllables (feminine nouns); verbs with 3 syllables |
 | `DistihProvider` | at least 4 nouns + 4 adjectives + 2 verbs for uniqueness |
 | `ComparisonProvider` | at least 2 nouns + 1 adjective |
 | `DefinitionProvider` | at least 3 nouns + 1 adjective + 1 verb |

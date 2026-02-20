@@ -51,9 +51,10 @@ Render.com -> Supabase (PostgreSQL)
 ### Database (Supabase)
 
 - Schema migrations via Flyway files in `src/main/resources/db/migration/`.
-- In production, auto-migrate at startup is disabled (`%prod.quarkus.flyway.migrate-at-start=false`).
-- Apply production schema changes manually (or with controlled one-off migration job).
-- Dictionary load is one-time per new DB with `./gradlew loadDictionary`.
+- In production, auto-migrate at startup is disabled (`%prod.quarkus.flyway.migrate-at-start=false`). No Flyway tracking table exists on prod.
+- Apply production schema changes via GitHub Actions: `.github/workflows/database.yml` → `run-migrations` with explicit versions (e.g. `V4,V5`).
+- After schema migrations that add computed columns (e.g. `feminine_syllables`), run the `load-dictionary` operation to backfill values.
+- Required GitHub secrets: `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`.
 
 ## Monitoring
 

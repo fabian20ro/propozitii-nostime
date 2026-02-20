@@ -75,8 +75,11 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
 
 5. **Flyway policy:**
    - Dev/test: migrations auto-run.
-   - Prod (`%prod`): auto-migration is off; schema changes are manual.
+   - Prod (`%prod`): auto-migration is off; no Flyway tracking table exists.
+   - Apply prod schema changes via GitHub Actions workflow: `.github/workflows/database.yml` → `run-migrations` (specify versions, e.g. `V4,V5`).
+   - After schema migrations that add new columns, run `load-dictionary` to backfill computed values.
    - Never edit already-applied migration files for production history; add a new `V*.sql` migration.
+   - Always use `IF NOT EXISTS` for DDL in new migrations (prod has no Flyway to prevent re-runs).
 
 6. **Rarity filter contract:**
    - Public query parameters are `rarity` (`1..5`, default `2`, max) and `minRarity` (`1..5`, default `1`, min) on sentence endpoints.
@@ -124,6 +127,7 @@ Before handing off:
 - Serverless fallback: Vercel via `vercel.json` (`api/all.ts`). Requires `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` env vars in Vercel project settings.
 - Frontend deploy target is GitHub Pages via `.github/workflows/frontend.yml`.
 - Backend CI is `.github/workflows/backend.yml`.
+- Database operations (migrations, dictionary reload) via `.github/workflows/database.yml` (manual trigger). Uses `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD` GitHub secrets.
 
 ## Common Pitfalls
 
