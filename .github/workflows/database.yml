@@ -11,7 +11,7 @@ on:
           - run-migrations
           - load-dictionary
       migration_versions:
-        description: 'Migration versions to run (comma-separated, e.g. "V4,V5"). Leave empty for all. Ignored for load-dictionary.'
+        description: 'Migration versions to run (comma-separated, e.g. "V4,V5"). Required for run-migrations.'
         required: false
         type: string
 
@@ -28,6 +28,12 @@ jobs:
           SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
+          VERSIONS="${{ inputs.migration_versions }}"
+          if [ -z "$VERSIONS" ]; then
+            echo "::error::migration_versions is required for run-migrations (e.g. 'V4,V5')"
+            exit 1
+          fi
+
           # Parse JDBC URL: jdbc:postgresql://host:port/dbname?params
           PG_CONN="${SUPABASE_DB_URL#jdbc:postgresql://}"
           HOST=$(echo "$PG_CONN" | cut -d: -f1)
@@ -38,27 +44,19 @@ jobs:
           export PGSSLMODE=require
           PSQL_CMD="psql -h $HOST -p $PORT -U $SUPABASE_DB_USER -d $DB -v ON_ERROR_STOP=1"
 
-          VERSIONS="${{ inputs.migration_versions }}"
-          if [ -n "$VERSIONS" ]; then
-            IFS=',' read -ra VERS <<< "$VERSIONS"
-            for ver in "${VERS[@]}"; do
-              ver=$(echo "$ver" | xargs)
-              FILE=$(ls src/main/resources/db/migration/${ver}__*.sql 2>/dev/null)
-              if [ -z "$FILE" ]; then
-                echo "::error::No migration file found for version $ver"
-                exit 1
-              fi
-              echo "=== Running: $FILE ==="
-              $PSQL_CMD -f "$FILE"
-              echo "=== Done: $FILE ==="
-            done
-          else
-            for FILE in src/main/resources/db/migration/V*.sql; do
-              echo "=== Running: $FILE ==="
-              $PSQL_CMD -f "$FILE" || echo "::warning::Migration may have already been applied: $FILE"
-            done
-          fi
-          echo "All migrations completed."
+          IFS=',' read -ra VERS <<< "$VERSIONS"
+          for ver in "${VERS[@]}"; do
+            ver=$(echo "$ver" | xargs)
+            FILE=$(ls src/main/resources/db/migration/${ver}__*.sql 2>/dev/null)
+            if [ -z "$FILE" ]; then
+              echo "::error::No migration file found for version $ver"
+              exit 1
+            fi
+            echo "=== Running: $FILE ==="
+            $PSQL_CMD -f "$FILE"
+            echo "=== Done: $FILE ==="
+          done
+          echo "All requested migrations completed."
 
   load-dictionary:
     if: inputs.operation == 'load-dictionary'
