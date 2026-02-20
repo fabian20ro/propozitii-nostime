@@ -14,6 +14,10 @@ class NounTest {
         "codru, M, codrul",
         "staul, N, staulul",
         "pod, N, podul",
+        "munte, M, muntele",
+        "perete, M, peretele",
+        "burete, M, buretele",
+        "tată, M, tatăl",
     )
     fun shouldArticulateMasculineAndNeutral(word: String, gender: String, expected: String) {
         val noun = Noun(word, NounGender.valueOf(gender))

@@ -13,20 +13,21 @@ data class Adjective(
 
     companion object {
         fun computeFeminine(word: String): String = when {
-            word.endsWith("esc") -> word.substring(0, word.length - 2) + "ască"
-            word.endsWith("eț") -> word.substring(0, word.length - 1) + "ață"
-            word.endsWith("tor") -> word.substring(0, word.length - 2) + "oare"
-            word.endsWith("șor") -> word.substring(0, word.length - 2) + "oară"
-            word.endsWith("ior") -> word.substring(0, word.length - 2) + "oară"
-            word.endsWith("os") -> word.substring(0, word.length - 1) + "asă"
-            word.endsWith("iu") -> word.substring(0, word.length - 1) + "e"
-            word.endsWith("ci") -> word.substring(0, word.length - 1) + "e"
-            // "negru" has an irregular stem vowel alternation (e→ea) that the generic
-            // -ru rule can't handle; other -gru words don't exist in standard Romanian.
             word == "negru" -> "neagră"
-            word.endsWith("ru") -> word.substring(0, word.length - 1) + "ă"
+            word == "roșu" -> "roșie"
+            word == "sec" -> "seacă"
+            word == "des" -> "deasă"
+            word.endsWith("esc") -> word.dropLast(2) + "ască"
+            word.endsWith("eț") -> word.dropLast(1) + "ață"
+            word.endsWith("tor") -> word.dropLast(2) + "oare"
+            word.endsWith("șor") -> word.dropLast(2) + "oară"
+            word.endsWith("ior") -> word.dropLast(2) + "oară"
+            word.endsWith("os") -> word.dropLast(1) + "asă"
+            word.endsWith("iu") -> word.dropLast(1) + "e"
+            word.endsWith("ci") -> word.dropLast(1) + "e"
+            word.endsWith("ru") -> word.dropLast(1) + "ă"
             word.endsWith("țel") || word.endsWith("șel") || word.endsWith("rel") ->
-                word.substring(0, word.length - 2) + "ică"
+                word.dropLast(2) + "ică"
             word.endsWith("e") || word.endsWith("o") || word.endsWith("i") -> word
             else -> word + "ă"
         }
