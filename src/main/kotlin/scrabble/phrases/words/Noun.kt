@@ -14,12 +14,16 @@ data class Noun(
             NounGender.F -> articulateFeminine(word)
         }
 
-        private fun articulateMasculine(word: String): String =
-            if (word.endsWith("u")) word + "l" else word + "ul"
+        private fun articulateMasculine(word: String): String = when {
+            word.endsWith("u") -> word + "l"
+            word.endsWith("e") -> word + "le"
+            word.endsWith("ă") -> word + "l"
+            else -> word + "ul"
+        }
 
         private fun articulateFeminine(word: String): String = when {
             word.length > 1 && (word.endsWith("ă") || word.endsWith("ie")) ->
-                word.substring(0, word.length - 1) + "a"
+                word.dropLast(1) + "a"
             word.endsWith("a") -> word + "ua"
             else -> word + "a"
         }

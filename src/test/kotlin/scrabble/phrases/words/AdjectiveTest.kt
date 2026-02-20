@@ -33,6 +33,9 @@ class AdjectiveTest {
         "verde, verde",
         "maro, maro",
         "gri, gri",
+        "roșu, roșie",
+        "sec, seacă",
+        "des, deasă",
     )
     fun shouldDeriveFeminineForm(masculine: String, expectedFeminine: String) {
         val adj = Adjective(masculine)

@@ -13,7 +13,8 @@ class WordUtilsTest {
             "vulpoaica" to 3, "miau" to 1, "leoaica" to 3, "lupoaica" to 3, "mioara" to 2,
             "ambiguul" to 4, "t\u0103m\u00e2ie" to 3, "bou" to 1, "reusit" to 3, "greul" to 2,
             "plouat" to 2, "roua" to 2, "calea" to 2, "eu" to 1, "greu" to 1, "pui" to 1,
-            "tuiul" to 2, "ghioc" to 2
+            "tuiul" to 2, "ghioc" to 2,
+            "laur" to 2, "taur" to 2, "dinozaur" to 4
         )
 
         for ((word, expected) in wordMap) {

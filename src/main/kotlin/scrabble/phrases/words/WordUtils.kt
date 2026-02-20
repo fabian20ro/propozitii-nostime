@@ -2,8 +2,6 @@ package scrabble.phrases.words
 
 object WordUtils {
 
-    private val fixes = mapOf("'" to "")
-
     private val tongs = arrayOf(
         "iai", "eau", "iau", "oai", "ioa",
         "ia", "oa", "ea", "ua", "\u00e2u",
@@ -12,7 +10,7 @@ object WordUtils {
 
     fun capitalizeFirstLetter(sentence: String?): String? {
         if (sentence.isNullOrEmpty()) return sentence
-        return sentence.substring(0, 1).uppercase() + sentence.substring(1)
+        return sentence.replaceFirstChar { it.uppercaseChar() }
     }
 
     fun computeSyllableNumber(word: String): Int {
@@ -24,13 +22,7 @@ object WordUtils {
     fun computeRhyme(name: String): String =
         name.substring(maxOf(0, name.length - 3))
 
-    fun fixWordCharacters(word: String): String {
-        var result = word
-        for ((key, value) in fixes) {
-            result = result.replace(key, value)
-        }
-        return result
-    }
+    fun fixWordCharacters(word: String): String = word.replace("'", "")
 
     private fun replaceTongsWithChar(chars: CharArray) {
         val clength = chars.size
