@@ -37,14 +37,12 @@ object WordUtils {
                         i += 2
                     }
                 } else if (tch[0] == chars[i] && tch[1] == chars[i + 1]) {
-                    if (i > 0) {
-                        if (!isVowel(chars[i - 1])) {
-                            chars[i + 1] = 'z'
-                        } else {
-                            chars[i] = 'z'
-                        }
-                        i++
+                    if (i == 0 || !isVowel(chars[i - 1])) {
+                        chars[i + 1] = 'z'
+                    } else {
+                        chars[i] = 'z'
                     }
+                    i++
                 }
                 i++
             }

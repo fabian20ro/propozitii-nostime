@@ -556,10 +556,6 @@ export function decorateSentence(sentence: string): string {
   return addDexLinks(capitalizeFirst(sentence.trim()));
 }
 
-export function decorateDefinition(sentence: string): string {
-  return addDexLinks(sentence);
-}
-
 // --- Sentence providers ---
 
 async function genComparison(minR: number, maxR: number, cache?: CountCache): Promise<string> {
@@ -581,7 +577,7 @@ async function genDefinition(minR: number, maxR: number, cache?: CountCache): Pr
   const noun = await randomNoun(minR, maxR, [defined.word], cache);
   const obj = await randomNoun(minR, maxR, [defined.word, noun.word], cache);
   const raw = `${defined.word.toUpperCase()}: ${noun.articulated} ${adjForGender(adj, noun.gender)} care ${verb.word} ${obj.articulated}.`;
-  return decorateDefinition(raw);
+  return decorateSentence(raw);
 }
 
 async function genDistih(minR: number, maxR: number, cache?: CountCache): Promise<string> {

@@ -36,6 +36,10 @@ class AdjectiveTest {
         "roșu, roșie",
         "sec, seacă",
         "des, deasă",
+        "drept, dreaptă",
+        "întreg, întreagă",
+        "deșert, deșeartă",
+        "mort, moartă",
     )
     fun shouldDeriveFeminineForm(masculine: String, expectedFeminine: String) {
         val adj = Adjective(masculine)
@@ -59,6 +63,10 @@ class AdjectiveTest {
         "verde, 2",
         "minunat, 4",
         "superior, 4",
+        "drept, 2",
+        "întreg, 3",
+        "deșert, 3",
+        "mort, 2",
     )
     fun shouldComputeFeminineSyllables(masculine: String, expectedFeminineSyllables: Int) {
         val adj = Adjective(masculine)

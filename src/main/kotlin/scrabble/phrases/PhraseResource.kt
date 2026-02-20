@@ -27,9 +27,9 @@ class PhraseResource {
     lateinit var wordRepository: WordRepository
 
     private fun rarityRange(rarity: Int?, minRarity: Int?): Pair<Int, Int> {
-        val max = normalizeRarity(rarity)
-        val min = normalizeRarity(minRarity, default = 1)
-        return Pair(min, max)
+        val a = normalizeRarity(rarity)
+        val b = normalizeRarity(minRarity, default = 1)
+        return Pair(minOf(a, b), maxOf(a, b))
     }
 
     private fun generate(
@@ -59,7 +59,7 @@ class PhraseResource {
     @GET
     @Path("/definition")
     fun getDefinition(@QueryParam("rarity") rarity: Int?, @QueryParam("minRarity") minRarity: Int?): SentenceResponse =
-        generate(rarity, minRarity, ::DexonlineLinkAdder) { min, max -> DefinitionProvider(wordRepository, minRarity = min, maxRarity = max) }
+        generate(rarity, minRarity, ::decorateSentence) { min, max -> DefinitionProvider(wordRepository, minRarity = min, maxRarity = max) }
 
     @GET
     @Path("/tautogram")

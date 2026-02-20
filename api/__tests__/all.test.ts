@@ -5,7 +5,6 @@ import {
   addDexLinks,
   decorateVerse,
   decorateSentence,
-  decorateDefinition,
   adjForGender,
   parseAllowedOrigins,
   resolveCorsOrigin,
@@ -165,12 +164,11 @@ describe("decorateSentence", () => {
   });
 });
 
-// --- decorateDefinition ---
+// --- definition decoration (now uses decorateSentence) ---
 
-describe("decorateDefinition", () => {
-  it("adds links without capitalizing (definition already has case)", () => {
-    const result = decorateDefinition("MASĂ: câinele frumos.");
-    // MASĂ should be linked and preserved as uppercase in display
+describe("definition decoration", () => {
+  it("decorateSentence capitalizes and adds links for definitions", () => {
+    const result = decorateSentence("MASĂ: câinele frumos.");
     expect(result).toContain(">MASĂ</a>");
     expect(result).toContain(`href="${DEXONLINE_URL}`);
   });

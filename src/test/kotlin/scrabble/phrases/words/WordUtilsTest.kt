@@ -14,7 +14,10 @@ class WordUtilsTest {
             "ambiguul" to 4, "t\u0103m\u00e2ie" to 3, "bou" to 1, "reusit" to 3, "greul" to 2,
             "plouat" to 2, "roua" to 2, "calea" to 2, "eu" to 1, "greu" to 1, "pui" to 1,
             "tuiul" to 2, "ghioc" to 2,
-            "laur" to 2, "taur" to 2, "dinozaur" to 4
+            "laur" to 2, "taur" to 2, "dinozaur" to 4,
+            // Word-initial diphthongs (regression: i > 0 guard skipped position 0)
+            "iarbă" to 2, "iarnă" to 2, "ieftin" to 2, "iepure" to 3,
+            "oare" to 2, "oală" to 2, "ușoară" to 3
         )
 
         for ((word, expected) in wordMap) {
