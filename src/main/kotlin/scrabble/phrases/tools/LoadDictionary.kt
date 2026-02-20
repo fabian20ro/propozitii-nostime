@@ -26,9 +26,38 @@ fun main() {
     conn.autoCommit = false
 
     try {
+        println("Backing up rarity_level values...")
+        conn.createStatement().use {
+            it.execute("""
+                CREATE TEMP TABLE rarity_backup AS
+                SELECT word, type, COALESCE(gender, '') AS gender, rarity_level
+                FROM words
+                WHERE rarity_level IS DISTINCT FROM 4
+            """.trimIndent())
+        }
+        val backupCount = conn.createStatement().use { st ->
+            st.executeQuery("SELECT COUNT(*) FROM rarity_backup").let { rs -> rs.next(); rs.getInt(1) }
+        }
+        println("  Backed up $backupCount rarity classifications.")
+
         println("Truncating words table...")
         conn.createStatement().use { it.execute("TRUNCATE TABLE words") }
         loadWords(conn, wordsFile)
+
+        println("Restoring rarity_level values...")
+        val restored = conn.createStatement().use { st ->
+            st.executeUpdate("""
+                UPDATE words w
+                SET rarity_level = rb.rarity_level
+                FROM rarity_backup rb
+                WHERE w.word = rb.word
+                  AND w.type = rb.type
+                  AND COALESCE(w.gender, '') = rb.gender
+            """.trimIndent())
+        }
+        println("  Restored $restored rarity classifications.")
+
+        conn.createStatement().use { it.execute("DROP TABLE IF EXISTS rarity_backup") }
         conn.commit()
         println("Dictionary loaded successfully!")
     } catch (e: Exception) {
@@ -43,8 +72,8 @@ private fun loadWords(conn: Connection, wordsFile: File) {
     println("Loading words from ${wordsFile.name}...")
 
     val insertSql = """
-        INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine, articulated_syllables, rarity_level, feminine_syllables)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO words (word, type, gender, syllables, rhyme, first_letter, articulated, feminine, articulated_syllables, feminine_syllables)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.trimIndent()
 
     conn.prepareStatement(insertSql).use { stmt ->
@@ -102,8 +131,7 @@ private fun insertNoun(stmt: java.sql.PreparedStatement, word: String, gender: N
     stmt.setString(7, noun.articulated)
     stmt.setNull(8, java.sql.Types.VARCHAR)
     stmt.setInt(9, WordUtils.computeSyllableNumber(noun.articulated))
-    stmt.setInt(10, 4)
-    stmt.setNull(11, java.sql.Types.SMALLINT)
+    stmt.setNull(10, java.sql.Types.SMALLINT)
     stmt.addBatch()
 }
 
@@ -118,8 +146,7 @@ private fun insertAdjective(stmt: java.sql.PreparedStatement, word: String) {
     stmt.setNull(7, java.sql.Types.VARCHAR)
     stmt.setString(8, adj.feminine)
     stmt.setNull(9, java.sql.Types.SMALLINT)
-    stmt.setInt(10, 4)
-    stmt.setInt(11, adj.feminineSyllables)
+    stmt.setInt(10, adj.feminineSyllables)
     stmt.addBatch()
 }
 
@@ -134,7 +161,6 @@ private fun insertVerb(stmt: java.sql.PreparedStatement, word: String) {
     stmt.setNull(7, java.sql.Types.VARCHAR)
     stmt.setNull(8, java.sql.Types.VARCHAR)
     stmt.setNull(9, java.sql.Types.SMALLINT)
-    stmt.setInt(10, 4)
-    stmt.setNull(11, java.sql.Types.SMALLINT)
+    stmt.setNull(10, java.sql.Types.SMALLINT)
     stmt.addBatch()
 }
