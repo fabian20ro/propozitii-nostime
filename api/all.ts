@@ -179,7 +179,7 @@ export interface Adjective {
   syllables: number;
   rhyme: string;
   feminine: string;
-  feminine_syllables: number;
+  feminine_syllables: number | null;
 }
 
 interface Verb {
@@ -616,9 +616,11 @@ async function genHaiku(minR: number, maxR: number, cache?: CountCache): Promise
   const noun =
     (await randomNounByArticulatedSyllables(5, minR, maxR, [], cache)) ||
     (await randomNoun(minR, maxR, [], cache));
-  // Adjective form must be 4 syllables; query by feminine_syllables for feminine nouns
+  // Adjective form must be 4 syllables; query by feminine_syllables for feminine nouns.
+  // Falls back to masculine-syllable query if feminine_syllables is not yet backfilled.
   const adjPromise = noun.gender === "F"
     ? randomAdjByFeminineSyllables(4, minR, maxR, cache)
+        .then((a) => a ?? randomAdjBySyllables(3, minR, maxR, cache))
     : randomAdjBySyllables(4, minR, maxR, cache);
   const [adj, verb, noun2] = await Promise.all([
     adjPromise,
