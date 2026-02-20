@@ -118,4 +118,5 @@ When changing lexical rules/schema:
 2. Update loader logic (if computed fields changed).
 3. Update repository query/caches if new dimensions are queried frequently.
 4. Update seed data to satisfy provider constraints.
-5. Run `./gradlew test`.
+5. Never set `rarity_level` in `LoadDictionary` — it is managed by the external rarity classifier.
+6. Run `./gradlew test`.

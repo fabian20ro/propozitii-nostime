@@ -111,7 +111,8 @@ Primary quality target: keep sentence generation constraints correct (rhyme, syl
    - `src/main/kotlin/scrabble/phrases/repository/WordRepository.kt`
 3. Add or update migrations in `src/main/resources/db/migration/`.
 4. Update test seed in `src/test/resources/db/testmigration/V100__seed_test_data.sql` so provider constraints still hold.
-5. Run `./gradlew test`.
+5. Never set `rarity_level` in `LoadDictionary` — it is managed externally by the [word-rarity-classifier](https://github.com/fabian20ro/word-rarity-classifier) project. The loader backs up and restores rarity levels across reloads; new words get the schema default (4).
+6. Run `./gradlew test`.
 
 ## Testing Expectations
 
