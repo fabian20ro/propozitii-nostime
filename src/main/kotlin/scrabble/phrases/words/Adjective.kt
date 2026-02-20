@@ -21,6 +21,8 @@ data class Adjective(
             word.endsWith("os") -> word.substring(0, word.length - 1) + "asă"
             word.endsWith("iu") -> word.substring(0, word.length - 1) + "e"
             word.endsWith("ci") -> word.substring(0, word.length - 1) + "e"
+            // "negru" has an irregular stem vowel alternation (e→ea) that the generic
+            // -ru rule can't handle; other -gru words don't exist in standard Romanian.
             word == "negru" -> "neagră"
             word.endsWith("ru") -> word.substring(0, word.length - 1) + "ă"
             word.endsWith("țel") || word.endsWith("șel") || word.endsWith("rel") ->

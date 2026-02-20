@@ -1,0 +1,89 @@
+name: Database Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to perform'
+        required: true
+        type: choice
+        options:
+          - run-migrations
+          - load-dictionary
+      migration_versions:
+        description: 'Migration versions to run (comma-separated, e.g. "V4,V5"). Leave empty for all. Ignored for load-dictionary.'
+        required: false
+        type: string
+
+jobs:
+  run-migrations:
+    if: inputs.operation == 'run-migrations'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run SQL migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          # Parse JDBC URL: jdbc:postgresql://host:port/dbname?params
+          PG_CONN="${SUPABASE_DB_URL#jdbc:postgresql://}"
+          HOST=$(echo "$PG_CONN" | cut -d: -f1)
+          PORT=$(echo "$PG_CONN" | cut -d: -f2 | cut -d/ -f1)
+          DB=$(echo "$PG_CONN" | cut -d/ -f2 | cut -d? -f1)
+
+          export PGPASSWORD="$SUPABASE_DB_PASSWORD"
+          export PGSSLMODE=require
+          PSQL_CMD="psql -h $HOST -p $PORT -U $SUPABASE_DB_USER -d $DB -v ON_ERROR_STOP=1"
+
+          VERSIONS="${{ inputs.migration_versions }}"
+          if [ -n "$VERSIONS" ]; then
+            IFS=',' read -ra VERS <<< "$VERSIONS"
+            for ver in "${VERS[@]}"; do
+              ver=$(echo "$ver" | xargs)
+              FILE=$(ls src/main/resources/db/migration/${ver}__*.sql 2>/dev/null)
+              if [ -z "$FILE" ]; then
+                echo "::error::No migration file found for version $ver"
+                exit 1
+              fi
+              echo "=== Running: $FILE ==="
+              $PSQL_CMD -f "$FILE"
+              echo "=== Done: $FILE ==="
+            done
+          else
+            for FILE in src/main/resources/db/migration/V*.sql; do
+              echo "=== Running: $FILE ==="
+              $PSQL_CMD -f "$FILE" || echo "::warning::Migration may have already been applied: $FILE"
+            done
+          fi
+          echo "All migrations completed."
+
+  load-dictionary:
+    if: inputs.operation == 'load-dictionary'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download dictionary
+        run: |
+          chmod +x gradlew
+          ./gradlew downloadDictionary
+
+      - name: Load dictionary into Supabase
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: ./gradlew loadDictionary
