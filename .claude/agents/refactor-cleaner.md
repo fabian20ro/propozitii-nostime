@@ -19,10 +19,14 @@ You are an expert refactoring specialist focused on code cleanup and consolidati
 ## Detection Commands
 
 ```bash
+# Kotlin/Gradle (primary backend)
+./gradlew test                              # Verify nothing breaks after removal
+grep -r 'import.*unused' src/               # Find unused imports in Kotlin
+
+# TypeScript/Node (Vercel fallback in api/)
 npx knip                                    # Unused files, exports, dependencies
 npx depcheck                                # Unused npm dependencies
 npx ts-prune                                # Unused TypeScript exports
-npx eslint . --report-unused-disable-directives  # Unused eslint directives
 ```
 
 ## Workflow
@@ -82,4 +86,4 @@ After each batch:
 - All tests passing
 - Build succeeds
 - No regressions
-- Bundle size reduced
+- Codebase is leaner (fewer unused files/exports/dependencies)
