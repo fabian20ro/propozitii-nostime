@@ -10,7 +10,7 @@ class CacheControlFilter : ContainerResponseFilter {
 
     override fun filter(requestContext: ContainerRequestContext, responseContext: ContainerResponseContext) {
         val path = requestContext.uriInfo.path
-        if (path.startsWith("api/")) {
+        if (path.startsWith("api/") && responseContext.status in 200..299) {
             responseContext.headers.putSingle("Cache-Control", "max-age=$MAX_AGE_SECONDS")
         }
     }
