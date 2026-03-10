@@ -688,6 +688,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Max-Age", "86400");
+  res.setHeader("Cache-Control", "max-age=180");
 
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
