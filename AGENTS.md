@@ -1,8 +1,9 @@
 # AGENTS.md
 
-> This file provides non-discoverable bootstrap context.
-> If the model can find it in the codebase, it does not belong here.
-> For corrections and patterns, see LESSONS_LEARNED.md.
+work style: telegraph; noun-phrases ok; drop grammar; min tokens.
+
+> bootstrap context only. discoverable from codebase → don't put here.
+> corrections + patterns → LESSONS_LEARNED.md.
 
 ## Constraints
 
@@ -16,28 +17,34 @@
 
 5. **Rarity is external:** Never set `rarity_level` in `LoadDictionary` — it is managed by the [word-rarity-classifier](https://github.com/fabian20ro/word-rarity-classifier) project. The loader backs up and restores rarity levels across reloads.
 
+## Legacy & Deprecated
+
+<!-- codebase parts that actively mislead. -->
+
 ## Learning System
 
-This project uses a persistent learning system. Follow this workflow every session:
+Every session:
+1. start: read `LESSONS_LEARNED.md`
+2. during: note surprises
+3. end: append `ITERATION_LOG.md`
+4. reusable insight? → also add `LESSONS_LEARNED.md`
+5. same issue 2+ times in log? → promote to `LESSONS_LEARNED.md`
+6. surprise? → flag to developer (they decide: fix codebase / update LESSONS_LEARNED / adjust this file)
 
-1. **Start of task:** Read `LESSONS_LEARNED.md` — it contains validated corrections and patterns
-2. **During work:** Note any surprises or non-obvious discoveries
-3. **End of iteration:** Append to `ITERATION_LOG.md` with what happened
-4. **If insight is reusable and validated:** Also add to `LESSONS_LEARNED.md`
-5. **If same issue appears 2+ times in log:** Promote to `LESSONS_LEARNED.md`
-6. **If something surprised you:** Flag it to the developer
+| File | Purpose | Write When |
+|------|---------|------------|
+| `LESSONS_LEARNED.md` | curated wisdom + corrections | reusable insight gained |
+| `ITERATION_LOG.md` | raw session journal, append-only | every iteration |
 
-| File | Purpose | When to Write |
-|------|---------|---------------|
-| `LESSONS_LEARNED.md` | Curated, validated wisdom and corrections | When insight is reusable |
-| `ITERATION_LOG.md` | Raw session journal (append-only, never delete) | Every iteration (always) |
+Rules: never delete from ITERATION_LOG. Obsolete lessons → Archive in LESSONS_LEARNED. Date-stamp YYYY-MM-DD. When in doubt: log it.
 
 ### Periodic Maintenance
-This project's config files are audited periodically using `SETUP_AI_AGENT_CONFIG.md`.
+Config files audited periodically via `SETUP_AI_AGENT_CONFIG.md`.
+See "Periodic Maintenance Protocol" section.
 
 ## Sub-Agents
 
-Specialized agents in `.claude/agents/`. Invoke proactively — don't wait to be asked.
+`.claude/agents/`. Invoke proactively.
 
 | Agent | File | Invoke When |
 |-------|------|-------------|
