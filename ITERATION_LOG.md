@@ -18,6 +18,20 @@
 
 ---
 
+### 2026-03-16: Agent Config Audit & Template Alignment
+
+**Context:** Audit all agent config files against SETUP_AI_AGENT_CONFIG.md guide and align with templates.
+**What happened:**
+- Added `work style: telegraph` header to AGENTS.md (was missing)
+- Added empty `Legacy & Deprecated` section to AGENTS.md (template requirement)
+- Condensed Learning System section to telegraph style
+- Verified all 4 core sub-agents (architect, planner, ux-expert, agent-creator) are fully compliant
+- Verified CLAUDE.md, LESSONS_LEARNED.md, ITERATION_LOG.md match templates
+- Noted code-reviewer.md (189 lines) and romanian-linguist.md (143 lines) exceed 100-line soft limit
+**Outcome:** Success
+**Insight:** Files were already well-structured from the 2026-02-24 migration. Main gaps were cosmetic: missing telegraph header and Legacy section placeholder.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration
