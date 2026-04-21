@@ -1,5 +1,8 @@
 name: Database Operations
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
