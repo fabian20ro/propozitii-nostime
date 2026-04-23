@@ -26,6 +26,9 @@ on:
       - 'vercel.json'
       - '.github/workflows/backend.yml'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
