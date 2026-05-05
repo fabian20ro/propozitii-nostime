@@ -1,6 +1,8 @@
 package scrabble.phrases.decorators
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import scrabble.phrases.providers.ISentenceProvider
 
@@ -58,5 +60,17 @@ class DecoratorTest {
         val baseProvider = ISentenceProvider { "line one / line two / line three" }
         val breaker = HtmlVerseBreaker(baseProvider)
         assertEquals("line one<br/>line two<br/>line three", breaker.getSentence())
+    }
+
+    @Test
+    fun shouldKeepAnchorContract() {
+        val baseProvider = ISentenceProvider { "Masă" }
+        val result = DexonlineLinkAdder(baseProvider).getSentence()
+
+        assertTrue(result.contains("""href="${DexonlineLinkAdder.DEXONLINE_URL}mas%C4%83""""))
+        assertTrue(result.contains("""target="${DexonlineLinkAdder.LINK_TARGET}""""))
+        assertTrue(result.contains("""rel="${DexonlineLinkAdder.LINK_REL}""""))
+        assertTrue(result.contains("""${DexonlineLinkAdder.ATTR_DATA_WORD}="mas%C4%83""""))
+        assertFalse(result.contains("onclick="))
     }
 }

@@ -79,6 +79,7 @@ curl "https://propozitii-nostime.vercel.app/api/all?minRarity=1&rarity=2"
 - Backend logs: Render dashboard.
 - Default log level: `INFO`.
 - Package debug level: `scrabble.phrases` set to `DEBUG`.
+- Generator diagnostics (debug): `WordRepository` now logs selection strategy (`count_offset`, `order_by_random_not_in`, rhyme-group cache/DB path), rarity range, and exclude-set size when `DEBUG` is enabled for `scrabble.phrases`.
 
 ## Common Incidents
 

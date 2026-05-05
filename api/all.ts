@@ -150,6 +150,9 @@ function withTimeout<T>(promise: Promise<T>, fallback: T, ms: number): Promise<T
 }
 
 export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
+export const DEXONLINE_ANCHOR_ATTRS = ["href", "target", "rel", "data-word"] as const;
+export const DEXONLINE_ANCHOR_TARGET = "_blank";
+export const DEXONLINE_ANCHOR_REL = "noopener";
 const UNSATISFIABLE =
   "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
 
@@ -534,7 +537,7 @@ export function escapeHtml(text: string): string {
 export function addDexLinks(sentence: string): string {
   return sentence.replace(/\p{L}+/gu, (w) => {
     const encoded = encodeURIComponent(w.toLowerCase());
-    return `<a href="${DEXONLINE_URL}${encoded}" target="_blank" rel="noopener" data-word="${encoded}">${escapeHtml(w)}</a>`;
+    return `<a href="${DEXONLINE_URL}${encoded}" target="${DEXONLINE_ANCHOR_TARGET}" rel="${DEXONLINE_ANCHOR_REL}" data-word="${encoded}">${escapeHtml(w)}</a>`;
   });
 }
 

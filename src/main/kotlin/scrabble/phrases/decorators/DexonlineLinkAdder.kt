@@ -7,7 +7,10 @@ import java.nio.charset.StandardCharsets
 class DexonlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvider {
 
     companion object {
-        private const val DEXONLINE_URL = "https://dexonline.ro/definitie/"
+        const val DEXONLINE_URL = "https://dexonline.ro/definitie/"
+        const val LINK_TARGET = "_blank"
+        const val LINK_REL = "noopener"
+        const val ATTR_DATA_WORD = "data-word"
     }
 
     override fun getSentence(): String =
@@ -17,7 +20,7 @@ class DexonlineLinkAdder(private val provider: ISentenceProvider) : ISentencePro
         val encodedWord = URLEncoder.encode(word.lowercase(), StandardCharsets.UTF_8)
         val url = "$DEXONLINE_URL$encodedWord"
         val escapedWord = escapeHtml(word)
-        return """<a href="$url" target="_blank" rel="noopener" data-word="$encodedWord">$escapedWord</a>"""
+        return """<a href="$url" target="$LINK_TARGET" rel="$LINK_REL" $ATTR_DATA_WORD="$encodedWord">$escapedWord</a>"""
     }
 
     private fun escapeHtml(text: String): String = text

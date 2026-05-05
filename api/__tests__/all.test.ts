@@ -12,6 +12,9 @@ import {
   resolveSupabaseInit,
   validateSupabaseUrl,
   DEXONLINE_URL,
+  DEXONLINE_ANCHOR_ATTRS,
+  DEXONLINE_ANCHOR_TARGET,
+  DEXONLINE_ANCHOR_REL,
   type Adjective,
 } from "../all";
 
@@ -191,9 +194,13 @@ describe("parity contract", () => {
 
   it("anchors include target=_blank, rel=noopener, data-word", () => {
     const result = addDexLinks("test");
-    expect(result).toMatch(/target="_blank"/);
-    expect(result).toMatch(/rel="noopener"/);
+    expect(result).toMatch(new RegExp(`target="${DEXONLINE_ANCHOR_TARGET}"`));
+    expect(result).toMatch(new RegExp(`rel="${DEXONLINE_ANCHOR_REL}"`));
     expect(result).toMatch(/data-word="test"/);
+  });
+
+  it("anchor attribute contract stays explicit", () => {
+    expect([...DEXONLINE_ANCHOR_ATTRS]).toEqual(["href", "target", "rel", "data-word"]);
   });
 });
 

@@ -4,6 +4,7 @@ import io.agroal.api.AgroalDataSource
 import io.quarkus.runtime.Startup
 import jakarta.annotation.PostConstruct
 import jakarta.enterprise.context.ApplicationScoped
+import org.jboss.logging.Logger
 import scrabble.phrases.words.Adjective
 import scrabble.phrases.words.Noun
 import scrabble.phrases.words.NounGender
@@ -13,6 +14,7 @@ import java.util.concurrent.ThreadLocalRandom
 @Startup
 @ApplicationScoped
 class WordRepository(private val dataSource: AgroalDataSource) {
+    private val log: Logger = Logger.getLogger(WordRepository::class.java)
 
     private var countsByTypeMaxRarity: Map<Pair<String, Int>, Int> = emptyMap()
     private var countsByTypeSyllablesMaxRarity: Map<Triple<String, Int, Int>, Int> = emptyMap()
@@ -157,10 +159,16 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     private fun rarityDesc(minRarity: Int, maxRarity: Int): String =
         if (minRarity <= 1) "<= $maxRarity" else "between $minRarity and $maxRarity"
 
+    private fun debugSelection(strategy: String, type: String, minRarity: Int, maxRarity: Int, extras: String = "") {
+        if (!log.isDebugEnabled) return
+        log.debug("selection strategy=$strategy type=$type rarity=${rarityDesc(minRarity, maxRarity)} $extras")
+    }
+
     fun getRandomNoun(minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY, exclude: Set<String> = emptySet()): Noun {
         val min = clampRarity(minRarity)
         val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
+            debugSelection("order_by_random_not_in", "N", min, max, "exclude=${exclude.size}")
             val notIn = notInClause(exclude.size)
             return queryNoun(
                 "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
@@ -168,6 +176,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
             ) ?: throw IllegalStateException("No nouns found in database for rarity ${rarityDesc(min, max)}")
         }
         val count = rangeCount(countsByTypeMaxRarity, "N", min, max)
+        debugSelection("count_offset", "N", min, max, "count=$count exclude=0")
         if (count == 0) throw IllegalStateException("No nouns found in database for rarity ${rarityDesc(min, max)}")
         return queryNoun(
             "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
@@ -213,6 +222,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
 
         val count = rangeCountTriple(countsByTypeArticulatedSyllablesMaxRarity, "N", articulatedSyllables, min, max)
         if (count == 0) return null
+        debugSelection("count_offset_dim", "N", min, max, "dim=articulated_syllables value=$articulatedSyllables count=$count")
         return queryNoun(
             "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND articulated_syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             articulatedSyllables,
@@ -226,6 +236,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val min = clampRarity(minRarity)
         val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
+            debugSelection("order_by_random_not_in", "V", min, max, "exclude=${exclude.size}")
             val notIn = notInClause(exclude.size)
             return queryAdjective(
                 "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
@@ -281,6 +292,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
             ) ?: throw IllegalStateException("No verbs found in database for rarity ${rarityDesc(min, max)}")
         }
         val count = rangeCount(countsByTypeMaxRarity, "V", min, max)
+        debugSelection("count_offset", "V", min, max, "count=$count exclude=0")
         if (count == 0) throw IllegalStateException("No verbs found in database for rarity ${rarityDesc(min, max)}")
         return queryVerb(
             "SELECT word, syllables, rhyme FROM words WHERE type='V' AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
@@ -333,10 +345,12 @@ class WordRepository(private val dataSource: AgroalDataSource) {
                 else -> null
             }
             if (cached != null && cached.size >= 2) {
+                debugSelection("cached_rhyme_groups", type, min, max, "minCount=$minCount cached=${cached.size}")
                 val shuffled = cached.shuffled(ThreadLocalRandom.current())
                 return Pair(shuffled[0], shuffled[1])
             }
         }
+        debugSelection("db_rhyme_groups", type, min, max, "minCount=$minCount")
         return findTwoRhymeGroupsFromDb(type, minCount, min, max)
     }
 
