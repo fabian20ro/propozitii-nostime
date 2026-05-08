@@ -112,6 +112,17 @@ class PhraseResourceTest {
     }
 
     @Test
+    fun shouldHandleSwappedRarityParams() {
+        given()
+            .queryParam("rarity", 1)
+            .queryParam("minRarity", 5)
+            .when().get("/api/all")
+            .then()
+            .statusCode(200)
+            .body("haiku", notNullValue())
+    }
+
+    @Test
     fun shouldReturnPlaceholderWhenConstraintsAreImpossible() {
         given()
             .queryParam("rarity", 1)
