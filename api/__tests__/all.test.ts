@@ -210,10 +210,18 @@ describe("resolveSupabaseKey", () => {
   it("uses SUPABASE_PUBLISHABLE_KEY when provided", () => {
     const resolved = resolveSupabaseKey({
       SUPABASE_PUBLISHABLE_KEY: "publishable",
-      SUPABASE_SERVICE_ROLE_KEY: "service",
+      SUPABASE_SERVICE_ROLE_KEY: "abc",
     });
     expect(resolved.source).toBe("publishable");
     expect(resolved.key).toBe("publishable");
+  });
+
+  it("treats whitespace-only keys as empty", () => {
+    const resolved = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: "   ",
+    });
+    expect(resolved.source).toBe("none");
+    expect(resolved.key).toBe("");
   });
 
   it("requires publishable key when service-role fallback is not enabled", () => {
