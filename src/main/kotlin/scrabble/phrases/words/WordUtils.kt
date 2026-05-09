@@ -14,7 +14,7 @@ object WordUtils {
     }
 
     fun computeSyllableNumber(word: String): Int {
-        val chars = word.toCharArray()
+        val chars = word.lowercase().toCharArray()
         replaceTongsWithChar(chars)
         return chars.count { isVowel(it) }
     }
