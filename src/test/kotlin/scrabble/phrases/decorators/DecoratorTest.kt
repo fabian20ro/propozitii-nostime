@@ -49,6 +49,14 @@ class DecoratorTest {
     }
 
     @Test
+    fun shouldHandleEmptyString() {
+        val baseProvider = ISentenceProvider { "" }
+        val capitalized = FirstSentenceLetterCapitalizer(baseProvider)
+        assertEquals("", capitalized.getSentence())
+    }
+
+
+    @Test
     fun shouldCapitalizeEachVerseLine() {
         val baseProvider = ISentenceProvider { "first line / second line / third line" }
         val capitalized = VerseLineCapitalizer(baseProvider)
