@@ -547,12 +547,9 @@ export function capitalizeFirst(s: string): string {
 }
 
 export function decorateVerse(sentence: string): string {
-  const capitalized = sentence
-    .split(" / ")
-    .map((line) => capitalizeFirst(line.trim()))
-    .join(" / ");
-  const linked = addDexLinks(capitalized);
-  return linked.replace(/ \/ /g, "<br/>");
+  const lines = sentence.split(/\s*\/\s*/);
+  const decoratedLines = lines.map((line) => addDexLinks(capitalizeFirst(line.trim())));
+  return decoratedLines.join("<br/>");
 }
 
 export function decorateSentence(sentence: string): string {
