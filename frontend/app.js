@@ -289,6 +289,7 @@ async function fetchAllSentences(range) {
             renderIsHealthy = true;
             return winner.data;
         }
+        showInfo('Render este încă rece; folosesc fallback-ul Vercel momentan.');
         wakeRenderInBackground();
         renderAttempt
             .then(() => { renderIsHealthy = true; })
