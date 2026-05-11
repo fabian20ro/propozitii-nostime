@@ -67,6 +67,27 @@ export function resolveCorsOrigin(origin: string | undefined, allowlist: string[
   return allowlist[0];
 }
 
+function firstQueryValue(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+export interface NormalizedRarityRange {
+  minR: number;
+  maxR: number;
+}
+
+export function normalizeRarityRange(
+  minRarity: string | string[] | undefined,
+  rarity: string | string[] | undefined
+): NormalizedRarityRange {
+  const minCandidate = Math.max(1, Math.min(5, Number(firstQueryValue(minRarity)) || 1));
+  const maxCandidate = Math.max(1, Math.min(5, Number(firstQueryValue(rarity)) || 2));
+  return {
+    minR: Math.min(minCandidate, maxCandidate),
+    maxR: Math.max(minCandidate, maxCandidate),
+  };
+}
+
 export function validateSupabaseUrl(raw: string | undefined): string | undefined {
   const supabaseUrl = (raw ?? "").trim();
   if (!supabaseUrl) return "Missing SUPABASE_URL.";
@@ -698,10 +719,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     });
   }
 
-  const minCandidate = Math.max(1, Math.min(5, Number(req.query.minRarity) || 1));
-  const maxCandidate = Math.max(1, Math.min(5, Number(req.query.rarity) || 2));
-  const minR = Math.min(minCandidate, maxCandidate);
-  const maxR = Math.max(minCandidate, maxCandidate);
+  const { minR, maxR } = normalizeRarityRange(req.query.minRarity, req.query.rarity);
 
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {

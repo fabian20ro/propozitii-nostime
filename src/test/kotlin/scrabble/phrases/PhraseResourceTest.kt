@@ -112,10 +112,10 @@ class PhraseResourceTest {
     }
 
     @Test
-    fun shouldHandleSwappedRarityParams() {
+    fun shouldClampAndHandleSwappedRarityParams() {
         given()
-            .queryParam("rarity", 1)
-            .queryParam("minRarity", 5)
+            .queryParam("rarity", 6)
+            .queryParam("minRarity", 0)
             .when().get("/api/all")
             .then()
             .statusCode(200)

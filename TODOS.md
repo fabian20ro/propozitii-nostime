@@ -8,7 +8,7 @@
 - [x] Render/Vercel `/api/all` parity maintained for all six sentence fields.
 
 ### Next Improvements
-- [ ] Add explicit contract tests for `minRarity`/`rarity` clamping behavior in both backends.
+- [x] Add explicit contract tests for `minRarity`/`rarity` clamping behavior in both backends.
 - [ ] Add a small smoke script for validating Render primary and Vercel fallback parity from one command.
 - [ ] Improve health-poll diagnostics in frontend when Render remains cold/unreachable.
 

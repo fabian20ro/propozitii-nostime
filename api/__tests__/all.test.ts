@@ -10,6 +10,7 @@ import {
   resolveCorsOrigin,
   resolveSupabaseKey,
   resolveSupabaseInit,
+  normalizeRarityRange,
   validateSupabaseUrl,
   DEXONLINE_URL,
   DEXONLINE_ANCHOR_ATTRS,
@@ -64,6 +65,7 @@ describe("adjForGender", () => {
     syllables: 2,
     rhyme: "mos",
     feminine: "frumoasă",
+    feminine_syllables: null,
   };
 
   it("returns feminine form for gender F", () => {
@@ -294,5 +296,15 @@ describe("CORS origin helpers", () => {
 
   it("supports explicit wildcard allowlist", () => {
     expect(resolveCorsOrigin("https://anything.example", ["*"])).toBe("*");
+  });
+});
+
+describe("normalizeRarityRange", () => {
+  it("clamps and orders out-of-range query params", () => {
+    expect(normalizeRarityRange("0", "6")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("defaults to the published fallback range when params are missing", () => {
+    expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
 });
