@@ -14,4 +14,4 @@
 
 ### Nice to Have
 - [ ] Add lightweight API response-time telemetry for `/api/all` primary vs fallback path.
-- [ ] Add a short troubleshooting matrix in `docs/RUNBOOK.md` for Supabase query failures by status code.
+- [x] Add a short troubleshooting matrix in `docs/RUNBOOK.md` for Supabase query failures by status code.

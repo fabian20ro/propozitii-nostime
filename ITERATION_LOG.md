@@ -58,6 +58,18 @@
 **Insight:** When a fallback path is healthy enough to ship traffic, diagnostics should distinguish the first fallback from an exhausted recovery loop; otherwise the user sees the same generic status even when the primary backend never recovers.
 **Promoted to Lessons Learned:** Yes
 
+### 2026-05-12: Supabase Query Status Matrix
+
+**Context:** Make `/docs/RUNBOOK.md` easier to use when Supabase-backed requests fail in different ways.
+**What happened:**
+- Added a small status-code matrix to `docs/RUNBOOK.md` covering `500` and `429` cases
+- Kept the existing database-connection troubleshooting section and made the first checks more explicit
+- Marked the matching TODO complete
+- Added a reusable lesson about status-specific troubleshooting to `LESSONS_LEARNED.md`
+**Outcome:** Success
+**Insight:** Small runbooks work better when they map status codes to the first next action instead of describing all failures as generic backend errors.
+**Promoted to Lessons Learned:** Yes
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

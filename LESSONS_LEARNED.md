@@ -114,6 +114,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
 
+**[2026-05-12]** Status-specific runbook troubleshooting helps triage faster — When a backend or fallback API can fail through several distinct status codes, a short status matrix with the first check for each code is more useful than a single generic "backend 500s" note.
+
 ---
 
 ## Archive

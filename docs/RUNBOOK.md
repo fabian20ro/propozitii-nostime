@@ -115,6 +115,13 @@ Checks:
 2. Verify Supabase project is active.
 3. Validate connectivity from backend logs.
 
+### Supabase Query Status Matrix
+
+| Status | Surface | Usually means | First check |
+|--------|---------|---------------|-------------|
+| 500 | Render backend or Vercel fallback | Missing or invalid Supabase env vars, bad Supabase URL, database auth/connectivity failure, or an unhandled exception. Vercel returns `Missing SUPABASE_URL or Supabase API key` when initialization fails. | Verify `SUPABASE_*` env vars, confirm the Supabase URL is `https://<project-ref>.supabase.co`, then inspect backend/fallback logs. |
+| 429 | Render backend | Per-IP rate limit exceeded before query execution. The limiter uses the first `X-Forwarded-For` value and allows 30 requests/minute. | Wait for the 60s window to clear or lower the request rate while testing. |
+
 ### Migration Drift / Validation Failures
 
 Symptom:
