@@ -45,6 +45,19 @@
 **Insight:** Render cold starts can exceed a short smoke timeout; parity checks should default to a generous limit and stay env-overridable.
 **Promoted to Lessons Learned:** Yes
 
+### 2026-05-12: Frontend Render Health Poll Diagnostics
+
+**Context:** Improve the frontend experience when Render stays cold or unreachable and the app falls back to Vercel.
+**What happened:**
+- Added a small `renderColdMessage()` helper in `frontend/app.js`
+- Kept the existing immediate fallback notice, but made the background health probe emit a retry-counted message after exhausting `MAX_RETRIES`
+- Added a console warning for the exhausted-probe case so the failure mode is visible in logs too
+- Marked the matching TODO complete
+- Verified the script with `node --check frontend/app.js` and the repo test suite with `npm test`
+**Outcome:** Success
+**Insight:** When a fallback path is healthy enough to ship traffic, diagnostics should distinguish the first fallback from an exhausted recovery loop; otherwise the user sees the same generic status even when the primary backend never recovers.
+**Promoted to Lessons Learned:** Yes
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

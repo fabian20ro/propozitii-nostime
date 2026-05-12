@@ -10,7 +10,7 @@
 ### Next Improvements
 - [x] Add explicit contract tests for `minRarity`/`rarity` clamping behavior in both backends.
 - [x] Add a small smoke script for validating Render primary and Vercel fallback parity from one command.
-- [ ] Improve health-poll diagnostics in frontend when Render remains cold/unreachable.
+- [x] Improve health-poll diagnostics in frontend when Render remains cold/unreachable.
 
 ### Nice to Have
 - [ ] Add lightweight API response-time telemetry for `/api/all` primary vs fallback path.

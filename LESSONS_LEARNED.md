@@ -37,6 +37,7 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
 
+**[2026-05-12]** Exhausted health polls deserve their own diagnostic — If the frontend has already fallen back to Vercel because Render was cold, the background health loop should emit a retry-counted message (and log warning) when it exhausts all probes. A single generic "fallback active" notice hides the important difference between "temporarily using fallback" and "primary never recovered."
 **[2026-02-11]** Kotlin `require()` lazy evaluation — Kotlin `require()` lazily evaluates its message lambda; avoid side effects in that lambda.
 
 **[2026-02-11]** Broad exception catches hide failures — Broad exception catches in file/IO critical paths hide real failures; catch only expected exception types.

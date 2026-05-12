@@ -80,6 +80,13 @@ const RENDER_HEDGE_DELAY = 1200;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
 
+function renderColdMessage(retries = null) {
+    if (retries === null) {
+        return 'Render este încă rece; folosesc fallback-ul Vercel momentan.';
+    }
+    return `Render este încă rece după ${retries} verificări; folosesc fallback-ul Vercel momentan.`;
+}
+
 // Track whether Render backend is known to be up
 let renderIsHealthy = false;
 const RARITY_MIN_KEY = 'rarity-min';
@@ -289,7 +296,7 @@ async function fetchAllSentences(range) {
             renderIsHealthy = true;
             return winner.data;
         }
-        showInfo('Render este încă rece; folosesc fallback-ul Vercel momentan.');
+        showInfo(renderColdMessage());
         wakeRenderInBackground();
         renderAttempt
             .then(() => { renderIsHealthy = true; })
@@ -314,6 +321,11 @@ function wakeRenderInBackground() {
                 const up = await checkHealth();
                 if (up) { renderIsHealthy = true; break; }
                 await new Promise(r => setTimeout(r, RETRY_DELAY));
+            }
+            if (!renderIsHealthy) {
+                const message = renderColdMessage(MAX_RETRIES);
+                console.warn(message);
+                showInfo(message);
             }
         } finally {
             wakeRenderInBackground._running = false;
