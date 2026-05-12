@@ -116,7 +116,7 @@ class PhraseResourceTest {
         given()
             .queryParam("rarity", 6)
             .queryParam("minRarity", 0)
-            .when().get("/api/all")
+            .`when`().get("/api/all")
             .then()
             .statusCode(200)
             .body("haiku", notNullValue())
