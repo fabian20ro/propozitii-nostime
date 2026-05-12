@@ -104,5 +104,6 @@ jobs:
         if: always()
         with:
           files: build/test-results/test/*.xml
+          comment_mode: off
 
   # Render deployment happens automatically via render.yaml when pushed to master
