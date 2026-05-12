@@ -95,6 +95,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 **[2026-02-24]** Test seed data constraints — Introducing new provider constraints that test seed data cannot satisfy causes test failures that look like code bugs.
 
+**[2026-05-12]** Render smoke checks need generous timeouts — The Render primary endpoint can take longer than a few seconds to answer even when healthy. Parity smoke checks against `/api/all` should use a long default timeout and keep it configurable so cold starts do not look like failures.
+
 ## Dependencies & External Services
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->

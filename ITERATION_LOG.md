@@ -32,6 +32,19 @@
 **Insight:** Files were already well-structured from the 2026-02-24 migration. Main gaps were cosmetic: missing telegraph header and Legacy section placeholder.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-12: Render/Vercel Smoke Parity Command
+
+**Context:** Add a one-command smoke check for Render primary vs Vercel fallback `/api/all` parity.
+**What happened:**
+- Added `scripts/smoke-parity.mjs` to fetch both `/api/all?minRarity=1&rarity=2` endpoints
+- Added `npm run smoke:parity` in `package.json`
+- Documented the command in `docs/RUNBOOK.md`
+- Marked the repo TODO complete
+- Verified the script with a live run; the Render primary needed a much longer timeout than the first draft, so the default is now 65s and configurable
+**Outcome:** Success
+**Insight:** Render cold starts can exceed a short smoke timeout; parity checks should default to a generous limit and stay env-overridable.
+**Promoted to Lessons Learned:** Yes
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration
