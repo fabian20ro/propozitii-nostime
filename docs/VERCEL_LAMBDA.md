@@ -22,6 +22,10 @@ Endpoint:
 Response keys (all strings):
 - `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 
+Response-time headers:
+- `Server-Timing: api-all;dur=<ms>`
+- `X-Response-Time-Ms: <ms>`
+
 CORS:
 - Handler sets:
   - `Access-Control-Allow-Origin: <allowed origin>`

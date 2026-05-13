@@ -53,6 +53,7 @@ Required fallback endpoint contract:
 - returns JSON with all keys as strings: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - supports CORS for `https://fabian20ro.github.io` (or `*`) because frontend is hosted on GitHub Pages
 - preserves backend HTML contract (dexonline anchors + verse `<br/>`)
+- exposes `Server-Timing: api-all;dur=<ms>` and `X-Response-Time-Ms: <ms>` for lightweight response-time tracing
 
 Required Vercel env vars for `api/all.ts`:
 - `SUPABASE_URL=https://<project-ref>.supabase.co`

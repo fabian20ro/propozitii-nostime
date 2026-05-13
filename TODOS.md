@@ -13,5 +13,5 @@
 - [x] Improve health-poll diagnostics in frontend when Render remains cold/unreachable.
 
 ### Nice to Have
-- [ ] Add lightweight API response-time telemetry for `/api/all` primary vs fallback path.
+- [x] Add lightweight API response-time telemetry for `/api/all` primary vs fallback path.
 - [x] Add a short troubleshooting matrix in `docs/RUNBOOK.md` for Supabase query failures by status code.

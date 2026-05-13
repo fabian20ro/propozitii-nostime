@@ -12,6 +12,7 @@ import {
   resolveSupabaseInit,
   normalizeRarityRange,
   validateSupabaseUrl,
+  buildResponseTimingHeaders,
   DEXONLINE_URL,
   DEXONLINE_ANCHOR_ATTRS,
   DEXONLINE_ANCHOR_TARGET,
@@ -276,6 +277,13 @@ describe("Supabase init validation", () => {
 describe("CORS origin helpers", () => {
   it("uses default allowlist when env value is empty", () => {
     expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("builds response timing headers from elapsed milliseconds", () => {
+    expect(buildResponseTimingHeaders(1000, 1123)).toEqual({
+      serverTiming: "api-all;dur=123",
+      responseTimeMs: "123",
+    });
   });
 
   it("parses comma-separated allowlist", () => {

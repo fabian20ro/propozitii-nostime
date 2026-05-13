@@ -67,6 +67,19 @@ export function resolveCorsOrigin(origin: string | undefined, allowlist: string[
   return allowlist[0];
 }
 
+export interface ResponseTimingHeaders {
+  serverTiming: string;
+  responseTimeMs: string;
+}
+
+export function buildResponseTimingHeaders(startedAtMs: number, finishedAtMs = Date.now()): ResponseTimingHeaders {
+  const elapsedMs = Math.max(0, finishedAtMs - startedAtMs);
+  return {
+    serverTiming: `api-all;dur=${elapsedMs}`,
+    responseTimeMs: String(elapsedMs),
+  };
+}
+
 function firstQueryValue(raw: string | string[] | undefined): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
@@ -701,6 +714,13 @@ async function genTautogram(minR: number, maxR: number, cache?: CountCache): Pro
 // --- Main handler ---
 
 export default async function handler(req: VercelRequestLike, res: VercelResponseLike) {
+  const startedAtMs = Date.now();
+  const setTimingHeaders = () => {
+    const timing = buildResponseTimingHeaders(startedAtMs);
+    res.setHeader("Server-Timing", timing.serverTiming);
+    res.setHeader("X-Response-Time-Ms", timing.responseTimeMs);
+  };
+
   const reqOrigin = Array.isArray(req.headers.origin)
     ? req.headers.origin[0]
     : req.headers.origin;
@@ -710,10 +730,17 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Max-Age", "86400");
 
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
+  if (req.method === "OPTIONS") {
+    setTimingHeaders();
+    return res.status(204).end();
+  }
+  if (req.method !== "GET") {
+    setTimingHeaders();
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
 
   if (!getSupabaseClient()) {
+    setTimingHeaders();
     return res.status(500).json({
       error: supabaseError ?? "Missing SUPABASE_URL or Supabase API key",
     });
@@ -744,6 +771,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     ]);
 
   res.setHeader("Cache-Control", "max-age=180");
+  setTimingHeaders();
   return res.status(200).json({
     haiku,
     distih,
