@@ -82,6 +82,16 @@
 **Insight:** A retry loop should be explicit about its last iteration; otherwise the final failure pays an unnecessary sleep cost and diagnostics arrive later than needed.
 **Promoted to Lessons Learned:** Yes
 
+### 2026-05-13: README cold-start timeout sync
+
+**Context:** Keep user-facing cold-start guidance aligned with the smoke-parity script default.
+**What happened:**
+- Updated `README.md` to say Render cold starts may take up to 65 seconds, matching `scripts/smoke-parity.mjs`
+- Verified the script default is `SMOKE_TIMEOUT_MS=65000` and the README line now mirrors that contract
+**Outcome:** Success
+**Insight:** When a timeout is part of the documented user contract, mirror the executable default exactly so docs do not drift behind the script.
+**Promoted to Lessons Learned:** Yes
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

@@ -99,6 +99,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 **[2026-05-12]** Render smoke checks need generous timeouts — The Render primary endpoint can take longer than a few seconds to answer even when healthy. Parity smoke checks against `/api/all` should use a long default timeout and keep it configurable so cold starts do not look like failures.
 
+**[2026-05-13]** Documented timeout claims should mirror script defaults — If README or runbook copy mentions a cold-start or smoke timeout, keep it aligned with the executable default (`SMOKE_TIMEOUT_MS=65000` here) so the docs do not silently drift behind the script contract.
+
 ## Dependencies & External Services
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
