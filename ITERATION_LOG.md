@@ -70,6 +70,18 @@
 **Insight:** Small runbooks work better when they map status codes to the first next action instead of describing all failures as generic backend errors.
 **Promoted to Lessons Learned:** Yes
 
+### 2026-05-13: Frontend health poll cleanup
+
+**Context:** Small cold-start polish for the frontend fallback path.
+**What happened:**
+- Made `checkHealth()` and `fetchFrom()` clear their abort timers in `finally` so failed requests do not leave stray timers behind
+- Skipped the final useless sleep in the background Render warmup loop
+- Updated `docs/CODEMAPS/frontend.md` to describe the retry cadence and persistent-cold diagnostic
+- Verified with `node --check frontend/app.js`, `npm install` to restore the missing Rollup optional dependency, and `npm test`
+**Outcome:** Success
+**Insight:** A retry loop should be explicit about its last iteration; otherwise the final failure pays an unnecessary sleep cost and diagnostics arrive later than needed.
+**Promoted to Lessons Learned:** Yes
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

@@ -117,9 +117,10 @@ Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons, explain 
 
 The primary cold-start mitigation is now the Vercel fallback (users see instant results while Render wakes). For further tuning:
 - `FETCH_TIMEOUT` (8s): how long to wait for Render before falling back
-- `MAX_RETRIES`, `RETRY_DELAY`: background health poll cadence
+- `MAX_RETRIES`, `RETRY_DELAY`: background health poll cadence; the loop now skips the final pointless sleep and only waits between retries
 - `HEALTH_TIMEOUT`: per-poll timeout
 - `renderIsHealthy` flag: sticky — once Render responds, subsequent requests skip fallback
+- Exhausted background retries emit a retry-counted info/warn message so a persistent cold Render is distinguishable from a temporary fallback
 
 ## High-Risk Areas
 
