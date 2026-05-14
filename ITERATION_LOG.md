@@ -92,6 +92,16 @@
 **Insight:** When a timeout is part of the documented user contract, mirror the executable default exactly so docs do not drift behind the script.
 **Promoted to Lessons Learned:** Yes
 
+### 2026-05-14: Runbook cold-start wording sync
+
+**Context:** Keep the operations runbook aligned with the current frontend fallback timing.
+**What happened:**
+- Updated `docs/RUNBOOK.md` to describe the actual cold-start path: 8s Render fetch timeout, 1.2s fallback hedge delay, and 12x5s background health polling
+- Kept the rest of the runbook guidance unchanged
+**Outcome:** Success
+**Insight:** User-facing runbooks should describe the visible fallback behavior, not just the backend retry window, so operators can reason about what users see during cold starts.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

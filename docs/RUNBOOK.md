@@ -103,7 +103,9 @@ Symptom:
 - first request after idle can be slow on free tier.
 
 Mitigation:
-- frontend polls `/q/health` for up to 60s before retrying sentence fetch.
+- frontend tries Render with an 8s fetch timeout (`FETCH_TIMEOUT = 8000`)
+- if Render is not already marked healthy, the fallback API starts after a 1.2s hedge delay and the first successful response wins
+- background health polling keeps checking Render for up to 12 retries at 5s intervals, so a temporarily cold backend can recover without blocking the visible fallback
 
 ### Database Connection Errors
 
