@@ -102,6 +102,17 @@
 **Insight:** User-facing runbooks should describe the visible fallback behavior, not just the backend retry window, so operators can reason about what users see during cold starts.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-14: Smoke timeout doc sync
+
+**Context:** Keep the README and runbook aligned with the smoke-parity script's executable timeout default.
+**What happened:**
+- Updated `README.md` to mention the shared 65s cold-start / smoke-parity timeout contract
+- Updated `docs/RUNBOOK.md` to show `SMOKE_TIMEOUT_MS` defaults to `65000`
+- Re-checked the script contract in `scripts/smoke-parity.mjs`
+**Outcome:** Success
+**Insight:** When docs expose a configurable timeout, state the executable default explicitly so the operator-facing copy and the script stop drifting apart.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

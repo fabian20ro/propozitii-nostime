@@ -84,7 +84,7 @@ npm run smoke:parity
 Overrides:
 - `SMOKE_PRIMARY_API_BASE`
 - `SMOKE_FALLBACK_API_BASE`
-- `SMOKE_TIMEOUT_MS`
+- `SMOKE_TIMEOUT_MS` (default `65000`)
 
 The script checks response shape and string payloads for the shared contract; it does not require identical generated text.
 

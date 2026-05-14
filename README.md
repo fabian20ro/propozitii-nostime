@@ -23,7 +23,7 @@ All services run on free tiers: Render.com (backend), Vercel (fallback API lambd
 
 The Romanian Scrabble dictionary (~80K words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
 
-The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 65 seconds; the frontend health-polls and shows a loading message until the backend is ready.
+The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 65 seconds; the smoke-parity script defaults to the same 65s timeout (`SMOKE_TIMEOUT_MS=65000`), and the frontend health-polls and shows a loading message until the backend is ready.
 For user-facing cold starts, the frontend also has a Vercel fallback API (`FALLBACK_API_BASE` in `frontend/app.js`) implemented in `api/all.ts`. The fallback generates the same `/api/all` response directly from Supabase.
 
 ## API Endpoints
