@@ -52,7 +52,7 @@ Required fallback endpoint contract:
 - `GET /api/all?minRarity=1..5&rarity=1..5`
 - returns JSON with all keys as strings: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - supports CORS for `https://fabian20ro.github.io` (or `*`) because frontend is hosted on GitHub Pages
-- preserves backend HTML contract (dexonline anchors + verse `<br/>`)
+- preserves the backend HTML contract: dexonline anchors keep `href`, `target="_blank"`, `rel="noopener"`, `data-word`, and verse lines are split with literal `" / "` into `<br/>`
 - exposes `Server-Timing: api-all;dur=<ms>` and `X-Response-Time-Ms: <ms>` for lightweight response-time tracing
 
 Required Vercel env vars for `api/all.ts`:

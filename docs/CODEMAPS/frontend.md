@@ -64,6 +64,10 @@ Response field mapping:
 - `FIELD_MAP` expects keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - Vercel fallback `/api/all` must return the same six keys as strings.
 
+Backend HTML contract:
+- dexonline anchors keep `href`, `target="_blank"`, `rel="noopener"`, `data-word`
+- verse lines are split with literal `" / "` into `<br/>`
+
 If backend adds/removes sentence types, update both:
 - `FIELD_MAP` in `app.js`
 - corresponding card markup in `index.html`

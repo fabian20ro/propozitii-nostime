@@ -113,6 +113,16 @@
 **Insight:** When docs expose a configurable timeout, state the executable default explicitly so the operator-facing copy and the script stop drifting apart.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-14: Frontend HTML contract docs sync
+
+**Context:** Make the dexonline anchor and verse delimiter contract easier to rediscover for future frontend/backend changes.
+**What happened:**
+- Updated `README.md` fallback contract notes to spell out the exact dexonline anchor attributes and the literal `" / "` verse delimiter
+- Added the same contract note to `docs/CODEMAPS/frontend.md`
+**Outcome:** Success
+**Insight:** When a cross-backend HTML contract is easy to forget, repeating the exact attributes and delimiter in the operator docs reduces drift better than a vague "HTML contract" reminder.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration
