@@ -67,8 +67,8 @@ Optional:
 
 ### Prerequisites
 
-- Java 21 (e.g., `brew install --cask temurin@21`)
-- Gradle 8.11 (wrapper included)
+- Java 25
+- Gradle 9.5.1 (wrapper included)
 - Docker (for running integration tests via Testcontainers)
 
 ### First-time setup
