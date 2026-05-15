@@ -143,6 +143,16 @@
 **Insight:** Codemaps are only useful when their helper names still match the code; a tiny stale method reference can mislead the next refactor.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-15: Codemap freshness sync
+
+**Context:** Keep the ramp-up codemaps aligned with the current repo state.
+**What happened:**
+- Updated `docs/CODEMAPS/README.md` last-refreshed date to 2026-05-15
+- Updated `docs/CODEMAPS/frontend.md` freshness to 2026-05-15
+**Outcome:** Success
+**Insight:** Codemap freshness timestamps should move with the nearest maintained code map; stale dates make otherwise-current docs look suspect during onboarding.
+**Promoted to Lessons Learned:** Yes
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

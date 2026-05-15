@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-14
+Freshness: 2026-05-15
 
 ## File Map
 

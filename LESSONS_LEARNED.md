@@ -119,6 +119,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 **[2026-05-12]** Status-specific runbook troubleshooting helps triage faster — When a backend or fallback API can fail through several distinct status codes, a short status matrix with the first check for each code is more useful than a single generic "backend 500s" note.
 
+**[2026-05-15]** Codemap freshness should track the maintained map — Stale freshness timestamps on ramp-up codemaps make current docs look suspicious; update the index and the nearest codemap together so onboarding cues stay trustworthy.
+
 ---
 
 ## Archive
