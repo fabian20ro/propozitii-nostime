@@ -286,6 +286,13 @@ describe("CORS origin helpers", () => {
     });
   });
 
+  it("clamps negative elapsed time to zero", () => {
+    expect(buildResponseTimingHeaders(1123, 1000)).toEqual({
+      serverTiming: "api-all;dur=0",
+      responseTimeMs: "0",
+    });
+  });
+
   it("parses comma-separated allowlist", () => {
     expect(
       parseAllowedOrigins("https://a.example, https://b.example")

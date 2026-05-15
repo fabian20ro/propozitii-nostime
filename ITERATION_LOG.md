@@ -123,6 +123,16 @@
 **Insight:** When a cross-backend HTML contract is easy to forget, repeating the exact attributes and delimiter in the operator docs reduces drift better than a vague "HTML contract" reminder.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-15: Response timing header clamp test
+
+**Context:** Add a small regression test around the API timing header helper.
+**What happened:**
+- Added a Vitest case for `buildResponseTimingHeaders()` that checks negative elapsed time clamps to zero
+- Verified the focused API test file with `npm test -- api/__tests__/all.test.ts`
+**Outcome:** Success
+**Insight:** Timing helpers should have an explicit zero-floor regression test so clock skew or reversed timestamps cannot reintroduce negative durations.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration
