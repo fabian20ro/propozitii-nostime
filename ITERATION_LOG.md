@@ -133,6 +133,16 @@
 **Insight:** Timing helpers should have an explicit zero-floor regression test so clock skew or reversed timestamps cannot reintroduce negative durations.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-15: Backend codemap helper-name sync
+
+**Context:** Keep the backend codemap aligned with the current Kotlin resource helpers.
+**What happened:**
+- Updated `docs/CODEMAPS/backend.md` freshness to 2026-05-15
+- Replaced the stale `generateVerse()` / `generateSentence()` helper note with the actual shared `generate()` flow in `PhraseResource.kt`
+**Outcome:** Success
+**Insight:** Codemaps are only useful when their helper names still match the code; a tiny stale method reference can mislead the next refactor.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

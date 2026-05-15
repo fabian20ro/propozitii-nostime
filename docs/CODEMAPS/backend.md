@@ -1,6 +1,6 @@
 # Backend Codemap
 
-Freshness: 2026-02-15
+Freshness: 2026-05-15
 
 ## Entry Points
 
@@ -22,7 +22,7 @@ Freshness: 2026-02-15
 | `/api/all` | Aggregates above | N/A | frontend's main fetch path |
 
 All sentence endpoints accept optional `rarity=1..5` (default `2`) and `minRarity=1..5` (default `1`).
-`PhraseResource` normalizes both via `rarityRange()` and passes `(min, max)` to provider factories via `generateVerse()` / `generateSentence()` helpers.
+`PhraseResource` normalizes both via `rarityRange()` and passes `(min, max)` through the shared `generate()` helper before selecting the provider/decorator chain.
 If constraints are impossible at the chosen rarity range, endpoints return a placeholder sentence with HTTP 200.
 
 ## Provider Responsibilities
