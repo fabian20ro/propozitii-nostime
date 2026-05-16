@@ -153,6 +153,16 @@
 **Insight:** Codemap freshness timestamps should move with the nearest maintained code map; stale dates make otherwise-current docs look suspect during onboarding.
 **Promoted to Lessons Learned:** Yes
 
+### 2026-05-16: Codemap freshness sync
+
+**Context:** Keep the onboarding codemap index and the frontend codemap aligned with the current inspection date.
+**What happened:**
+- Updated `docs/CODEMAPS/README.md` last-refreshed date to 2026-05-16
+- Updated `docs/CODEMAPS/frontend.md` freshness to 2026-05-16
+**Outcome:** Success
+**Insight:** Freshness timestamps matter most on the maintained index and the nearest codemap; updating both together keeps the ramp-up trail trustworthy.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration
