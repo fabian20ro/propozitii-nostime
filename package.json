@@ -3,12 +3,13 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "20.x"
+    "node": "26.1.0"
   },
   "description": "Vercel serverless fallback for Render cold-start",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke:parity": "node ./scripts/smoke-parity.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1"

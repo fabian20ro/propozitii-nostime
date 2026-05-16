@@ -32,6 +32,137 @@
 **Insight:** Files were already well-structured from the 2026-02-24 migration. Main gaps were cosmetic: missing telegraph header and Legacy section placeholder.
 **Promoted to Lessons Learned:** No
 
+### 2026-05-12: Render/Vercel Smoke Parity Command
+
+**Context:** Add a one-command smoke check for Render primary vs Vercel fallback `/api/all` parity.
+**What happened:**
+- Added `scripts/smoke-parity.mjs` to fetch both `/api/all?minRarity=1&rarity=2` endpoints
+- Added `npm run smoke:parity` in `package.json`
+- Documented the command in `docs/RUNBOOK.md`
+- Marked the repo TODO complete
+- Verified the script with a live run; the Render primary needed a much longer timeout than the first draft, so the default is now 65s and configurable
+**Outcome:** Success
+**Insight:** Render cold starts can exceed a short smoke timeout; parity checks should default to a generous limit and stay env-overridable.
+**Promoted to Lessons Learned:** Yes
+
+### 2026-05-12: Frontend Render Health Poll Diagnostics
+
+**Context:** Improve the frontend experience when Render stays cold or unreachable and the app falls back to Vercel.
+**What happened:**
+- Added a small `renderColdMessage()` helper in `frontend/app.js`
+- Kept the existing immediate fallback notice, but made the background health probe emit a retry-counted message after exhausting `MAX_RETRIES`
+- Added a console warning for the exhausted-probe case so the failure mode is visible in logs too
+- Marked the matching TODO complete
+- Verified the script with `node --check frontend/app.js` and the repo test suite with `npm test`
+**Outcome:** Success
+**Insight:** When a fallback path is healthy enough to ship traffic, diagnostics should distinguish the first fallback from an exhausted recovery loop; otherwise the user sees the same generic status even when the primary backend never recovers.
+**Promoted to Lessons Learned:** Yes
+
+### 2026-05-12: Supabase Query Status Matrix
+
+**Context:** Make `/docs/RUNBOOK.md` easier to use when Supabase-backed requests fail in different ways.
+**What happened:**
+- Added a small status-code matrix to `docs/RUNBOOK.md` covering `500` and `429` cases
+- Kept the existing database-connection troubleshooting section and made the first checks more explicit
+- Marked the matching TODO complete
+- Added a reusable lesson about status-specific troubleshooting to `LESSONS_LEARNED.md`
+**Outcome:** Success
+**Insight:** Small runbooks work better when they map status codes to the first next action instead of describing all failures as generic backend errors.
+**Promoted to Lessons Learned:** Yes
+
+### 2026-05-13: Frontend health poll cleanup
+
+**Context:** Small cold-start polish for the frontend fallback path.
+**What happened:**
+- Made `checkHealth()` and `fetchFrom()` clear their abort timers in `finally` so failed requests do not leave stray timers behind
+- Skipped the final useless sleep in the background Render warmup loop
+- Updated `docs/CODEMAPS/frontend.md` to describe the retry cadence and persistent-cold diagnostic
+- Verified with `node --check frontend/app.js`, `npm install` to restore the missing Rollup optional dependency, and `npm test`
+**Outcome:** Success
+**Insight:** A retry loop should be explicit about its last iteration; otherwise the final failure pays an unnecessary sleep cost and diagnostics arrive later than needed.
+**Promoted to Lessons Learned:** Yes
+
+### 2026-05-13: README cold-start timeout sync
+
+**Context:** Keep user-facing cold-start guidance aligned with the smoke-parity script default.
+**What happened:**
+- Updated `README.md` to say Render cold starts may take up to 65 seconds, matching `scripts/smoke-parity.mjs`
+- Verified the script default is `SMOKE_TIMEOUT_MS=65000` and the README line now mirrors that contract
+**Outcome:** Success
+**Insight:** When a timeout is part of the documented user contract, mirror the executable default exactly so docs do not drift behind the script.
+**Promoted to Lessons Learned:** Yes
+
+### 2026-05-14: Runbook cold-start wording sync
+
+**Context:** Keep the operations runbook aligned with the current frontend fallback timing.
+**What happened:**
+- Updated `docs/RUNBOOK.md` to describe the actual cold-start path: 8s Render fetch timeout, 1.2s fallback hedge delay, and 12x5s background health polling
+- Kept the rest of the runbook guidance unchanged
+**Outcome:** Success
+**Insight:** User-facing runbooks should describe the visible fallback behavior, not just the backend retry window, so operators can reason about what users see during cold starts.
+**Promoted to Lessons Learned:** No
+
+### 2026-05-14: Smoke timeout doc sync
+
+**Context:** Keep the README and runbook aligned with the smoke-parity script's executable timeout default.
+**What happened:**
+- Updated `README.md` to mention the shared 65s cold-start / smoke-parity timeout contract
+- Updated `docs/RUNBOOK.md` to show `SMOKE_TIMEOUT_MS` defaults to `65000`
+- Re-checked the script contract in `scripts/smoke-parity.mjs`
+**Outcome:** Success
+**Insight:** When docs expose a configurable timeout, state the executable default explicitly so the operator-facing copy and the script stop drifting apart.
+**Promoted to Lessons Learned:** No
+
+### 2026-05-14: Frontend HTML contract docs sync
+
+**Context:** Make the dexonline anchor and verse delimiter contract easier to rediscover for future frontend/backend changes.
+**What happened:**
+- Updated `README.md` fallback contract notes to spell out the exact dexonline anchor attributes and the literal `" / "` verse delimiter
+- Added the same contract note to `docs/CODEMAPS/frontend.md`
+**Outcome:** Success
+**Insight:** When a cross-backend HTML contract is easy to forget, repeating the exact attributes and delimiter in the operator docs reduces drift better than a vague "HTML contract" reminder.
+**Promoted to Lessons Learned:** No
+
+### 2026-05-15: Response timing header clamp test
+
+**Context:** Add a small regression test around the API timing header helper.
+**What happened:**
+- Added a Vitest case for `buildResponseTimingHeaders()` that checks negative elapsed time clamps to zero
+- Verified the focused API test file with `npm test -- api/__tests__/all.test.ts`
+**Outcome:** Success
+**Insight:** Timing helpers should have an explicit zero-floor regression test so clock skew or reversed timestamps cannot reintroduce negative durations.
+**Promoted to Lessons Learned:** No
+
+### 2026-05-15: Backend codemap helper-name sync
+
+**Context:** Keep the backend codemap aligned with the current Kotlin resource helpers.
+**What happened:**
+- Updated `docs/CODEMAPS/backend.md` freshness to 2026-05-15
+- Replaced the stale `generateVerse()` / `generateSentence()` helper note with the actual shared `generate()` flow in `PhraseResource.kt`
+**Outcome:** Success
+**Insight:** Codemaps are only useful when their helper names still match the code; a tiny stale method reference can mislead the next refactor.
+**Promoted to Lessons Learned:** No
+
+### 2026-05-15: Codemap freshness sync
+
+**Context:** Keep the ramp-up codemaps aligned with the current repo state.
+**What happened:**
+- Updated `docs/CODEMAPS/README.md` last-refreshed date to 2026-05-15
+- Updated `docs/CODEMAPS/frontend.md` freshness to 2026-05-15
+**Outcome:** Success
+**Insight:** Codemap freshness timestamps should move with the nearest maintained code map; stale dates make otherwise-current docs look suspect during onboarding.
+**Promoted to Lessons Learned:** Yes
+
+### 2026-05-16: Codemap freshness sync
+
+**Context:** Keep the onboarding codemap index and the frontend codemap aligned with the current inspection date.
+**What happened:**
+- Updated `docs/CODEMAPS/README.md` last-refreshed date to 2026-05-16
+- Updated `docs/CODEMAPS/frontend.md` freshness to 2026-05-16
+**Outcome:** Success
+**Insight:** Freshness timestamps matter most on the maintained index and the nearest codemap; updating both together keeps the ramp-up trail trustworthy.
+**Promoted to Lessons Learned:** No
+
 <!-- New entries above this line, most recent first -->
 
 ### 2026-02-24: AI Agent Configuration Migration

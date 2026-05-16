@@ -23,7 +23,7 @@ All services run on free tiers: Render.com (backend), Vercel (fallback API lambd
 
 The Romanian Scrabble dictionary (~80K words) is stored in Supabase PostgreSQL with indexed columns for type, rhyme, syllable count, and first letter. Each API request queries the database directly — no in-memory dictionary, no mutable state, no reset needed.
 
-The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 60 seconds; the frontend health-polls and shows a loading message until the backend is ready.
+The backend runs as a JVM uber-jar on Render.com free tier. Cold starts may take up to 65 seconds; the smoke-parity script defaults to the same 65s timeout (`SMOKE_TIMEOUT_MS=65000`), and the frontend health-polls and shows a loading message until the backend is ready.
 For user-facing cold starts, the frontend also has a Vercel fallback API (`FALLBACK_API_BASE` in `frontend/app.js`) implemented in `api/all.ts`. The fallback generates the same `/api/all` response directly from Supabase.
 
 ## API Endpoints
@@ -52,7 +52,8 @@ Required fallback endpoint contract:
 - `GET /api/all?minRarity=1..5&rarity=1..5`
 - returns JSON with all keys as strings: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - supports CORS for `https://fabian20ro.github.io` (or `*`) because frontend is hosted on GitHub Pages
-- preserves backend HTML contract (dexonline anchors + verse `<br/>`)
+- preserves the backend HTML contract: dexonline anchors keep `href`, `target="_blank"`, `rel="noopener"`, `data-word`, and verse lines are split with literal `" / "` into `<br/>`
+- exposes `Server-Timing: api-all;dur=<ms>` and `X-Response-Time-Ms: <ms>` for lightweight response-time tracing
 
 Required Vercel env vars for `api/all.ts`:
 - `SUPABASE_URL=https://<project-ref>.supabase.co`
@@ -66,8 +67,8 @@ Optional:
 
 ### Prerequisites
 
-- Java 21 (e.g., `brew install --cask temurin@21`)
-- Gradle 8.11 (wrapper included)
+- Java 25
+- Gradle 9.5.1 (wrapper included)
 - Docker (for running integration tests via Testcontainers)
 
 ### First-time setup

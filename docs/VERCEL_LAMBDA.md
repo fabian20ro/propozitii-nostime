@@ -10,7 +10,7 @@ It is not a proxy to Render. It generates sentences directly from Supabase and r
 - `vercel.json` - function limits + route headers
 - `package.json` - dependencies used by function runtime:
   - `"type": "module"` (ensures Vercel Node runtime loads transpiled handler as ESM)
-  - `"engines": { "node": "20.x" }` (keeps deployment/runtime on Node 20 to avoid Node 22 deprecation noise such as `DEP0169`)
+  - `"engines": { "node": "26.1.0" }` (keeps deployment/runtime aligned with the project Node pin)
   - `@supabase/supabase-js`
   - `typescript` and `vitest` for local checks
 
@@ -21,6 +21,10 @@ Endpoint:
 
 Response keys (all strings):
 - `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
+
+Response-time headers:
+- `Server-Timing: api-all;dur=<ms>`
+- `X-Response-Time-Ms: <ms>`
 
 CORS:
 - Handler sets:

@@ -80,6 +80,13 @@ const RENDER_HEDGE_DELAY = 1200;
 const MAX_RETRIES = 12;
 const RETRY_DELAY = 5000;
 
+function renderColdMessage(retries = null) {
+    if (retries === null) {
+        return 'Render este încă rece; folosesc fallback-ul Vercel momentan.';
+    }
+    return `Render este încă rece după ${retries} verificări; folosesc fallback-ul Vercel momentan.`;
+}
+
 // Track whether Render backend is known to be up
 let renderIsHealthy = false;
 const RARITY_MIN_KEY = 'rarity-min';
@@ -182,13 +189,11 @@ function initRarity() {
  * @returns {Promise<boolean>}
  */
 async function checkHealth() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
+
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
-
         const response = await fetch(HEALTH_URL, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
         if (response.ok) {
             const data = await response.json();
             return data.status === 'UP';
@@ -196,6 +201,8 @@ async function checkHealth() {
         return false;
     } catch {
         return false;
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
@@ -213,18 +220,22 @@ async function fetchFrom(baseUrl, { min, max }, timeout) {
     });
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    const response = await fetch(`${baseUrl}/all?${query.toString()}`, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    for (const key of Object.keys(FIELD_MAP)) {
-        if (!data[key] || typeof data[key] !== 'string') {
-            throw new Error(`Invalid response: missing ${key}`);
+
+    try {
+        const response = await fetch(`${baseUrl}/all?${query.toString()}`, { signal: controller.signal });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const data = await response.json();
+        for (const key of Object.keys(FIELD_MAP)) {
+            if (!data[key] || typeof data[key] !== 'string') {
+                throw new Error(`Invalid response: missing ${key}`);
+            }
+        }
+        return data;
+    } finally {
+        clearTimeout(timeoutId);
     }
-    return data;
 }
 
 function delay(ms) {
@@ -289,6 +300,7 @@ async function fetchAllSentences(range) {
             renderIsHealthy = true;
             return winner.data;
         }
+        showInfo(renderColdMessage());
         wakeRenderInBackground();
         renderAttempt
             .then(() => { renderIsHealthy = true; })
@@ -312,7 +324,14 @@ function wakeRenderInBackground() {
             for (let i = 0; i < MAX_RETRIES; i++) {
                 const up = await checkHealth();
                 if (up) { renderIsHealthy = true; break; }
-                await new Promise(r => setTimeout(r, RETRY_DELAY));
+                if (i < MAX_RETRIES - 1) {
+                    await delay(RETRY_DELAY);
+                }
+            }
+            if (!renderIsHealthy) {
+                const message = renderColdMessage(MAX_RETRIES);
+                console.warn(message);
+                showInfo(message);
             }
         } finally {
             wakeRenderInBackground._running = false;

@@ -16,7 +16,7 @@ Read first:
 ## 1. Run Locally (10 min)
 
 Prerequisites:
-- Java 21
+- Java 25
 - Docker (for tests/dev DB via Quarkus Dev Services)
 
 Commands:

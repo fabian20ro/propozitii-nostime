@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-Freshness: 2026-02-14
+Freshness: 2026-05-16
 
 ## File Map
 
@@ -64,6 +64,10 @@ Response field mapping:
 - `FIELD_MAP` expects keys: `haiku`, `distih`, `comparison`, `definition`, `tautogram`, `mirror`
 - Vercel fallback `/api/all` must return the same six keys as strings.
 
+Backend HTML contract:
+- dexonline anchors keep `href`, `target="_blank"`, `rel="noopener"`, `data-word`
+- verse lines are split with literal `" / "` into `<br/>`
+
 If backend adds/removes sentence types, update both:
 - `FIELD_MAP` in `app.js`
 - corresponding card markup in `index.html`
@@ -117,9 +121,10 @@ Disabled state: `setButtonsDisabled()` sets `disabled` on copy buttons, explain 
 
 The primary cold-start mitigation is now the Vercel fallback (users see instant results while Render wakes). For further tuning:
 - `FETCH_TIMEOUT` (8s): how long to wait for Render before falling back
-- `MAX_RETRIES`, `RETRY_DELAY`: background health poll cadence
+- `MAX_RETRIES`, `RETRY_DELAY`: background health poll cadence; the loop now skips the final pointless sleep and only waits between retries
 - `HEALTH_TIMEOUT`: per-poll timeout
 - `renderIsHealthy` flag: sticky — once Render responds, subsequent requests skip fallback
+- Exhausted background retries emit a retry-counted info/warn message so a persistent cold Render is distinguishable from a temporary fallback
 
 ## High-Risk Areas
 

@@ -4,7 +4,7 @@ Source of truth: `build.gradle`, `src/main/resources/application.properties`
 
 ## Prerequisites
 
-- Java 21
+- Java 25
 - Docker (for Testcontainers and Quarkus Dev Services PostgreSQL)
 - Gradle wrapper (`./gradlew`, bundled)
 

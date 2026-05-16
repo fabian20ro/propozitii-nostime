@@ -8,10 +8,10 @@
 - [x] Render/Vercel `/api/all` parity maintained for all six sentence fields.
 
 ### Next Improvements
-- [ ] Add explicit contract tests for `minRarity`/`rarity` clamping behavior in both backends.
-- [ ] Add a small smoke script for validating Render primary and Vercel fallback parity from one command.
-- [ ] Improve health-poll diagnostics in frontend when Render remains cold/unreachable.
+- [x] Add explicit contract tests for `minRarity`/`rarity` clamping behavior in both backends.
+- [x] Add a small smoke script for validating Render primary and Vercel fallback parity from one command.
+- [x] Improve health-poll diagnostics in frontend when Render remains cold/unreachable.
 
 ### Nice to Have
-- [ ] Add lightweight API response-time telemetry for `/api/all` primary vs fallback path.
-- [ ] Add a short troubleshooting matrix in `docs/RUNBOOK.md` for Supabase query failures by status code.
+- [x] Add lightweight API response-time telemetry for `/api/all` primary vs fallback path.
+- [x] Add a short troubleshooting matrix in `docs/RUNBOOK.md` for Supabase query failures by status code.

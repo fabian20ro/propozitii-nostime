@@ -74,6 +74,20 @@ Fallback API check:
 curl "https://propozitii-nostime.vercel.app/api/all?minRarity=1&rarity=2"
 ```
 
+### Primary/Fallback smoke parity
+
+Validate both `/api/all` surfaces with one command:
+```bash
+npm run smoke:parity
+```
+
+Overrides:
+- `SMOKE_PRIMARY_API_BASE`
+- `SMOKE_FALLBACK_API_BASE`
+- `SMOKE_TIMEOUT_MS` (default `65000`)
+
+The script checks response shape and string payloads for the shared contract; it does not require identical generated text.
+
 ### Logs
 
 - Backend logs: Render dashboard.
@@ -89,7 +103,9 @@ Symptom:
 - first request after idle can be slow on free tier.
 
 Mitigation:
-- frontend polls `/q/health` for up to 60s before retrying sentence fetch.
+- frontend tries Render with an 8s fetch timeout (`FETCH_TIMEOUT = 8000`)
+- if Render is not already marked healthy, the fallback API starts after a 1.2s hedge delay and the first successful response wins
+- background health polling keeps checking Render for up to 12 retries at 5s intervals, so a temporarily cold backend can recover without blocking the visible fallback
 
 ### Database Connection Errors
 
@@ -100,6 +116,13 @@ Checks:
 1. Verify Render env vars are set correctly.
 2. Verify Supabase project is active.
 3. Validate connectivity from backend logs.
+
+### Supabase Query Status Matrix
+
+| Status | Surface | Usually means | First check |
+|--------|---------|---------------|-------------|
+| 500 | Render backend or Vercel fallback | Missing or invalid Supabase env vars, bad Supabase URL, database auth/connectivity failure, or an unhandled exception. Vercel returns `Missing SUPABASE_URL or Supabase API key` when initialization fails. | Verify `SUPABASE_*` env vars, confirm the Supabase URL is `https://<project-ref>.supabase.co`, then inspect backend/fallback logs. |
+| 429 | Render backend | Per-IP rate limit exceeded before query execution. The limiter uses the first `X-Forwarded-For` value and allows 30 requests/minute. | Wait for the 60s window to clear or lower the request rate while testing. |
 
 ### Migration Drift / Validation Failures
 

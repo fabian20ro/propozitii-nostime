@@ -37,6 +37,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
 
+**[2026-05-12]** Exhausted health polls deserve their own diagnostic — If the frontend has already fallen back to Vercel because Render was cold, the background health loop should emit a retry-counted message (and log warning) when it exhausts all probes. A single generic "fallback active" notice hides the important difference between "temporarily using fallback" and "primary never recovered."
+**[2026-05-13]** Clear abort timers in `finally` — Fetch helpers that attach `AbortController` timeouts should clear the timer in `finally`, not only on the success path. That keeps rejected/aborted requests from leaving stray timers behind.
 **[2026-02-11]** Kotlin `require()` lazy evaluation — Kotlin `require()` lazily evaluates its message lambda; avoid side effects in that lambda.
 
 **[2026-02-11]** Broad exception catches hide failures — Broad exception catches in file/IO critical paths hide real failures; catch only expected exception types.
@@ -95,6 +97,10 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 **[2026-02-24]** Test seed data constraints — Introducing new provider constraints that test seed data cannot satisfy causes test failures that look like code bugs.
 
+**[2026-05-12]** Render smoke checks need generous timeouts — The Render primary endpoint can take longer than a few seconds to answer even when healthy. Parity smoke checks against `/api/all` should use a long default timeout and keep it configurable so cold starts do not look like failures.
+
+**[2026-05-13]** Documented timeout claims should mirror script defaults — If README or runbook copy mentions a cold-start or smoke timeout, keep it aligned with the executable default (`SMOKE_TIMEOUT_MS=65000` here) so the docs do not silently drift behind the script contract.
+
 ## Dependencies & External Services
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
@@ -110,6 +116,10 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 ## Process & Workflow
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
+
+**[2026-05-12]** Status-specific runbook troubleshooting helps triage faster — When a backend or fallback API can fail through several distinct status codes, a short status matrix with the first check for each code is more useful than a single generic "backend 500s" note.
+
+**[2026-05-15]** Codemap freshness should track the maintained map — Stale freshness timestamps on ramp-up codemaps make current docs look suspicious; update the index and the nearest codemap together so onboarding cues stay trustworthy.
 
 ---
 

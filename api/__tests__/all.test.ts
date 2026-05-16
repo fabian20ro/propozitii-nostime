@@ -10,7 +10,9 @@ import {
   resolveCorsOrigin,
   resolveSupabaseKey,
   resolveSupabaseInit,
+  normalizeRarityRange,
   validateSupabaseUrl,
+  buildResponseTimingHeaders,
   DEXONLINE_URL,
   DEXONLINE_ANCHOR_ATTRS,
   DEXONLINE_ANCHOR_TARGET,
@@ -64,6 +66,7 @@ describe("adjForGender", () => {
     syllables: 2,
     rhyme: "mos",
     feminine: "frumoasă",
+    feminine_syllables: null,
   };
 
   it("returns feminine form for gender F", () => {
@@ -210,10 +213,18 @@ describe("resolveSupabaseKey", () => {
   it("uses SUPABASE_PUBLISHABLE_KEY when provided", () => {
     const resolved = resolveSupabaseKey({
       SUPABASE_PUBLISHABLE_KEY: "publishable",
-      SUPABASE_SERVICE_ROLE_KEY: "service",
+      SUPABASE_SERVICE_ROLE_KEY: "abc",
     });
     expect(resolved.source).toBe("publishable");
     expect(resolved.key).toBe("publishable");
+  });
+
+  it("treats whitespace-only keys as empty", () => {
+    const resolved = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: "   ",
+    });
+    expect(resolved.source).toBe("none");
+    expect(resolved.key).toBe("");
   });
 
   it("requires publishable key when service-role fallback is not enabled", () => {
@@ -268,6 +279,20 @@ describe("CORS origin helpers", () => {
     expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
   });
 
+  it("builds response timing headers from elapsed milliseconds", () => {
+    expect(buildResponseTimingHeaders(1000, 1123)).toEqual({
+      serverTiming: "api-all;dur=123",
+      responseTimeMs: "123",
+    });
+  });
+
+  it("clamps negative elapsed time to zero", () => {
+    expect(buildResponseTimingHeaders(1123, 1000)).toEqual({
+      serverTiming: "api-all;dur=0",
+      responseTimeMs: "0",
+    });
+  });
+
   it("parses comma-separated allowlist", () => {
     expect(
       parseAllowedOrigins("https://a.example, https://b.example")
@@ -286,5 +311,15 @@ describe("CORS origin helpers", () => {
 
   it("supports explicit wildcard allowlist", () => {
     expect(resolveCorsOrigin("https://anything.example", ["*"])).toBe("*");
+  });
+});
+
+describe("normalizeRarityRange", () => {
+  it("clamps and orders out-of-range query params", () => {
+    expect(normalizeRarityRange("0", "6")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("defaults to the published fallback range when params are missing", () => {
+    expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
 });

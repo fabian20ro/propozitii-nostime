@@ -67,6 +67,40 @@ export function resolveCorsOrigin(origin: string | undefined, allowlist: string[
   return allowlist[0];
 }
 
+export interface ResponseTimingHeaders {
+  serverTiming: string;
+  responseTimeMs: string;
+}
+
+export function buildResponseTimingHeaders(startedAtMs: number, finishedAtMs = Date.now()): ResponseTimingHeaders {
+  const elapsedMs = Math.max(0, finishedAtMs - startedAtMs);
+  return {
+    serverTiming: `api-all;dur=${elapsedMs}`,
+    responseTimeMs: String(elapsedMs),
+  };
+}
+
+function firstQueryValue(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+export interface NormalizedRarityRange {
+  minR: number;
+  maxR: number;
+}
+
+export function normalizeRarityRange(
+  minRarity: string | string[] | undefined,
+  rarity: string | string[] | undefined
+): NormalizedRarityRange {
+  const minCandidate = Math.max(1, Math.min(5, Number(firstQueryValue(minRarity)) || 1));
+  const maxCandidate = Math.max(1, Math.min(5, Number(firstQueryValue(rarity)) || 2));
+  return {
+    minR: Math.min(minCandidate, maxCandidate),
+    maxR: Math.max(minCandidate, maxCandidate),
+  };
+}
+
 export function validateSupabaseUrl(raw: string | undefined): string | undefined {
   const supabaseUrl = (raw ?? "").trim();
   if (!supabaseUrl) return "Missing SUPABASE_URL.";
@@ -547,12 +581,9 @@ export function capitalizeFirst(s: string): string {
 }
 
 export function decorateVerse(sentence: string): string {
-  const capitalized = sentence
-    .split(" / ")
-    .map((line) => capitalizeFirst(line.trim()))
-    .join(" / ");
-  const linked = addDexLinks(capitalized);
-  return linked.replace(/ \/ /g, "<br/>");
+  const lines = sentence.split(/\s*\/\s*/);
+  const decoratedLines = lines.map((line) => addDexLinks(capitalizeFirst(line.trim())));
+  return decoratedLines.join("<br/>");
 }
 
 export function decorateSentence(sentence: string): string {
@@ -683,6 +714,13 @@ async function genTautogram(minR: number, maxR: number, cache?: CountCache): Pro
 // --- Main handler ---
 
 export default async function handler(req: VercelRequestLike, res: VercelResponseLike) {
+  const startedAtMs = Date.now();
+  const setTimingHeaders = () => {
+    const timing = buildResponseTimingHeaders(startedAtMs);
+    res.setHeader("Server-Timing", timing.serverTiming);
+    res.setHeader("X-Response-Time-Ms", timing.responseTimeMs);
+  };
+
   const reqOrigin = Array.isArray(req.headers.origin)
     ? req.headers.origin[0]
     : req.headers.origin;
@@ -692,19 +730,23 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Max-Age", "86400");
 
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
+  if (req.method === "OPTIONS") {
+    setTimingHeaders();
+    return res.status(204).end();
+  }
+  if (req.method !== "GET") {
+    setTimingHeaders();
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
 
   if (!getSupabaseClient()) {
+    setTimingHeaders();
     return res.status(500).json({
       error: supabaseError ?? "Missing SUPABASE_URL or Supabase API key",
     });
   }
 
-  const minCandidate = Math.max(1, Math.min(5, Number(req.query.minRarity) || 1));
-  const maxCandidate = Math.max(1, Math.min(5, Number(req.query.rarity) || 2));
-  const minR = Math.min(minCandidate, maxCandidate);
-  const maxR = Math.max(minCandidate, maxCandidate);
+  const { minR, maxR } = normalizeRarityRange(req.query.minRarity, req.query.rarity);
 
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {
@@ -729,6 +771,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     ]);
 
   res.setHeader("Cache-Control", "max-age=180");
+  setTimingHeaders();
   return res.status(200).json({
     haiku,
     distih,

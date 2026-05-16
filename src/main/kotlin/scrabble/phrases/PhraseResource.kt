@@ -29,6 +29,7 @@ class PhraseResource {
     private fun rarityRange(rarity: Int?, minRarity: Int?): Pair<Int, Int> {
         val a = normalizeRarity(rarity)
         val b = normalizeRarity(minRarity, default = 1)
+        // Ensure the range is always [min, max] regardless of parameter order.
         return Pair(minOf(a, b), maxOf(a, b))
     }
 
