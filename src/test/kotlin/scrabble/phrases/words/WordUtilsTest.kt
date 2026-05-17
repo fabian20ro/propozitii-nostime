@@ -39,4 +39,11 @@ class WordUtilsTest {
         assertEquals("abc", WordUtils.computeRhyme("abc"))
         assertEquals("ab", WordUtils.computeRhyme("ab"))
     }
+
+    @Test
+    fun shouldRemoveApostrophesFromWords() {
+        assertEquals("mam dus", WordUtils.fixWordCharacters("m'am dus"))
+        assertEquals("neam", WordUtils.fixWordCharacters("ne'am"))
+        assertEquals("curat", WordUtils.fixWordCharacters("curat"))
+    }
 }
