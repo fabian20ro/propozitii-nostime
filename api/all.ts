@@ -152,7 +152,10 @@ function getSupabaseClient(): SupabaseClient | null {
     );
   }
 
-  if (supabaseError) return null;
+  if (supabaseError) {
+    console.error(`[security] Supabase initialization failed: ${supabaseError}`);
+    return null;
+  }
 
   try {
     const supabaseUrl = (process.env.SUPABASE_URL ?? "").trim();
