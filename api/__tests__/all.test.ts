@@ -309,9 +309,10 @@ describe("CORS origin helpers", () => {
     expect(resolveCorsOrigin("https://evil.example", allowed)).toBe("https://a.example");
   });
 
-  it("supports explicit wildcard allowlist", () => {
-    expect(resolveCorsOrigin("https://anything.example", ["*"])).toBe("*");
+  it("handles comma-only or whitespace-only strings by returning default", () => {
+    expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
   });
+
 });
 
 describe("normalizeRarityRange", () => {
