@@ -181,3 +181,8 @@
 **Outcome:** Success
 **Insight:** The existing AGENTS.md had good content but most of it was discoverable from README, docs/CODEMAPS, docs/ONBOARDING, and the codebase itself. The 4 non-discoverable traps (verse delimiter, HTML safety coupling, Flyway prod trap, dual-backend parity) are the only items that genuinely need to be known before exploring.
 **Promoted to Lessons Learned:** No
+
+## 2026-05-17 Compound Autopilot
+
+- Added focused `WordUtils.fixWordCharacters` coverage for apostrophe removal and unchanged clean words.
+- Verification: `./gradlew test --tests scrabble.phrases.words.WordUtilsTest` passed; Gradle/Jacoco emitted Java 25 instrumentation warnings but tests completed successfully.

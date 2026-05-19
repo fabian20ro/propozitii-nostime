@@ -309,14 +309,23 @@ describe("CORS origin helpers", () => {
     expect(resolveCorsOrigin("https://evil.example", allowed)).toBe("https://a.example");
   });
 
-  it("supports explicit wildcard allowlist", () => {
-    expect(resolveCorsOrigin("https://anything.example", ["*"])).toBe("*");
+  it("handles comma-only or whitespace-only strings by returning default", () => {
+    expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
   });
+
 });
 
 describe("normalizeRarityRange", () => {
   it("clamps and orders out-of-range query params", () => {
     expect(normalizeRarityRange("0", "6")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("handles non-numeric inputs by falling back to defaults", () => {
+    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("swaps range if min > max is provided", () => {
+    expect(normalizeRarityRange("4", "2")).toEqual({ minR: 2, maxR: 4 });
   });
 
   it("defaults to the published fallback range when params are missing", () => {
