@@ -409,6 +409,19 @@ async function randomAdjByPrefix(
   ], cache);
 }
 
+async function randomAdjByRhyme(
+  rhyme: string, minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
+): Promise<Adjective> {
+  const row = await randomRow<Adjective>(ADJ_SELECT, [
+    { column: "type", op: "eq", value: "A" },
+    { column: "rhyme", op: "eq", value: rhyme },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ], cache);
+  if (!row) failConstraint("No adjectives found");
+  return row;
+}
+
 async function randomVerb(
   minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
 ): Promise<Verb> {
