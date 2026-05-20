@@ -114,17 +114,14 @@ For a system-level overview and lessons learned from classification campaigns, s
 ```bash
 # Start Quarkus dev server
 ./gradlew quarkusDev
-
-# API available at http://localhost:8080
 ```
 
 ### Running tests
 
 ```bash
+# Runs JVM tests and Vercel fallback tests (auto-runs npm install)
 ./gradlew test
 ```
-
-`./gradlew test` now also runs the Vercel fallback unit tests from `api/__tests__/all.test.ts` (via `npm test`) before JVM tests.
 
 ## Developer Onboarding Docs
 
