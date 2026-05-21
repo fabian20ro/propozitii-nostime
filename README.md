@@ -118,6 +118,16 @@ For a system-level overview and lessons learned from classification campaigns, s
 # API available at http://localhost:8080
 ```
 
+### Verifying Render/Vercel Parity
+
+To ensure the Vercel fallback correctly matches the Render backend contract, run:
+
+```bash
+npm run smoke:parity
+```
+
+This script checks that both endpoints return all 6 sentence types and satisfy the HTML delimiter contract.
+
 ### Running tests
 
 ```bash
