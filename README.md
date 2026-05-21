@@ -119,9 +119,14 @@ For a system-level overview and lessons learned from classification campaigns, s
 ```
 
 ### Running tests
-
+### Running tests
 ```bash
 ./gradlew test
+```
+
+Also, you can run the smoke parity check script to ensure both Render and Vercel endpoints are in sync:
+```bash
+node scripts/smoke-parity.mjs
 ```
 
 `./gradlew test` now also runs the Vercel fallback unit tests from `api/__tests__/all.test.ts` (via `npm test`) before JVM tests.
@@ -134,9 +139,14 @@ For a system-level overview and lessons learned from classification campaigns, s
 - Vercel fallback lambda guide: `docs/VERCEL_LAMBDA.md`
 
 ### Building
-
+### Running tests
 ```bash
-./gradlew build
+./gradlew test
+```
+
+Also, you can run the smoke parity check script to ensure both Render and Vercel endpoints are in sync:
+```bash
+node scripts/smoke-parity.mjs
 ```
 
 ## Project Structure
