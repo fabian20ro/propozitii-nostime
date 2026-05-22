@@ -28,6 +28,13 @@ async function fetchJson(label, base) {
       throw new Error(`${label} returned HTTP ${response.status}`);
     }
 
+    // Check for telemetry headers
+    const serverTiming = response.headers.get('Server-Timing');
+    const xResponseTime = response.headers.get('X-Response-Time-Ms');
+    if (!serverTiming || !xResponseTime) {
+      console.warn(`[${label}] Warning: Telemetry headers (Server-Timing or X-Response-Time-Ms) are missing.`);
+    }
+
     const data = await response.json();
     validateShape(label, data);
     return data;
