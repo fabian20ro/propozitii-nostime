@@ -70,7 +70,7 @@ function sanitizeHtml(html) {
     return div.innerHTML;
 }
 
-// API configuration
+// Primary endpoint (may experience cold starts on Render)
 const API_BASE = 'https://propozitii-nostime.onrender.com/api';
 const FALLBACK_API_BASE = 'https://propozitii-nostime.vercel.app/api';
 const HEALTH_URL = 'https://propozitii-nostime.onrender.com/q/health';
