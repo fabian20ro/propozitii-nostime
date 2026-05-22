@@ -1,6 +1,5 @@
-# Propozitii Nostime
+<!-- Compound Autopilot Run: 2026-05-22T19:30Z -->
 
-[![Build Backend](https://github.com/fabian20ro/propozitii-nostime/actions/workflows/backend.yml/badge.svg)](https://github.com/fabian20ro/propozitii-nostime/actions/workflows/backend.yml)
 [![Deploy Frontend](https://github.com/fabian20ro/propozitii-nostime/actions/workflows/frontend.yml/badge.svg)](https://github.com/fabian20ro/propozitii-nostime/actions/workflows/frontend.yml)
 
 Generator de propozitii hazoase in limba romana (Romanian funny sentence generator).
