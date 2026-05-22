@@ -26,15 +26,29 @@ class PhraseResource {
     @Inject
     lateinit var wordRepository: WordRepository
 
+    /**
+     * Calculates the effective rarity range [min, max] for a request.
+     *
+     * @param rarity The requested rarity level (optional).
+     * @param minRarity The minimum allowed rarity level (optional, defaults to 1).
+     * @return A Pair representing the clamped and normalized range [min, max].
+     */
     private fun rarityRange(rarity: Int?, minRarity: Int?): Pair<Int, Int> {
         val a = normalizeRarity(rarity)
         val b = normalizeRarity(minRarity, default = 1)
         // Ensure the range is always [min, max] regardless of parameter order.
-        return Pair(minOf(a, b), maxOf(a, b))
+        return Pair(minOf(a, b), max(a, b))
     }
 
-    private fun generate(
-        rarity: Int?, minRarity: Int?,
+    /**
+     * Normalizes a rarity level to be within the valid range [1, 5].
+     *
+     * @param rarity The input rarity value to normalize.
+     * @param default The value to use if the input is null (defaults to 2).
+     * @return A clamped integer between 1 and 5.
+     */
+    private fun normalizeRarity(rarity: Int?, default: Int = DEFAULT_RARITY): Int =
+        (rarity ?: default).coerceIn(1, 5)
         decorate: (ISentenceProvider) -> ISentenceProvider,
         providerFactory: (Int, Int) -> ISentenceProvider
     ): SentenceResponse {
