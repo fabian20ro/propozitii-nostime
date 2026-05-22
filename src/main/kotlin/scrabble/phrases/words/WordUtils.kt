@@ -8,6 +8,10 @@ object WordUtils {
         "ou", "ei", "ai", "oi", "ie", "ui"
     )
 
+    /**
+     * Capitalizes the first letter of the given sentence.
+     * Returns the original string if it is null or empty.
+     */
     fun capitalizeFirstLetter(sentence: String?): String? {
         if (sentence.isNullOrEmpty()) return sentence
         return sentence.replaceFirstChar { it.uppercaseChar() }
