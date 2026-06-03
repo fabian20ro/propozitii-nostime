@@ -190,6 +190,12 @@ export const DEXONLINE_URL = "https://dexonline.ro/definitie/";
 export const DEXONLINE_ANCHOR_ATTRS = ["href", "target", "rel", "data-word"] as const;
 export const DEXONLINE_ANCHOR_TARGET = "_blank";
 export const DEXONLINE_ANCHOR_REL = "noopener";
+
+/**
+ * IMPORTANT: Verse delimiter contract (from AGENTS.md).
+ * Multi-line verses use literal " / " as a delimiter.
+ * Breaking this string silently kills line breaks in the frontend.
+ */
 const UNSATISFIABLE =
   "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
 
@@ -407,6 +413,19 @@ async function randomAdjByPrefix(
     { column: "word", op: "like", value: `${prefix}%` },
     ...rarityFilters(minR, maxR),
   ], cache);
+}
+
+async function randomAdjByRhyme(
+  rhyme: string, minR: number, maxR: number, exclude: string[] = [], cache?: CountCache
+): Promise<Adjective> {
+  const row = await randomRow<Adjective>(ADJ_SELECT, [
+    { column: "type", op: "eq", value: "A" },
+    { column: "rhyme", op: "eq", value: rhyme },
+    ...rarityFilters(minR, maxR),
+    ...excludeFilters(exclude),
+  ], cache);
+  if (!row) failConstraint("No adjectives found");
+  return row;
 }
 
 async function randomVerb(

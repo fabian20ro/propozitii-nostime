@@ -49,3 +49,6 @@ hs_err_pid*
 # Node.js (Vercel serverless fallback)
 node_modules/
 .vercel/
+
+# Compound Autopilot infrastructure metadata
+.compound-autopilot/
