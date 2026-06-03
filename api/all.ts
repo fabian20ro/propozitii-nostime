@@ -176,7 +176,7 @@ function getSupabaseClient(): SupabaseClient | null {
 
 // --- Per-generator timeout (prevents a single slow generator from exhausting maxDuration) ---
 
-const GENERATOR_TIMEOUT_MS = 7000;
+const GENERATOR_TIMEOUT_MS = Number(process.env.GENERATOR_TIMEOUT_MS) || 7000;
 
 function withTimeout<T>(promise: Promise<T>, fallback: T, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
