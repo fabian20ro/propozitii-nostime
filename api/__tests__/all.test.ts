@@ -365,4 +365,14 @@ describe("normalizeRarityRange", () => {
   it("defaults to the published fallback range when params are missing", () => {
     expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
+
+  it("handles array query params (Vercel multi-value) by using first element", () => {
+    expect(normalizeRarityRange(["3"], ["4"])).toEqual({ minR: 3, maxR: 4 });
+  });
+
+  it("clamps and orders array query params", () => {
+    // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
+    // then min/max swap: { minR: 2, maxR: 5 }
+    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 2, maxR: 5 });
+  });
 });
