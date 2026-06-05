@@ -274,6 +274,40 @@ describe("Supabase init validation", () => {
   });
 });
 
+describe("validateSupabaseUrl", () => {
+  it("returns error for empty string", () => {
+    expect(validateSupabaseUrl("")).toContain("Missing SUPABASE_URL");
+  });
+
+  it("returns error for undefined input", () => {
+    expect(validateSupabaseUrl(undefined)).toContain("Missing SUPABASE_URL");
+  });
+
+  it("returns error for whitespace-only input", () => {
+    expect(validateSupabaseUrl("   ")).toContain("Missing SUPABASE_URL");
+  });
+
+  it("accepts http (non-https) URLs", () => {
+    expect(validateSupabaseUrl("http://example.supabase.co")).toBeUndefined();
+  });
+
+  it("rejects non-http protocols (ftp)", () => {
+    expect(validateSupabaseUrl("ftp://example.com")).toContain(
+      "must use http/https"
+    );
+  });
+
+  it("rejects malformed URLs that fail URL parsing", () => {
+    expect(validateSupabaseUrl("not-a-url-at-all")).toContain(
+      "must be a valid HTTP or HTTPS URL"
+    );
+  });
+
+  it("trims whitespace before validation", () => {
+    expect(validateSupabaseUrl("  https://example.supabase.co  ")).toBeUndefined();
+  });
+});
+
 describe("CORS origin helpers", () => {
   it("uses default allowlist when env value is empty", () => {
     expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
@@ -330,5 +364,15 @@ describe("normalizeRarityRange", () => {
 
   it("defaults to the published fallback range when params are missing", () => {
     expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("handles array query params (Vercel multi-value) by using first element", () => {
+    expect(normalizeRarityRange(["3"], ["4"])).toEqual({ minR: 3, maxR: 4 });
+  });
+
+  it("clamps and orders array query params", () => {
+    // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
+    // then min/max swap: { minR: 2, maxR: 5 }
+    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 2, maxR: 5 });
   });
 });
