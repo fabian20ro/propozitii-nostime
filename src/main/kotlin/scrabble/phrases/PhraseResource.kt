@@ -6,7 +6,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
-import scrabble.phrases.decorators.DexonlineLinkAdder
+import scrabble.phrases.decorators.DexlineLinkAdder
 import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer
 import scrabble.phrases.decorators.HtmlVerseBreaker
 import scrabble.phrases.decorators.VerseLineCapitalizer
@@ -95,10 +95,10 @@ class PhraseResource {
         (rarity ?: default).coerceIn(1, 5)
 
     private fun decorateVerse(provider: ISentenceProvider): ISentenceProvider =
-        HtmlVerseBreaker(DexonlineLinkAdder(VerseLineCapitalizer(provider)))
+        HtmlVerseBreaker(DexlineLinkAdder(VerseLineCapitalizer(provider)))
 
     private fun decorateSentence(provider: ISentenceProvider): ISentenceProvider =
-        DexonlineLinkAdder(FirstSentenceLetterCapitalizer(provider))
+        DexlineLinkAdder(FirstSentenceLetterCapitalizer(provider))
 
     companion object {
         const val DEFAULT_RARITY = 2

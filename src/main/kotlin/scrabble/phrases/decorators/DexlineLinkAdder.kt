@@ -4,7 +4,7 @@ import scrabble.phrases.providers.ISentenceProvider
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-class DexonlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvider {
+class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvider {
 
     companion object {
         const val DEXONLINE_URL = "https://dexonline.ro/definitie/"
