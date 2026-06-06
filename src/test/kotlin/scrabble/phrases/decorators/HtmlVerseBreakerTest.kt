@@ -46,18 +46,22 @@ class HtmlVerseBreakerTest {
     }
 
     @Test
-    fun `should not replace different spacing`() {
-        // Current implementation is very strict: only " / "
+    fun `should replace different spacing`() {
+        // Previous implementation was very strict: only " / "
         val provider = MockProvider("Word/Word")
         val breaker = HtmlVerseBreaker(provider)
-        assertEquals("Word/Word", breaker.getSentence())
+        assertEquals("Word<br/>Word", breaker.getSentence())
 
         val provider2 = MockProvider("Word /Word")
         val breaker2 = HtmlVerseBreaker(provider2)
-        assertEquals("Word /Word", breaker2.getSentence())
+        assertEquals("Word<br/>Word", breaker2.getSentence())
 
         val provider3 = MockProvider("Word/ Word")
         val breaker3 = HtmlVerseBreaker(provider3)
-        assertEquals("Word/ Word", breaker3.getSentence())
+        assertEquals("Word<br/>Word", breaker3.getSentence())
+
+        val provider4 = MockProvider("Word / Word")
+        val breaker4 = HtmlVerseBreaker(provider4)
+        assertEquals("Word<br/>Word", breaker4.getSentence())
     }
 }
