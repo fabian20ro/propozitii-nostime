@@ -153,6 +153,19 @@ describe("decorateVerse", () => {
     const breaks = (result.match(/<br\/>/g) || []).length;
     expect(breaks).toBe(3);
   });
+
+  it("returns empty string for empty input", () => {
+    expect(decorateVerse("")).toBe("");
+  });
+
+  it("returns empty string for whitespace-only input", () => {
+    expect(decorateVerse("   ")).toBe("");
+  });
+
+  it("produces <br/> for delimiter-only input (two empty lines)", () => {
+    // " / " splits into [" ", " "] → both trim to "" → join with <br/>
+    expect(decorateVerse(" / ")).toBe("<br/>");
+  });
 });
 
 // --- decorateSentence ---
@@ -167,6 +180,14 @@ describe("decorateSentence", () => {
   it("trims whitespace", () => {
     const result = decorateSentence("  masă  ");
     expect(result).toContain(">Masă</a>");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(decorateSentence("")).toBe("");
+  });
+
+  it("returns empty string for whitespace-only input", () => {
+    expect(decorateSentence("   ")).toBe("");
   });
 });
 
