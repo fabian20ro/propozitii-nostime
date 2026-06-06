@@ -243,7 +243,7 @@ interface QueryFilter {
 }
 
 export function adjForGender(adj: Adjective, gender: string): string {
-  return gender === "F" ? adj.feminine : adj.word;
+  return gender.toUpperCase() === "F" ? adj.feminine : adj.word;
 }
 
 // --- Per-request count cache (avoids redundant count queries for same filter combos) ---

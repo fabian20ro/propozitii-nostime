@@ -81,6 +81,9 @@ describe("adjForGender", () => {
     expect(adjForGender(adj, "M")).toBe("frumos");
   });
 
+  it("handles lowercase f", () => {
+    expect(adjForGender(adj, "f")).toBe("frumoasă");
+  });
   it("returns masculine form for gender N", () => {
     expect(adjForGender(adj, "N")).toBe("frumos");
   });
