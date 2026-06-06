@@ -40,7 +40,6 @@ class PhraseResourceTest {
             .statusCode(200)
             .body("sentence", notNullValue())
             .body("sentence", containsString("<a href="))
-            .body("sentence", containsString("<br/>"))
     }
 
     @Test
@@ -51,7 +50,6 @@ class PhraseResourceTest {
             .statusCode(200)
             .body("sentence", notNullValue())
             .body("sentence", containsString("<a href="))
-            .body("sentence", containsString("<br/>"))
     }
 
     @Test
@@ -62,7 +60,6 @@ class PhraseResourceTest {
             .statusCode(200)
             .body("sentence", notNullValue())
             .body("sentence", containsString("<a href="))
-            .body("sentence", containsString("<br/>"))
     }
 
     @Test

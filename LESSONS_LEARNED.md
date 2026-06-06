@@ -91,6 +91,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
 
+**[2026-06-06]** Verse-break assertions must follow provider contracts — Require `<br/>` only from multiline verse endpoints. Single-line providers may legitimately contain no delimiter; verify `HtmlVerseBreaker` transformation with focused decorator tests.
+
 **[2026-02-07]** Testcontainers Ryuk failure with Colima — `./gradlew test` can fail locally when Testcontainers cannot start Ryuk with Colima Docker socket mount (`operation not supported`).
 
 **[2026-02-07]** Test reliability depends on Docker health — Full integration-test reliability depends on local Docker/Testcontainers health; use targeted subsets when container runtime is unstable.
