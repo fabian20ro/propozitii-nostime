@@ -6,6 +6,6 @@ import scrabble.phrases.words.WordUtils
 class VerseLineCapitalizer(private val provider: ISentenceProvider) : ISentenceProvider {
     override fun getSentence(): String =
         provider.getSentence()
-            .split(" / ")
+            .split(Regex("\\s*/\\s*"))
             .joinToString(" / ") { WordUtils.capitalizeFirstLetter(it.trim()) ?: "" }
 }
