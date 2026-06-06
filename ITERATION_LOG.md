@@ -186,3 +186,13 @@
 
 - Added focused `WordUtils.fixWordCharacters` coverage for apostrophe removal and unchanged clean words.
 - Verification: `./gradlew test --tests scrabble.phrases.words.WordUtilsTest` passed; Gradle/Jacoco emitted Java 25 instrumentation warnings but tests completed successfully.
+### 2026-06-06: Repair over-broad endpoint assertions
+
+**Context:** Compound PR CI failed because single-line sentence endpoints were required to contain `<br/>`.
+**What happened:**
+- Removed `<br/>` assertions from comparison, definition, and tautogram endpoint tests.
+- Kept verse checks on haiku, distih, and mirror.
+- Kept focused `HtmlVerseBreakerTest` delimiter coverage.
+**Outcome:** Focused decorator tests pass; local Quarkus integration startup remains blocked by the documented Colima/Ryuk socket-mount issue.
+**Insight:** Assert verse delimiters only for providers whose output contract is multiline; test decorator transformation independently.
+**Promoted to Lessons Learned:** Yes

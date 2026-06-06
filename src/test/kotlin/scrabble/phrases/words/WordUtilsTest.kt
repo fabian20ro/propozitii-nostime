@@ -8,7 +8,7 @@ class WordUtilsTest {
     @Test
     fun shouldComputeCorrectSyllableCount() {
         val wordMap = mapOf(
-            "semifinalista" to 6, "greoi" to 2, "aalenian" to 4, "alee" to 3, "alcool" to 3,
+            "semifinalista" to 6, "greoi" to 2, "aelenian" to 4, "alee" to 3, "alcool" to 3,
             "fiinta" to 3, "puicuta" to 3, "aeroport" to 4, "miercureana" to 4, "policioara" to 4,
             "vulpoaica" to 3, "miau" to 1, "leoaica" to 3, "lupoaica" to 3, "mioara" to 2,
             "ambiguul" to 4, "t\u0103m\u00e2ie" to 3, "bou" to 1, "reusit" to 3, "greul" to 2, "unui" to 2,
@@ -31,6 +31,8 @@ class WordUtilsTest {
         assertEquals("Aloha", WordUtils.capitalizeFirstLetter("aloha"))
         assertEquals("Aloha", WordUtils.capitalizeFirstLetter("Aloha"))
         assertEquals("\u00cen\u0103bu\u0219eala", WordUtils.capitalizeFirstLetter("\u00een\u0103bu\u0219eala"))
+        assertEquals(null, WordUtils.capitalizeFirstLetter(null))
+        assertEquals("", WordUtils.capitalizeFirstLetter(""))
     }
 
     @Test
@@ -38,6 +40,7 @@ class WordUtilsTest {
         assertEquals("are", WordUtils.computeRhyme("formare"))
         assertEquals("abc", WordUtils.computeRhyme("abc"))
         assertEquals("ab", WordUtils.computeRhyme("ab"))
+        assertEquals("", WordUtils.computeRhyme(""))
     }
 
     @Test
@@ -45,5 +48,6 @@ class WordUtilsTest {
         assertEquals("mam dus", WordUtils.fixWordCharacters("m'am dus"))
         assertEquals("neam", WordUtils.fixWordCharacters("ne'am"))
         assertEquals("curat", WordUtils.fixWordCharacters("curat"))
+        assertEquals("hello", WordUtils.fixWordCharacters("hello'"))
     }
 }

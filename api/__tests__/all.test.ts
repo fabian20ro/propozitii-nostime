@@ -36,6 +36,10 @@ describe("escapeHtml", () => {
   it("handles empty string", () => {
     expect(escapeHtml("")).toBe("");
   });
+
+  it("does not escape single quotes", () => {
+    expect(escapeHtml("it's")).toBe("it's");
+  });
 });
 
 // --- capitalizeFirst ---
@@ -77,6 +81,9 @@ describe("adjForGender", () => {
     expect(adjForGender(adj, "M")).toBe("frumos");
   });
 
+  it("handles lowercase f", () => {
+    expect(adjForGender(adj, "f")).toBe("frumoasă");
+  });
   it("returns masculine form for gender N", () => {
     expect(adjForGender(adj, "N")).toBe("frumos");
   });
@@ -120,10 +127,16 @@ describe("addDexLinks", () => {
     expect(result).toContain(">Masă</a>");
   });
 
-  it("escapes HTML in display text", () => {
-    // Edge case: word containing special chars (unlikely but safe)
-    const result = addDexLinks("a");
-    expect(result).toContain(">a</a>");
+  it("handles multiple spaces", () => {
+    const result = addDexLinks("a  b");
+    expect(result).toContain("</a>  <a");
+  });
+
+  it("handles emojis and punctuation", () => {
+    const result = addDexLinks("😊! la lume");
+    expect(result).toContain("😊!");
+    expect(result).toContain("la");
+    expect(result).toContain("lume");
   });
 });
 
