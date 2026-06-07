@@ -9,7 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke:parity": "node ./scripts/smoke-parity.mjs"
+    "smoke:parity": "node ./scripts/smoke-parity.mjs",
+    "build": "tsc"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1"
