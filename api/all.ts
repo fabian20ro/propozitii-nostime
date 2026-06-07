@@ -602,6 +602,10 @@ export function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+export function cleaningDecorator(sentence: string): string {
+  return sentence.trim().replace(/\s+/g, ' ');
+}
+
 export function decorateVerse(sentence: string): string {
   const lines = sentence.split(/\s*\/\s*/);
   const decoratedLines = lines.map((line) => addDexLinks(capitalizeFirst(line.trim())));
@@ -684,7 +688,7 @@ async function genHaiku(minR: number, maxR: number, cache?: CountCache): Promise
   if (!adj) failConstraint("No adj with required syllables");
   if (!verb) failConstraint("No verb with 3 syllables");
   const raw = `${noun.articulated} / ${adjForGender(adj, noun.gender)} ${verb.word} / ${noun2.articulated}.`;
-  return decorateVerse(raw);
+  return cleaningDecorator(decorateVerse(raw));
 }
 
 async function genMirror(minR: number, maxR: number, cache?: CountCache): Promise<string> {

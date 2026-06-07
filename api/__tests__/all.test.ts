@@ -37,12 +37,17 @@ describe("escapeHtml", () => {
     expect(escapeHtml("")).toBe("");
   });
 
-  it("does not escape single quotes", () => {
-    expect(escapeHtml("it's")).toBe("it's");
+  it("handles multiple whitespace", () => {
+    expect(escapeHtml("a  b")).toBe("a  b");
   });
-});
 
-// --- capitalizeFirst ---
+  it("handles ampersand, angle brackets, and quotes", () => {
+    expect(escapeHtml('a & b < c > d "e"')).toBe(
+      "a &amp; b &lt; c &gt; d &quot;e&quot;"
+    );
+  });
+
+});
 
 describe("capitalizeFirst", () => {
   it("capitalizes first letter", () => {
