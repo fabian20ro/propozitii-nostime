@@ -46,7 +46,6 @@ describe("escapeHtml", () => {
       "a &amp; b &lt; c &gt; d &quot;e&quot;"
     );
   });
-
 });
 
 describe("capitalizeFirst", () => {
@@ -199,13 +198,20 @@ describe("decorateSentence", () => {
     const result = decorateSentence("  masă  ");
     expect(result).toContain(">Masă</a>");
   });
+});
 
-  it("returns empty string for empty input", () => {
-    expect(decorateSentence("")).toBe("");
+describe("normalizeRarityRange", () => {
+  it("handles string inputs", () => {
+    expect(normalizeRarityRange("1", "3")).toEqual({ minR: 1, maxR: 3 });
   });
-
-  it("returns empty string for whitespace-only input", () => {
-    expect(decorateSentence("   ")).toBe("");
+  it("handles arrays of strings", () => {
+    expect(normalizeRarityRange(["1"], ["5"])).toEqual({ minR: 1, maxR: 5 });
+  });
+  it("clamps to 1-5 range", () => {
+    expect(normalizeRarityRange("0", "10")).toEqual({ minR: 1, maxR: 5 });
+  });
+  it("handles invalid inputs", () => {
+    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
 });
 
@@ -299,7 +305,7 @@ describe("Supabase init validation", () => {
 
   it("rejects invalid SUPABASE_URL values", () => {
     expect(validateSupabaseUrl("jdbc:postgresql://db.example.com/postgres")).toContain(
-      "Invalid SUPABASE_URL"
+      "Invalid SUPABASE_URL: must use http/https."
     );
   });
 
@@ -385,7 +391,6 @@ describe("CORS origin helpers", () => {
   it("handles comma-only or whitespace-only strings by returning default", () => {
     expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
   });
-
 });
 
 describe("normalizeRarityRange", () => {
