@@ -86,6 +86,7 @@ jobs:
         run: ./gradlew test --stacktrace
         env:
           QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/testdb
+          QUARKUS_DATASOURCE_DB_KIND: postgresql
           QUARKUS_DATASOURCE_USERNAME: test
           QUARKUS_DATASOURCE_PASSWORD: test
           QUARKUS_DATASOURCE_DEVSERVICES_ENABLED: false
