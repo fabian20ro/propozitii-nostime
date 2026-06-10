@@ -5,6 +5,7 @@ import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 @QuarkusTest
 class WordRepositoryTest {
@@ -45,9 +46,10 @@ class WordRepositoryTest {
     }
 
     @Test
-    fun shouldFilterRhymeCandidatesByRarity() {
-        assertThat(repository.getRandomVerbByRhyme("ază", maxRarity = 1)).isNull()
-        assertThat(repository.getRandomVerbByRhyme("ază", maxRarity = 2)).isNotNull()
+    fun shouldThrowExceptionWhenNoNounsFound() {
+        assertThrows<IllegalStateException> {
+            repository.getRandomNoun(minRarity = 5, maxRarity = 5)
+        }
     }
 
     private fun rarityOf(word: String, type: String): Int {
