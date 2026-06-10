@@ -52,13 +52,20 @@ class WordRepositoryTest {
         }
     }
 
+    @Test
+    fun shouldThrowExceptionWhenMinRarityGreaterThanMaxRarity() {
+        assertThrows<IllegalStateException> {
+            repository.getRandomNoun(minRarity = 3, maxRarity = 2)
+        }
+    }
+
     private fun rarityOf(word: String, type: String): Int {
         dataSource.connection.use { conn ->
             conn.prepareStatement("SELECT rarity_level FROM words WHERE word=? AND type=? LIMIT 1").use { stmt ->
                 stmt.setString(1, word)
                 stmt.setString(2, type)
                 stmt.executeQuery().use { rs ->
-                    check(rs.next()) { "Missing word in seed data: $word ($type)" }
+                    check(rs.next()) { "Missing word in seed data:  ()" }
                     return rs.getInt("rarity_level")
                 }
             }
