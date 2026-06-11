@@ -1,5 +1,7 @@
 ALTER TABLE words
-    ADD COLUMN IF NOT EXISTS rarity_level SMALLINT NOT NULL DEFAULT 4,
+    ADD COLUMN IF NOT EXISTS rarity_level SMALLINT NOT NULL DEFAULT 4;
+
+ALTER TABLE words
     ADD CONSTRAINT chk_words_rarity_level CHECK (rarity_level BETWEEN 1 AND 5);
 
 CREATE INDEX IF NOT EXISTS idx_words_type_rarity_syllables
