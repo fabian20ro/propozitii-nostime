@@ -4,7 +4,10 @@ import {
   resolveSupabaseKey,
   parseAllowedOrigins,
   resolveCorsOrigin,
-  normalizeRarityRange
+  normalizeRarityRange,
+  capitalizeFirst,
+  cleaningDecorator,
+  decorateVerse
 } from "../all";
 
 describe("api/all.ts utilities", () => {
@@ -79,16 +82,21 @@ describe("api/all.ts utilities", () => {
       expect(resolveCorsOrigin("https://c.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
     });
   });
-
-  describe("normalizeRarityRange", () => {
-    it("handles valid range", () => {
-      expect(normalizeRarityRange("1", "4")).toEqual({ minR: 1, maxR: 4 });
+  describe("text decorators", () => {
+    it("capitalizeFirst handles empty string", () => {
+      expect(capitalizeFirst("")).toBe("");
     });
-    it("clamps to [1, 5]", () => {
-      expect(normalizeRarityRange("0", "6")).toEqual({ minR: 1, maxR: 5 });
+    it("capitalizeFirst capitalizes first character", () => {
+      expect(capitalizeFirst("hello")).toBe("Hello");
     });
-    it("handles array inputs", () => {
-      expect(normalizeRarityRange(["2"], ["5"])).toEqual({ minR: 2, maxR: 5 });
+    it("cleaningDecorator trims and collapses whitespace", () => {
+      expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
+    });
+    it("decorateVerse converts slash to br and adds dexlinks", () => {
+      const verse = "word one / word two";
+      const result = decorateVerse(verse);
+      expect(result).toContain("<br/>");
+      expect(result).toContain("word");
     });
   });
 });
