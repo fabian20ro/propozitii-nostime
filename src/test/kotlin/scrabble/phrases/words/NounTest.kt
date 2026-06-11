@@ -2,28 +2,44 @@ package scrabble.phrases.words
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class NounTest {
 
-    @Test
-    fun `test masculine articulation`() {
-        assertEquals("câinele", Noun("câine", NounGender.M).articulated)
-        assertEquals("băiatul", Noun("băiat", NounGender.M).articulated)
-        assertEquals("copilul", Noun("copil", NounGender.M).articulated)
-        assertEquals("puștiul", Noun("puști", NounGender.M).articulated)
+    @ParameterizedTest
+    @CsvSource(
+        "acar, M, acarul",
+        "maestru, M, maestrul",
+        "codru, M, codrul",
+        "staul, N, staulul",
+        "pod, N, podul",
+        "munte, M, muntele",
+        "perete, M, peretele",
+        "burete, M, buretele",
+        "tată, M, tatăl",
+    )
+    fun shouldArticulateMasculineAndNeutral(word: String, gender: String, expected: String) {
+        val noun = Noun(word, NounGender.valueOf(gender))
+        assertEquals(expected, noun.articulated)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "fată, F, fata",
+        "macara, F, macaraua",
+        "ploaie, F, ploaia",
+        "rodie, F, rodia",
+    )
+    fun shouldArticulateFeminine(word: String, gender: String, expected: String) {
+        val noun = Noun(word, NounGender.F)
+        assertEquals(expected, noun.articulated)
     }
 
     @Test
-    fun `test feminine articulation`() {
-        // Case: ends with ă
-        assertEquals("fata", Noun("fată", NounGender.F).articulated)
-        // Case: ends with ie
-        assertEquals("fata", Noun("fată", NounGender.F).articulated)
-        // Let's try a word ending in "ie"
-        assertEquals("pomul", Noun("pom", NounGender.M).articulated) // wait, pom is M
-        // Let's test "fată" again.
-        // word.endsWith("ă") is true.
-        // word.dropLast(1) + "a" => "fat" + "a" = "fata"
-        assertEquals("fata", Noun("fată", NounGender.F).articulated)
+    fun shouldComputeSyllablesAndRhyme() {
+        val noun = Noun("macara", NounGender.F)
+        assertEquals(3, noun.syllables)
+        assertEquals("ara", noun.rhyme)
     }
 }
