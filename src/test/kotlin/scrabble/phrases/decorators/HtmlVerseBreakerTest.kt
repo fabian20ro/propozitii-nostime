@@ -46,6 +46,13 @@ class HtmlVerseBreakerTest {
     }
 
     @Test
+    fun `should not replace slash inside HTML tags`() {
+        val provider = MockProvider("<a href=\"https://dexonline.ro/definitie/word\">Link</a> / Next line")
+        val breaker = HtmlVerseBreaker(provider)
+        assertEquals("<a href=\"https://dexonline.ro/definitie/word\">Link</a><br/>Next line", breaker.getSentence())
+    }
+
+    @Test
     fun `should replace different spacing`() {
         // Previous implementation was very strict: only " / "
         val provider = MockProvider("Word/Word")
