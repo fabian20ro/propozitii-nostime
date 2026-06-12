@@ -15,13 +15,17 @@ class DecoratorTest {
 
         assertEquals("<a href=\"https://dexonline.ro/definitie/mas%C4%83\" target=\"_blank\" rel=\"noopener\" data-word=\"mas%C4%83\">Masă</a>", result)
     }
-    
+
     @Test
-    fun shouldConvertSlashToBr() {
+    fun shouldComposeDecoratorsCorrectly() {
         val baseProvider = object : ISentenceProvider {
             override fun getSentence(): String = "ana / are"
         }
-        val decorated = HtmlVerseBreaker(baseProvider)
-        assertEquals("ana<br/>are", decorated.getSentence())
+        val decorated = HtmlVerseBreaker(DexlineLinkAdder(baseProvider))
+        val result = decorated.getSentence()
+        
+        assert(result.contains("<a href=\"https://dexonline.ro/definitie/ana\""))
+        assert(result.contains("<br/>"))
+        assert(result.contains("<a href=\"https://dexonline.ro/definitie/are\""))
     }
 }
