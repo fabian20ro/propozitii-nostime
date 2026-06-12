@@ -285,7 +285,15 @@ describe("resolveSupabaseKey", () => {
     });
     expect(resolved.source).toBe("none");
     expect(resolved.key).toBe("");
-    expect(resolved.error).toContain("SUPABASE_SERVICE_ROLE_KEY is set but disabled");
+    expect(resolved.error).toContain("SUPABASE_SERVICE_ROLE_KEY is set but disabled for this public endpoint.");
+  });
+  it("returns error if SUPABASE_URL is invalid", () => {
+    const resolved = resolveSupabaseInit({
+      SUPABASE_URL: "invalid-url",
+      SUPABASE_PUBLISHABLE_KEY: "pub",
+    });
+    expect(resolved.keyResolution.source).toBe("publishable");
+    expect(resolved.error).toContain("must be a valid HTTP or HTTPS URL");
   });
 
   it("allows service-role only when explicitly enabled", () => {
