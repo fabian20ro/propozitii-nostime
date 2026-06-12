@@ -1,7 +1,8 @@
 package scrabble.phrases.decorators
 
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import scrabble.phrases.providers.ISentenceProvider
 
 class DecoratorTest {
@@ -23,9 +24,9 @@ class DecoratorTest {
         }
         val decorated = HtmlVerseBreaker(DexlineLinkAdder(baseProvider))
         val result = decorated.getSentence()
-        
-        assert(result.contains("<a href=\"https://dexonline.ro/definitie/ana\""))
-        assert(result.contains("<br/>"))
-        assert(result.contains("<a href=\"https://dexonline.ro/definitie/are\""))
+
+        assertTrue(result.contains("<a href=\"https://dexonline.ro/definitie/ana\""))
+        assertTrue(result.contains("<br/>"))
+        assertTrue(result.contains("<a href=\"https://dexonline.ro/definitie/are\""))
     }
 }
