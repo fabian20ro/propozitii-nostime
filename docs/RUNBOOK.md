@@ -97,6 +97,15 @@ The script checks response shape and string payloads for the shared contract; it
 
 ## Common Incidents
 
+| Error Code | Meaning | Possible Cause | Action |
+|-------------|---------|---------------|--------|
+| 401         | Unauthorized | Invalid or missing `SUPABASE_PUBLISHABLE_KEY` or `SUPABASE_SERVICE_ROLE_KEY`. | Verify environment variables in Vercel/Render. |
+| 403         | Forbidden | Origin mismatch in `ALLOWED_ORIGINS`. | Ensure the request `Origin` is in the allowlist. |
+| 404         | Not Found | Missing table or schema mismatch. | Check if migrations (Flyway) were applied successfully. |
+| 429         | Too Many Requests | Rate limiting triggered. | Reduce request frequency or check Supabase usage dashboard. |
+| 500         | Internal Error | Unexpected server-side failure. | Check Render/Vercel logs for stack traces. |
+
+
 ### Cold Start Latency
 
 Symptom:

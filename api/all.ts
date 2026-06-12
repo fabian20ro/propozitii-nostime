@@ -660,7 +660,7 @@ async function genDistih(minR: number, maxR: number, cache?: CountCache): Promis
     ]);
     usedN.push(n2.word);
     usedA.push(a2.word);
-    return `${n1.articulated} ${adjForGender(a1, n1.gender)} ${v.word} ${n2.articulated} ${adjForGender(a2, n2.gender)}.`;
+    return `${n1.articulated} ${adjForGender(a1, n1.gender)} ${v.word}.`;
   }
 
   const l1 = await buildLine();
