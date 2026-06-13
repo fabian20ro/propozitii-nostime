@@ -39,10 +39,17 @@ class HtmlVerseBreakerTest {
     }
 
     @Test
-    fun `should handle leading and trailing delimiters`() {
-        val provider = MockProvider(" / Start / End / ")
+    fun `should handle existing br tags`() {
+        val provider = MockProvider("Line 1 <br/> Line 2")
         val breaker = HtmlVerseBreaker(provider)
-        assertEquals("<br/>Start<br/>End<br/>", breaker.getSentence())
+        assertEquals("Line 1 <br/> Line 2", breaker.getSentence())
+    }
+
+    @Test
+    fun `should handle slash and br tag`() {
+        val provider = MockProvider("Line 1 / <br/> Line 2")
+        val breaker = HtmlVerseBreaker(provider)
+        assertEquals("Line 1 / <br/> Line 2", breaker.getSentence())
     }
 
     @Test
