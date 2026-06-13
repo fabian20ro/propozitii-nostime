@@ -732,7 +732,7 @@ async function genTautogram(minR: number, maxR: number, cache?: CountCache): Pro
   if (!adj) failConstraint("No adj for prefix");
   if (!verb) failConstraint("No verb for prefix");
   const n2 = await randomNounByPrefix(prefix, minR, maxR, [n1.word], cache);
-  if (!n2) failConstraint("No 2nd noun for prefix");
+  if (!n2) failConstraint("No 2nd noun");
   const raw = `${n1.articulated} ${adjForGender(adj, n1.gender)} ${verb.word} ${n2.articulated}.`;
   return decorateSentence(raw);
 }
