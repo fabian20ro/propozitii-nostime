@@ -4,5 +4,5 @@ import scrabble.phrases.providers.ISentenceProvider
 
 class HtmlVerseBreaker(private val provider: ISentenceProvider) : ISentenceProvider {
     override fun getSentence(): String =
-        provider.getSentence().replace(Regex("\\s*/\\s*(?![^<]*(?:>|<))"), "<br/>")
+        provider.getSentence().replace(Regex("\\s*/\\s*(?![^<]*>)"), "<br/>")
 }
