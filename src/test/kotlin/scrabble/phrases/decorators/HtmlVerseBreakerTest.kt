@@ -49,7 +49,7 @@ class HtmlVerseBreakerTest {
     fun `should handle slash and br tag`() {
         val provider = MockProvider("Line 1 / <br/> Line 2")
         val breaker = HtmlVerseBreaker(provider)
-        assertEquals("Line 1 / <br/> Line 2", breaker.getSentence())
+        assertEquals("Line 1<br/><br/> Line 2", breaker.getSentence())
     }
 
     @Test

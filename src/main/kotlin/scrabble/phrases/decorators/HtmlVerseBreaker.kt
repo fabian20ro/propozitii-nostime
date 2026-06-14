@@ -8,8 +8,6 @@ class HtmlVerseBreaker(private val provider: ISentenceProvider) : ISentenceProvi
         return text.replace(Regex("(<[^>]*>)|(\\s*/\\s*)")) {
             if (it.value.startsWith("<")) {
                 it.value
-            } else if (it.range.last + 1 < text.length && text[it.range.last + 1] == '<') {
-                it.value
             } else {
                 "<br/>"
             }
