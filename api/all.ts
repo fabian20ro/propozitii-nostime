@@ -96,7 +96,7 @@ export function normalizeRarityRange(
   const minVal = Number(firstQueryValue(minRarity));
   const maxVal = Number(firstQueryValue(rarity));
   const minCandidate = Math.max(1, Math.min(5, isNaN(minVal) ? 1 : minVal));
-  const maxCandidate = Math.max(1, Math.min(5, isNaN(maxVal) ? 2 : maxVal));
+  const maxCandidate = Math.max(1, Math.min(5, isNaN(maxVal) ? 5 : maxVal));
   return {
     minR: Math.min(minCandidate, maxCandidate),
     maxR: Math.max(minCandidate, maxCandidate),
