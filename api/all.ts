@@ -80,8 +80,11 @@ export function buildResponseTimingHeaders(startedAtMs: number, finishedAtMs = D
   };
 }
 
-function firstQueryValue(raw: string | string[] | undefined): string | undefined {
-  return Array.isArray(raw) ? raw[0] : raw;
+function firstQueryValue(raw: string | string[] | undefined): string | string[] | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw.includes(',')) return raw.split(',').map(s => s.trim());
+  return raw;
 }
 
 export interface NormalizedRarityRange {
@@ -93,8 +96,14 @@ export function normalizeRarityRange(
   minRarity: string | string[] | undefined,
   rarity: string | string[] | undefined
 ): NormalizedRarityRange {
-  const minVal = Number(firstQueryValue(minRarity));
-  const maxVal = Number(firstQueryValue(rarity));
+  const getNum = (v: string | string[] | undefined): number => {
+    const parsed = firstQueryValue(v);
+    if (!parsed) return NaN;
+    const val = Array.isArray(parsed) ? parsed[0] : parsed;
+    return Number(val);
+  };
+  const minVal = getNum(minRarity);
+  const maxVal = getNum(rarity);
   const minCandidate = Math.max(1, Math.min(5, isNaN(minVal) ? 1 : minVal));
   const maxCandidate = Math.max(1, Math.min(5, isNaN(maxVal) ? 5 : maxVal));
   return {
@@ -240,8 +249,8 @@ type WordRow = Noun | Adjective | Verb;
 
 interface QueryFilter {
   column: string;
-  op: "eq" | "gte" | "lte" | "like" | "neq";
-  value: string | number;
+  op: "eq" | "gte" | "lte" | "like" | "neq" | "in";
+  value: string | number | (string | number)[];
 }
 
 export function adjForGender(adj: Adjective, gender: string): string {
@@ -316,11 +325,13 @@ async function randomRow<T extends WordRow>(
 
 function applyFilter(q: any, f: QueryFilter): any {
   switch (f.op) {
-    case "eq": return q.eq(f.column, f.value);
+    case "eq":
+      return Array.isArray(f.value) ? q.in(f.column, f.value) : q.eq(f.column, f.value);
     case "gte": return q.gte(f.column, f.value);
     case "lte": return q.lte(f.column, f.value);
     case "like": return q.like(f.column, f.value);
     case "neq": return q.neq(f.column, f.value);
+    case "in": return q.in(f.column, f.value);
   }
 }
 

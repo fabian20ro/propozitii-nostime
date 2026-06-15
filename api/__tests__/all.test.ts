@@ -207,6 +207,12 @@ describe("normalizeRarityRange", () => {
   it("handles arrays of strings", () => {
     expect(normalizeRarityRange(["1"], ["5"])).toEqual({ minR: 1, maxR: 5 });
   });
+  it("handles comma-separated strings", () => {
+    expect(normalizeRarityRange("1,2", "3,4")).toEqual({ minR: 1, maxR: 3 });
+  });
+  it("handles mixed arrays and comma-separated strings", () => {
+    expect(normalizeRarityRange(["1", "2"], "3,4")).toEqual({ minR: 1, maxR: 3 });
+  });
   it("clamps to 1-5 range", () => {
     expect(normalizeRarityRange("0", "10")).toEqual({ minR: 1, maxR: 5 });
   });
