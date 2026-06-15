@@ -213,6 +213,9 @@ describe("normalizeRarityRange", () => {
   it("handles invalid inputs", () => {
     expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
+  it("handles zero as valid input and clamps to 1", () => {
+    expect(normalizeRarityRange("1", "0")).toEqual({ minR: 1, maxR: 1 });
+  });
 });
 
 // --- definition decoration (now uses decorateSentence) ---
@@ -425,6 +428,6 @@ describe("normalizeRarityRange", () => {
   it("clamps and orders array query params", () => {
     // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
     // then min/max swap: { minR: 2, maxR: 5 }
-    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 2, maxR: 5 });
+    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 1, maxR: 5 });
   });
 });
