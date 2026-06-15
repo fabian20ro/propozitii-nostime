@@ -2,12 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   validateSupabaseUrl,
   resolveSupabaseKey,
+  resolveSupabaseInit,
   parseAllowedOrigins,
   resolveCorsOrigin,
   normalizeRarityRange,
   capitalizeFirst,
   cleaningDecorator,
-  decorateVerse
+  decorateVerse,
+  buildResponseTimingHeaders
 } from "../all";
 
 describe("api/all.ts utilities", () => {
@@ -100,3 +102,27 @@ describe("api/all.ts utilities", () => {
     });
   });
 });
+
+  describe("resolveSupabaseInit", () => {
+    it("returns error if Supabase URL is missing", () => {
+      const env = { SUPABASE_PUBLISHABLE_KEY: "key" };
+      const res = resolveSupabaseInit(env);
+      expect(res.error).toBe("Missing SUPABASE_URL.");
+    });
+    it("returns error if no keys are present", () => {
+      expect(resolveSupabaseInit({})).toEqual({
+        keyResolution: { key: "", source: "none", error: "Missing SUPABASE_PUBLISHABLE_KEY." },
+        error: "Missing SUPABASE_URL."
+      });
+    });
+  });
+
+  describe("buildResponseTimingHeaders", () => {
+    it("returns correct timing headers", () => {
+      const start = 1000;
+      const end = 1500;
+      const res = buildResponseTimingHeaders(start, end);
+      expect(res.serverTiming).toBe("api-all;dur=500");
+      expect(res.responseTimeMs).toBe("500");
+    });
+  });
