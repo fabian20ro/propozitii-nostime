@@ -632,9 +632,10 @@ export function decorateSentence(sentence: string): string {
 // --- Sentence providers ---
 
 async function genComparison(minR: number, maxR: number, cache?: CountCache): Promise<string> {
-  const [n1, adj] = await Promise.all([
+  const [n1, adj, verb] = await Promise.all([
     randomNoun(minR, maxR, [], cache),
     randomAdj(minR, maxR, [], cache),
+    randomVerb(minR, maxR, [], cache),
   ]);
   const n2 = await randomNoun(minR, maxR, [n1.word], cache);
   const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
@@ -700,7 +701,7 @@ async function genHaiku(minR: number, maxR: number, cache?: CountCache): Promise
   ]);
   if (!adj) failConstraint("No adj with required syllables");
   if (!verb) failConstraint("No verb with 3 syllables");
-  const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
+  const raw = `${noun.articulated} / ${adjForGender(adj, noun.gender)} ${verb.word} / ${noun2.articulated}.`;
   return cleaningDecorator(decorateVerse(raw));
 }
 
