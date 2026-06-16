@@ -637,7 +637,7 @@ async function genComparison(minR: number, maxR: number, cache?: CountCache): Pr
     randomAdj(minR, maxR, [], cache),
   ]);
   const n2 = await randomNoun(minR, maxR, [n1.word], cache);
-  const raw = `${n1.articulated} e mai ${adjForGender(adj, n1.gender)} dec\u00e2t ${n2.articulated}.`;
+  const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
   return decorateSentence(raw);
 }
 
@@ -700,7 +700,7 @@ async function genHaiku(minR: number, maxR: number, cache?: CountCache): Promise
   ]);
   if (!adj) failConstraint("No adj with required syllables");
   if (!verb) failConstraint("No verb with 3 syllables");
-  const raw = `${noun.articulated} / ${adjForGender(adj, noun.gender)} ${verb.word} / ${noun2.articulated}.`;
+  const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
   return cleaningDecorator(decorateVerse(raw));
 }
 
@@ -746,7 +746,7 @@ async function genTautogram(minR: number, maxR: number, cache?: CountCache): Pro
   if (!verb) failConstraint("No verb for prefix");
   const n2 = await randomNounByPrefix(prefix, minR, maxR, [n1.word], cache);
   if (!n2) failConstraint("No 2nd noun");
-  const raw = `${n1.articulated} ${adjForGender(adj, n1.gender)} ${verb.word} ${n2.articulated}.`;
+  const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
   return decorateSentence(raw);
 }
 
