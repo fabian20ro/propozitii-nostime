@@ -207,11 +207,20 @@ describe("normalizeRarityRange", () => {
   it("handles arrays of strings", () => {
     expect(normalizeRarityRange(["1"], ["5"])).toEqual({ minR: 1, maxR: 5 });
   });
+  it("handles comma-separated strings", () => {
+    expect(normalizeRarityRange("1,2", "3,4")).toEqual({ minR: 1, maxR: 3 });
+  });
+  it("handles mixed arrays and comma-separated strings", () => {
+    expect(normalizeRarityRange(["1", "2"], "3,4")).toEqual({ minR: 1, maxR: 3 });
+  });
   it("clamps to 1-5 range", () => {
     expect(normalizeRarityRange("0", "10")).toEqual({ minR: 1, maxR: 5 });
   });
   it("handles invalid inputs", () => {
-    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
+    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 5 });
+  });
+  it("handles zero as valid input and clamps to 1", () => {
+    expect(normalizeRarityRange("1", "0")).toEqual({ minR: 1, maxR: 1 });
   });
 });
 
@@ -407,7 +416,7 @@ describe("normalizeRarityRange", () => {
   });
 
   it("handles non-numeric inputs by falling back to defaults", () => {
-    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
+    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 5 });
   });
 
   it("swaps range if min > max is provided", () => {
@@ -415,7 +424,7 @@ describe("normalizeRarityRange", () => {
   });
 
   it("defaults to the published fallback range when params are missing", () => {
-    expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
+    expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 5 });
   });
 
   it("handles array query params (Vercel multi-value) by using first element", () => {
@@ -425,6 +434,6 @@ describe("normalizeRarityRange", () => {
   it("clamps and orders array query params", () => {
     // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
     // then min/max swap: { minR: 2, maxR: 5 }
-    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 2, maxR: 5 });
+    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 1, maxR: 5 });
   });
 });

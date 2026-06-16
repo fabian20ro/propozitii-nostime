@@ -14,7 +14,7 @@ class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvi
     }
 
     override fun getSentence(): String =
-        provider.getSentence().replace(Regex("[\\p{L}]+")) { addHref(it.value) }
+        provider.getSentence().replace(Regex("[\\p{L}']+")) { addHref(it.value) }
 
     private fun addHref(word: String): String {
         val encodedWord = URLEncoder.encode(word.lowercase(), StandardCharsets.UTF_8)
@@ -28,4 +28,5 @@ class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvi
         .replace("<", "&lt;")
         .replace(">", "&gt;")
         .replace("\"", "&quot;")
+        .replace("'", "&#39;")
 }

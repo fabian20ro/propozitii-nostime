@@ -21,5 +21,13 @@ class TautogramProviderTest {
         assertNotNull(sentence)
         assertTrue(sentence.isNotBlank(), "Sentence should not be blank")
         assertTrue(sentence.endsWith("."), "Sentence should end with a dot")
+        
+        val words = sentence.replace(".", "").split(" ").filter { it.isNotBlank() }
+        if (words.isNotEmpty()) {
+            val firstChar = words[0].first().toString().lowercase()
+            words.forEach {
+                assertTrue(it.startsWith(firstChar, ignoreCase = true), "Word '$it' does not start with '$firstChar'")
+            }
+        }
     }
 }

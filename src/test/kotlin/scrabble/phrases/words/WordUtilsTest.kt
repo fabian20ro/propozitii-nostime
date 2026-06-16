@@ -17,7 +17,11 @@ class WordUtilsTest {
             "laur" to 2, "taur" to 2, "dinozaur" to 4,
             // Word-initial diphthongs (regression: i > 0 guard skipped position 0)
             "iarbă" to 2, "iarnă" to 2, "ieftin" to 2, "iepure" to 3,
-            "oare" to 2, "oală" to 2, "ușoară" to 3
+            "oare" to 2, "oală" to 2, "ușoară" to 3,
+            // Edge cases: short words
+            "a" to 1, "e" to 1, "i" to 1, "o" to 1, "u" to 1,
+            "aa" to 2, "ai" to 1, "au" to 1, "ea" to 1, "ei" to 1, "oi" to 1, "ou" to 1, "ui" to 1,
+            "eau" to 1, "iau" to 1, "ioa" to 1
         )
 
         for ((word, expected) in wordMap) {
