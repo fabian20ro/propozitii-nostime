@@ -105,8 +105,9 @@ describe("api/all.ts utilities", () => {
     it("handles simple numeric strings", () => {
       expect(normalizeRarityRange("1", "5")).toEqual({ minR: 1, maxR: 5 });
     });
-    it("handles comma-separated values by taking the last element", () => {
-      expect(normalizeRarityRange("1,5", "2,4")).toEqual({ minR: 4, maxR: 5 });
+    it("handles comma-separated values with spaces and multiple items", () => {
+      expect(normalizeRarityRange("1, 2, 3", "4, 5, 6")).toEqual({ minR: 3, maxR: 5 });
+      expect(normalizeRarityRange("1 , 2", " 4 , 5 ")).toEqual({ minR: 2, maxR: 5 });
     });
     it("handles invalid inputs gracefully", () => {
       expect(normalizeRarityRange("invalid", "5")).toEqual({ minR: 1, maxR: 5 });
