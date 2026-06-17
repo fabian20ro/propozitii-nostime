@@ -99,7 +99,7 @@ export function normalizeRarityRange(
   const getNum = (v: string | string[] | undefined): number => {
     const parsed = firstQueryValue(v);
     if (!parsed) return NaN;
-    const val = Array.isArray(parsed) ? parsed[0] : parsed;
+    const val = Array.isArray(parsed) ? parsed[parsed.length - 1] : parsed;
     return Number(val);
   };
   const minVal = getNum(minRarity);
