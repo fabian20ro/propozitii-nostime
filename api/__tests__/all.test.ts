@@ -225,6 +225,10 @@ describe("normalizeRarityRange", () => {
   it("handles invalid inputs", () => {
     expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
+  it("handles single bound constraints (e.g. minRarity=3)", () => {
+    expect(normalizeRarityRange("3", undefined)).toEqual({ minR: 3, maxR: 5 });
+    expect(normalizeRarityRange(undefined, "4")).toEqual({ minR: 1, maxR: 4 });
+  });
   it("handles zero as valid input and clamps to 1", () => {
     expect(normalizeRarityRange("1", "0")).toEqual({ minR: 1, maxR: 1 });
   });

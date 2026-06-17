@@ -104,12 +104,21 @@ export function normalizeRarityRange(
   };
   const minVal = getNum(minRarity);
   const maxVal = getNum(rarity);
-  const minCandidate = Math.max(1, Math.min(5, isNaN(minVal) ? 1 : minVal));
-  const maxCandidate = Math.max(1, Math.min(5, isNaN(maxVal) ? 2 : maxVal));
-  return {
-    minR: Math.min(minCandidate, maxCandidate),
-    maxR: Math.max(minCandidate, maxCandidate),
-  };
+  let minC: number, maxC: number;
+  if (isNaN(minVal) && isNaN(maxVal)) {
+    [minC, maxC] = [1, 2];
+  } else if (isNaN(minVal)) {
+    minC = 1;
+    maxC = Math.max(1, Math.min(5, maxVal));
+  } else if (isNaN(maxVal)) {
+    minC = Math.max(1, Math.min(5, minVal));
+    maxC = 5;
+  } else {
+    minC = Math.max(1, Math.min(5, minVal));
+    maxC = Math.max(1, Math.min(5, maxVal));
+    if (minC > maxC) [minC, maxC] = [maxC, minC];
+  }
+  return { minR: minC, maxR: maxC };
 }
 
 export function validateSupabaseUrl(raw: string | undefined): string | undefined {
