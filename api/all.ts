@@ -306,9 +306,9 @@ async function randomRow<T extends WordRow>(
 
   // Fetch one at random offset
   const offset = Math.floor(Math.random() * count);
-  let dataQ = client.from("words").select(select).range(offset, offset).limit(1);
+  let dataQ = client.from("words").select(select);
   for (const f of filters) dataQ = applyFilter(dataQ, f);
-  const { data } = await dataQ;
+  const { data } = await dataQ.range(offset, offset).limit(1);
 
   // If data miss and we used a cached count (possibly stale due to exclude
   // filters), retry once with a fresh count to handle small-pool edge cases.
