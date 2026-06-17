@@ -101,6 +101,21 @@ describe("api/all.ts utilities", () => {
       expect(result).toContain("word");
     });
   });
+  describe("normalizeRarityRange", () => {
+    it("handles simple numeric strings", () => {
+      expect(normalizeRarityRange("1", "5")).toEqual({ minR: 1, maxR: 5 });
+    });
+    it("handles comma-separated values by taking the last element", () => {
+      expect(normalizeRarityRange("1,5", "2,4")).toEqual({ minR: 4, maxR: 5 });
+    });
+    it("handles invalid inputs gracefully", () => {
+      expect(normalizeRarityRange("invalid", "5")).toEqual({ minR: 1, maxR: 5 });
+      expect(normalizeRarityRange("5", "invalid")).toEqual({ minR: 2, maxR: 5 });
+    });
+    it("handles reversed ranges by sorting them", () => {
+      expect(normalizeRarityRange("5", "1")).toEqual({ minR: 1, maxR: 5 });
+    });
+  });
 });
 
   describe("resolveSupabaseInit", () => {
