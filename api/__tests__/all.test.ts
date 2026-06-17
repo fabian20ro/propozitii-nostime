@@ -91,6 +91,9 @@ describe("adjForGender", () => {
   it("returns masculine form for gender N", () => {
     expect(adjForGender(adj, "N")).toBe("frumos");
   });
+  it("returns masculine form for unknown gender", () => {
+    expect(adjForGender(adj, "X")).toBe("frumos");
+  });
 });
 
 // --- addDexLinks ---
