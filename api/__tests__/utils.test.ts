@@ -110,7 +110,7 @@ describe("api/all.ts utilities", () => {
     });
     it("handles invalid inputs gracefully", () => {
       expect(normalizeRarityRange("invalid", "5")).toEqual({ minR: 1, maxR: 5 });
-      expect(normalizeRarityRange("5", "invalid")).toEqual({ minR: 2, maxR: 5 });
+      expect(normalizeRarityRange("5", "invalid")).toEqual({ minR: 5, maxR: 5 });
     });
     it("handles reversed ranges by sorting them", () => {
       expect(normalizeRarityRange("5", "1")).toEqual({ minR: 1, maxR: 5 });
