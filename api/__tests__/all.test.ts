@@ -219,6 +219,9 @@ describe("normalizeRarityRange", () => {
   it("clamps to 1-5 range", () => {
     expect(normalizeRarityRange("0", "10")).toEqual({ minR: 1, maxR: 5 });
   });
+  it("handles mixed comma-separated strings and non-numeric values", () => {
+    expect(normalizeRarityRange("1, a, 3", "5")).toEqual({ minR: 3, maxR: 5 });
+  });
   it("handles invalid inputs", () => {
     expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
