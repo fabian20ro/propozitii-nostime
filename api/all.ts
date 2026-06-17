@@ -99,13 +99,13 @@ export function normalizeRarityRange(
   const getNum = (v: string | string[] | undefined): number => {
     const parsed = firstQueryValue(v);
     if (!parsed) return NaN;
-    const val = Array.isArray(parsed) ? parsed[0] : parsed;
+    const val = Array.isArray(parsed) ? parsed[parsed.length - 1] : parsed;
     return Number(val);
   };
   const minVal = getNum(minRarity);
   const maxVal = getNum(rarity);
   const minCandidate = Math.max(1, Math.min(5, isNaN(minVal) ? 1 : minVal));
-  const maxCandidate = Math.max(1, Math.min(5, isNaN(maxVal) ? 5 : maxVal));
+  const maxCandidate = Math.max(1, Math.min(5, isNaN(maxVal) ? 2 : maxVal));
   return {
     minR: Math.min(minCandidate, maxCandidate),
     maxR: Math.max(minCandidate, maxCandidate),
@@ -632,12 +632,13 @@ export function decorateSentence(sentence: string): string {
 // --- Sentence providers ---
 
 async function genComparison(minR: number, maxR: number, cache?: CountCache): Promise<string> {
-  const [n1, adj] = await Promise.all([
+  const [n1, adj, verb] = await Promise.all([
     randomNoun(minR, maxR, [], cache),
     randomAdj(minR, maxR, [], cache),
+    randomVerb(minR, maxR, [], cache),
   ]);
   const n2 = await randomNoun(minR, maxR, [n1.word], cache);
-  const raw = `${n1.articulated} e mai ${adjForGender(adj, n1.gender)} dec\u00e2t ${n2.articulated}.`;
+  const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
   return decorateSentence(raw);
 }
 
@@ -649,7 +650,7 @@ async function genDefinition(minR: number, maxR: number, cache?: CountCache): Pr
   ]);
   const noun = await randomNoun(minR, maxR, [defined.word], cache);
   const obj = await randomNoun(minR, maxR, [defined.word, noun.word], cache);
-  const raw = `${defined.word.toUpperCase()}: ${noun.articulated} ${adjForGender(adj, noun.gender)} care ${verb.word} ${obj.articulated}.`;
+  const raw = `${defined.word.toUpperCase()}: ${noun.articulated} ${adjForGender(adj, noun.gender)} are ${verb.word} ${obj.articulated}.`;
   return decorateSentence(raw);
 }
 
@@ -746,7 +747,7 @@ async function genTautogram(minR: number, maxR: number, cache?: CountCache): Pro
   if (!verb) failConstraint("No verb for prefix");
   const n2 = await randomNounByPrefix(prefix, minR, maxR, [n1.word], cache);
   if (!n2) failConstraint("No 2nd noun");
-  const raw = `${n1.articulated} ${adjForGender(adj, n1.gender)} ${verb.word} ${n2.articulated}.`;
+  const raw = `${n1.articulated} / ${adjForGender(adj, n1.gender)} ${verb.word} / ${n2.articulated}.`;
   return decorateSentence(raw);
 }
 
@@ -785,7 +786,9 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     });
   }
 
-  const { minR, maxR } = normalizeRarityRange(req.query.minRarity, req.query.rarity);
+  const minRarity = req.query.minRarity ?? req.query.min_rarity;
+  const maxRarity = req.query.rarity ?? req.query.max_rarity;
+  const { minR, maxR } = normalizeRarityRange(minRarity, maxRarity);
 
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {

@@ -91,6 +91,9 @@ describe("adjForGender", () => {
   it("returns masculine form for gender N", () => {
     expect(adjForGender(adj, "N")).toBe("frumos");
   });
+  it("returns masculine form for unknown gender", () => {
+    expect(adjForGender(adj, "X")).toBe("frumos");
+  });
 });
 
 // --- addDexLinks ---
@@ -208,16 +211,19 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(["1"], ["5"])).toEqual({ minR: 1, maxR: 5 });
   });
   it("handles comma-separated strings", () => {
-    expect(normalizeRarityRange("1,2", "3,4")).toEqual({ minR: 1, maxR: 3 });
+    expect(normalizeRarityRange("1,2", "3,4")).toEqual({ minR: 2, maxR: 4 });
   });
   it("handles mixed arrays and comma-separated strings", () => {
-    expect(normalizeRarityRange(["1", "2"], "3,4")).toEqual({ minR: 1, maxR: 3 });
+    expect(normalizeRarityRange(["1", "2"], "3,4")).toEqual({ minR: 2, maxR: 4 });
   });
   it("clamps to 1-5 range", () => {
     expect(normalizeRarityRange("0", "10")).toEqual({ minR: 1, maxR: 5 });
   });
+  it("handles mixed comma-separated strings and non-numeric values", () => {
+    expect(normalizeRarityRange("1, a, 3", "5")).toEqual({ minR: 3, maxR: 5 });
+  });
   it("handles invalid inputs", () => {
-    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 5 });
+    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
   it("handles zero as valid input and clamps to 1", () => {
     expect(normalizeRarityRange("1", "0")).toEqual({ minR: 1, maxR: 1 });
@@ -416,7 +422,7 @@ describe("normalizeRarityRange", () => {
   });
 
   it("handles non-numeric inputs by falling back to defaults", () => {
-    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 5 });
+    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
 
   it("swaps range if min > max is provided", () => {
@@ -424,7 +430,7 @@ describe("normalizeRarityRange", () => {
   });
 
   it("defaults to the published fallback range when params are missing", () => {
-    expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 5 });
+    expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
 
   it("handles array query params (Vercel multi-value) by using first element", () => {
