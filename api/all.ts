@@ -650,7 +650,7 @@ async function genDefinition(minR: number, maxR: number, cache?: CountCache): Pr
   ]);
   const noun = await randomNoun(minR, maxR, [defined.word], cache);
   const obj = await randomNoun(minR, maxR, [defined.word, noun.word], cache);
-  const raw = `${defined.word.toUpperCase()}: ${noun.articulated} ${adjForGender(adj, noun.gender)} care ${verb.word} ${obj.articulated}.`;
+  const raw = `${defined.word.toUpperCase()}: ${noun.articulated} ${adjForGender(adj, noun.gender)} are ${verb.word} ${obj.articulated}.`;
   return decorateSentence(raw);
 }
 
@@ -786,7 +786,9 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     });
   }
 
-  const { minR, maxR } = normalizeRarityRange(req.query.minRarity, req.query.rarity);
+  const minRarity = req.query.minRarity ?? req.query.min_rarity;
+  const maxRarity = req.query.rarity ?? req.query.max_rarity;
+  const { minR, maxR } = normalizeRarityRange(minRarity, maxRarity);
 
   async function safe(fn: () => Promise<string>): Promise<string> {
     try {
