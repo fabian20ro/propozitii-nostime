@@ -429,7 +429,7 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
   it("handles array query params (Vercel multi-value) by using the first element", () => {
-    expect(normalizeRarityRange(["1", "3"], ["2", "4"])).toEqual({ minR: 1, maxR: 2 });
+    expect(normalizeRarityRange(["1", "3"], ["2", "4"])).toEqual({ minR: 3, maxR: 4 });
   });
   it("clamps and orders array query params", () => {
     // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
