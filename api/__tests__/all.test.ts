@@ -213,12 +213,13 @@ describe("applyFilter", () => {
     expect(mockQ.eq).toHaveBeenCalledWith("word", "test");
   });
 
-  it("uses in for arrays in eq case", () => {
-    const mockQ = { eq: vi.fn().mockReturnThis(), in: vi.fn().mockReturnThis() } as any;
-    const filter = { column: "word", op: "eq", value: ["test1", "test2"] };
+  it("handles in with an empty array", () => {
+    const mockQ = { in: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "in", value: [] as string[] };
     applyFilter(mockQ, filter as any);
-    expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
+    expect(mockQ.in).toHaveBeenCalledWith("word", [] as string[]);
   });
+
 
   it("uses in for in case", () => {
     const mockQ = { in: vi.fn().mockReturnThis() } as any;
