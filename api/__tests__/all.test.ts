@@ -19,6 +19,7 @@ import {
   DEXONLINE_ANCHOR_REL,
   type Adjective,
   applyFilter,
+  type QueryFilter,
 } from "../all";
 
 // --- escapeHtml ---
@@ -208,49 +209,49 @@ describe("applyFilter", () => {
   it("uses eq for single values", () => {
     const mockQ = { eq: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "eq", value: "test" };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.eq).toHaveBeenCalledWith("word", "test");
   });
 
   it("uses in for arrays in eq case", () => {
     const mockQ = { eq: vi.fn().mockReturnThis(), in: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "eq", value: ["test1", "test2"] };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
   });
 
   it("uses in for in case", () => {
     const mockQ = { in: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "in", value: ["test1", "test2"] };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
   });
 
   it("uses gte for gte case", () => {
     const mockQ = { gte: vi.fn().mockReturnThis() } as any;
     const filter = { column: "rarity", op: "gte", value: 1 };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.gte).toHaveBeenCalledWith("rarity", 1);
   });
 
   it("uses lte for lte case", () => {
     const mockQ = { lte: vi.fn().mockReturnThis() } as any;
     const filter = { column: "rarity", op: "lte", value: 5 };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.lte).toHaveBeenCalledWith("rarity", 5);
   });
 
   it("uses like for like case", () => {
     const mockQ = { like: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "like", value: "%test%" };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.like).toHaveBeenCalledWith("word", "%test%");
   });
 
   it("uses neq for neq case", () => {
     const mockQ = { neq: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "neq", value: "test" };
-    applyFilter(mockQ, filter);
+    applyFilter(mockQ, filter as any);
     expect(mockQ.neq).toHaveBeenCalledWith("word", "test");
   });
 });

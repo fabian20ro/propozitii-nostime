@@ -256,7 +256,7 @@ interface Verb {
 
 type WordRow = Noun | Adjective | Verb;
 
-interface QueryFilter {
+export interface QueryFilter {
   column: string;
   op: "eq" | "gte" | "lte" | "like" | "neq" | "in";
   value: string | number | (string | number)[];
