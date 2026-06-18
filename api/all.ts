@@ -332,7 +332,7 @@ async function randomRow<T extends WordRow>(
   return data[0] as unknown as T;
 }
 
-function applyFilter(q: any, f: QueryFilter): any {
+export function applyFilter(q: any, f: QueryFilter): any {
   switch (f.op) {
     case "eq":
       return Array.isArray(f.value) ? q.in(f.column, f.value) : q.eq(f.column, f.value);

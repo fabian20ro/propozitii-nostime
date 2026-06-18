@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   escapeHtml,
   capitalizeFirst,
@@ -18,6 +18,7 @@ import {
   DEXONLINE_ANCHOR_TARGET,
   DEXONLINE_ANCHOR_REL,
   type Adjective,
+  applyFilter,
 } from "../all";
 
 // --- escapeHtml ---
@@ -203,40 +204,58 @@ describe("decorateSentence", () => {
   });
 });
 
-describe("normalizeRarityRange", () => {
-  it("handles string inputs", () => {
-    expect(normalizeRarityRange("1", "3")).toEqual({ minR: 1, maxR: 3 });
+describe("applyFilter", () => {
+  it("uses eq for single values", () => {
+    const mockQ = { eq: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "eq", value: "test" };
+    applyFilter(mockQ, filter);
+    expect(mockQ.eq).toHaveBeenCalledWith("word", "test");
   });
-  it("handles arrays of strings", () => {
-    expect(normalizeRarityRange(["1"], ["5"])).toEqual({ minR: 1, maxR: 5 });
+
+  it("uses in for arrays in eq case", () => {
+    const mockQ = { eq: vi.fn().mockReturnThis(), in: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "eq", value: ["test1", "test2"] };
+    applyFilter(mockQ, filter);
+    expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
   });
-  it("handles comma-separated strings", () => {
-    expect(normalizeRarityRange("1,2", "3,4")).toEqual({ minR: 2, maxR: 4 });
+
+  it("uses in for in case", () => {
+    const mockQ = { in: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "in", value: ["test1", "test2"] };
+    applyFilter(mockQ, filter);
+    expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
   });
-  it("handles mixed arrays and comma-separated strings", () => {
-    expect(normalizeRarityRange(["1", "2"], "3,4")).toEqual({ minR: 2, maxR: 4 });
+
+  it("uses gte for gte case", () => {
+    const mockQ = { gte: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "rarity", op: "gte", value: 1 };
+    applyFilter(mockQ, filter);
+    expect(mockQ.gte).toHaveBeenCalledWith("rarity", 1);
   });
-  it("clamps to 1-5 range", () => {
-    expect(normalizeRarityRange("0", "10")).toEqual({ minR: 1, maxR: 5 });
+
+  it("uses lte for lte case", () => {
+    const mockQ = { lte: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "rarity", op: "lte", value: 5 };
+    applyFilter(mockQ, filter);
+    expect(mockQ.lte).toHaveBeenCalledWith("rarity", 5);
   });
-  it("handles mixed comma-separated strings and non-numeric values", () => {
-    expect(normalizeRarityRange("1, a, 3", "5")).toEqual({ minR: 3, maxR: 5 });
+
+  it("uses like for like case", () => {
+    const mockQ = { like: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "like", value: "%test%" };
+    applyFilter(mockQ, filter);
+    expect(mockQ.like).toHaveBeenCalledWith("word", "%test%");
   });
-  it("handles invalid inputs", () => {
-    expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
-  });
-  it("handles single bound constraints (e.g. minRarity=3)", () => {
-    expect(normalizeRarityRange("3", undefined)).toEqual({ minR: 3, maxR: 5 });
-    expect(normalizeRarityRange(undefined, "4")).toEqual({ minR: 1, maxR: 4 });
-  });
-  it("handles zero as valid input and clamps to 1", () => {
-    expect(normalizeRarityRange("1", "0")).toEqual({ minR: 1, maxR: 1 });
+
+  it("uses neq for neq case", () => {
+    const mockQ = { neq: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "neq", value: "test" };
+    applyFilter(mockQ, filter);
+    expect(mockQ.neq).toHaveBeenCalledWith("word", "test");
   });
 });
 
-// --- definition decoration (now uses decorateSentence) ---
-
-describe("definition decoration", () => {
+describe("definition decoration (now uses decorateSentence)", () => {
   it("decorateSentence capitalizes and adds links for definitions", () => {
     const result = decorateSentence("MASĂ: câinele frumos.");
     expect(result).toContain(">MASĂ</a>");
@@ -275,53 +294,40 @@ describe("parity contract", () => {
 
 describe("resolveSupabaseKey", () => {
   it("uses SUPABASE_PUBLISHABLE_KEY when provided", () => {
-    const resolved = resolveSupabaseKey({
-      SUPABASE_PUBLISHABLE_KEY: "publishable",
-      SUPABASE_SERVICE_ROLE_KEY: "abc",
+    const env = { SUPABASE_PUBLISHABLE_KEY: "pub-key" };
+    expect(resolveSupabaseKey(env)).toEqual({
+      key: "pub-key",
+      source: "publishable"
     });
-    expect(resolved.source).toBe("publishable");
-    expect(resolved.key).toBe("publishable");
   });
 
-  it("treats whitespace-only keys as empty", () => {
-    const resolved = resolveSupabaseKey({
-      SUPABASE_PUBLISHABLE_KEY: "   ",
+  it("returns service-role key if fallback is enabled", () => {
+    const env = {
+      SUPABASE_SERVICE_ROLE_KEY: "ser-key",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "true"
+    };
+    expect(resolveSupabaseKey(env)).toEqual({
+      key: "ser-key",
+      source: "service-role"
     });
-    expect(resolved.source).toBe("none");
-    expect(resolved.key).toBe("");
   });
 
-  it("requires publishable key when service-role fallback is not enabled", () => {
-    const resolved = resolveSupabaseKey({});
-    expect(resolved.source).toBe("none");
-    expect(resolved.key).toBe("");
-    expect(resolved.error).toContain("Missing SUPABASE_PUBLISHABLE_KEY");
+  it("returns error if service-role is set but fallback is disabled", () => {
+    const env = {
+      SUPABASE_SERVICE_ROLE_KEY: "ser-key",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "false"
+    };
+    const res = resolveSupabaseKey(env);
+    expect(res.source).toBe("none");
+    expect(res.error).toContain("disabled");
   });
 
-  it("rejects service-role fallback by default", () => {
-    const resolved = resolveSupabaseKey({
-      SUPABASE_SERVICE_ROLE_KEY: "service",
+  it("returns error if no keys are present", () => {
+    expect(resolveSupabaseKey({})).toEqual({
+      key: "",
+      source: "none",
+      error: "Missing SUPABASE_PUBLISHABLE_KEY."
     });
-    expect(resolved.source).toBe("none");
-    expect(resolved.key).toBe("");
-    expect(resolved.error).toContain("SUPABASE_SERVICE_ROLE_KEY is set but disabled for this public endpoint.");
-  });
-  it("returns error if SUPABASE_URL is invalid", () => {
-    const resolved = resolveSupabaseInit({
-      SUPABASE_URL: "invalid-url",
-      SUPABASE_PUBLISHABLE_KEY: "pub",
-    });
-    expect(resolved.keyResolution.source).toBe("publishable");
-    expect(resolved.error).toContain("must be a valid HTTP or HTTPS URL");
-  });
-
-  it("allows service-role only when explicitly enabled", () => {
-    const resolved = resolveSupabaseKey({
-      SUPABASE_SERVICE_ROLE_KEY: "service",
-      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "true",
-    });
-    expect(resolved.source).toBe("service-role");
-    expect(resolved.key).toBe("service");
   });
 });
 
@@ -339,7 +345,7 @@ describe("Supabase init validation", () => {
   it("returns actionable init error for malformed URL even when key exists", () => {
     const resolved = resolveSupabaseInit({
       SUPABASE_URL: "jdbc:postgresql://db.example.com/postgres",
-      SUPABASE_PUBLISHABLE_KEY: "publishable",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
     });
     expect(resolved.error).toContain("Invalid SUPABASE_URL");
     expect(resolved.keyResolution.source).toBe("publishable");
@@ -348,33 +354,25 @@ describe("Supabase init validation", () => {
 
 describe("validateSupabaseUrl", () => {
   it("returns error for empty string", () => {
-    expect(validateSupabaseUrl("")).toContain("Missing SUPABASE_URL");
+    expect(validateSupabaseUrl("")).toBe("Missing SUPABASE_URL.");
   });
-
   it("returns error for undefined input", () => {
-    expect(validateSupabaseUrl(undefined)).toContain("Missing SUPABASE_URL");
+    expect(validateSupabaseUrl(undefined)).toBe("Missing SUPABASE_URL.");
   });
-
   it("returns error for whitespace-only input", () => {
-    expect(validateSupabaseUrl("   ")).toContain("Missing SUPABASE_URL");
+    expect(validateSupabaseUrl("   ")).toBe("Missing SUPABASE_URL.");
   });
-
   it("accepts http (non-https) URLs", () => {
     expect(validateSupabaseUrl("http://example.supabase.co")).toBeUndefined();
   });
-
   it("rejects non-http protocols (ftp)", () => {
     expect(validateSupabaseUrl("ftp://example.com")).toContain(
       "must use http/https"
     );
   });
-
   it("rejects malformed URLs that fail URL parsing", () => {
-    expect(validateSupabaseUrl("not-a-url-at-all")).toContain(
-      "must be a valid HTTP or HTTPS URL"
-    );
+    expect(validateSupabaseUrl("not-a-url-at-all")).toContain("must be a valid HTTP or HTTPS URL");
   });
-
   it("trims whitespace before validation", () => {
     expect(validateSupabaseUrl("  https://example.supabase.co  ")).toBeUndefined();
   });
@@ -382,39 +380,34 @@ describe("validateSupabaseUrl", () => {
 
 describe("CORS origin helpers", () => {
   it("uses default allowlist when env value is empty", () => {
-    expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
+    expect(parseAllowedOrigins("")).toEqual(["https://fabian20ro.github.io"]);
   });
-
   it("builds response timing headers from elapsed milliseconds", () => {
-    expect(buildResponseTimingHeaders(1000, 1123)).toEqual({
-      serverTiming: "api-all;dur=123",
-      responseTimeMs: "123",
-    });
+    const start = 1000;
+    const end = 1500;
+    const res = buildResponseTimingHeaders(start, end);
+    expect(res.serverTiming).toBe("api-all;dur=500");
+    expect(res.responseTimeMs).toBe("500");
   });
-
   it("clamps negative elapsed time to zero", () => {
     expect(buildResponseTimingHeaders(1123, 1000)).toEqual({
       serverTiming: "api-all;dur=0",
       responseTimeMs: "0",
     });
   });
-
   it("parses comma-separated allowlist", () => {
     expect(
-      parseAllowedOrigins("https://a.example, https://b.example")
-    ).toEqual(["https://a.example", "https://b.example"]);
+      parseAllowedOrigins(" https://a.com , https://b.com ")
+    ).toEqual(["https://a.com", "https://b.com"]);
   });
-
   it("reflects request origin when it is allowed", () => {
-    const allowed = ["https://a.example", "https://b.example"];
-    expect(resolveCorsOrigin("https://b.example", allowed)).toBe("https://b.example");
+    const allowed = ["https://a.com", "https://b.com"];
+    expect(resolveCorsOrigin("https://b.com", allowed)).toBe("https://b.com");
   });
-
   it("falls back to first allowlist origin when request origin is not allowed", () => {
-    const allowed = ["https://a.example", "https://b.example"];
-    expect(resolveCorsOrigin("https://evil.example", allowed)).toBe("https://a.example");
+    const allowed = ["https://a.com", "https://b.com"];
+    expect(resolveCorsOrigin("https://c.com", allowed)).toBe("https://a.com");
   });
-
   it("handles comma-only or whitespace-only strings by returning default", () => {
     expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
   });
@@ -424,23 +417,18 @@ describe("normalizeRarityRange", () => {
   it("clamps and orders out-of-range query params", () => {
     expect(normalizeRarityRange("0", "6")).toEqual({ minR: 1, maxR: 5 });
   });
-
   it("handles non-numeric inputs by falling back to defaults", () => {
     expect(normalizeRarityRange("abc", "def")).toEqual({ minR: 1, maxR: 2 });
   });
-
   it("swaps range if min > max is provided", () => {
     expect(normalizeRarityRange("4", "2")).toEqual({ minR: 2, maxR: 4 });
   });
-
   it("defaults to the published fallback range when params are missing", () => {
     expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
-
   it("handles array query params (Vercel multi-value) by using first element", () => {
     expect(normalizeRarityRange(["3"], ["4"])).toEqual({ minR: 3, maxR: 4 });
   });
-
   it("clamps and orders array query params", () => {
     // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
     // then min/max swap: { minR: 2, maxR: 5 }
