@@ -275,8 +275,7 @@ type CountCache = Map<string, number>;
 
 function countCacheKey(filters: QueryFilter[]): string {
   return filters
-    .filter((f) => f.op !== "neq")
-    .map((f) => `${f.column}:${f.op}:${f.value}`)
+    .map((f) => `${f.column}:${f.op}:${Array.isArray(f.value) ? f.value.join(',') : f.value}`)
     .sort()
     .join("|");
 }
