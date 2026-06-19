@@ -256,7 +256,7 @@ interface Verb {
 
 type WordRow = Noun | Adjective | Verb;
 
-interface QueryFilter {
+export interface QueryFilter {
   column: string;
   op: "eq" | "gte" | "lte" | "like" | "neq" | "in";
   value: string | number | (string | number)[];
@@ -275,8 +275,7 @@ type CountCache = Map<string, number>;
 
 function countCacheKey(filters: QueryFilter[]): string {
   return filters
-    .filter((f) => f.op !== "neq")
-    .map((f) => `${f.column}:${f.op}:${f.value}`)
+    .map((f) => `${f.column}:${f.op}:${Array.isArray(f.value) ? f.value.join(',') : f.value}`)
     .sort()
     .join("|");
 }
@@ -306,9 +305,9 @@ async function randomRow<T extends WordRow>(
 
   // Fetch one at random offset
   const offset = Math.floor(Math.random() * count);
-  let dataQ = client.from("words").select(select).range(offset, offset).limit(1);
+  let dataQ = client.from("words").select(select);
   for (const f of filters) dataQ = applyFilter(dataQ, f);
-  const { data } = await dataQ;
+  const { data } = await dataQ.range(offset, offset).limit(1);
 
   // If data miss and we used a cached count (possibly stale due to exclude
   // filters), retry once with a fresh count to handle small-pool edge cases.
@@ -332,7 +331,7 @@ async function randomRow<T extends WordRow>(
   return data[0] as unknown as T;
 }
 
-function applyFilter(q: any, f: QueryFilter): any {
+export function applyFilter(q: any, f: QueryFilter): any {
   switch (f.op) {
     case "eq":
       return Array.isArray(f.value) ? q.in(f.column, f.value) : q.eq(f.column, f.value);
