@@ -81,9 +81,12 @@ export function buildResponseTimingHeaders(startedAtMs: number, finishedAtMs = D
 }
 
 function firstQueryValue(raw: string | string[] | undefined): string | string[] | undefined {
-  if (!raw) return undefined;
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === 'string' && raw.includes(',')) return raw.split(',').map(s => s.trim());
+  if (!raw || (typeof raw === 'string' && raw.trim().length === 0)) return undefined;
+  if (Array.isArray(raw)) return raw.map(s => s.trim()).filter(Boolean);
+  if (typeof raw === 'string' && raw.includes(',')) {
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    return parts.length > 0 ? parts : undefined;
+  }
   return raw;
 }
 
