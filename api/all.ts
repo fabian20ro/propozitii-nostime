@@ -810,24 +810,33 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
 
   const cache: CountCache = new Map();
 
-  const [haiku, distih, comparison, definition, tautogram, mirror] =
-    await Promise.all([
-      safe(() => genHaiku(minR, maxR, cache)),
-      safe(() => genDistih(minR, maxR, cache)),
-      safe(() => genComparison(minR, maxR, cache)),
-      safe(() => genDefinition(minR, maxR, cache)),
-      safe(() => genTautogram(minR, maxR, cache)),
-      safe(() => genMirror(minR, maxR, cache)),
-    ]);
+  const type = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
+
+  const results: Record<string, string> = {
+    haiku: UNSATISFIABLE,
+    distih: UNSATISFIABLE,
+    comparison: UNSATISFIABLE,
+    definition: UNSATISFIABLE,
+    tautogram: UNSATISFIABLE,
+    mirror: UNSATISFIABLE,
+  };
+
+  const taskMap: Record<string, () => Promise<string>> = {
+    haiku: () => genHaiku(minR, maxR, cache),
+    distih: () => genDistih(minR, maxR, cache),
+    comparison: () => genComparison(minR, maxR, cache),
+    definition: () => genDefinition(minR, maxR, cache),
+    tautogram: () => genTautogram(minR, maxR, cache),
+    mirror: () => genMirror(minR, maxR, cache),
+  };
+
+  const tasks = Object.entries(taskMap)
+    .filter(([key]) => !type || type === key)
+    .map(([key, fn]) => safe(fn).then(res => { results[key] = res; }));
+
+  await Promise.all(tasks);
 
   res.setHeader("Cache-Control", "max-age=180");
   setTimingHeaders();
-  return res.status(200).json({
-    haiku,
-    distih,
-    comparison,
-    definition,
-    tautogram,
-    mirror,
-  });
+  return res.status(200).json(results);
 }
