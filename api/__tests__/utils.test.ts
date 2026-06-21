@@ -105,6 +105,16 @@ describe("api/all.ts utilities", () => {
       const result = addDexLinks("hello");
       expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">hello</a>');
     });
+    it("handles multiple spaces", () => {
+      const result = addDexLinks("a  b");
+      expect(result).toContain("</a>  <a");
+    });
+    it("handles emojis and punctuation", () => {
+      const result = addDexLinks("😊! la lume");
+      expect(result).toContain("😊!");
+      expect(result).toContain("la");
+      expect(result).toContain("lume");
+    });
     it("decorateVerse handles multiple lines and capitalization", () => {
       const verse = "hello / world";
       const result = decorateVerse(verse);
