@@ -9,6 +9,7 @@ import {
   capitalizeFirst,
   cleaningDecorator,
   decorateVerse,
+  addDexLinks,
   buildResponseTimingHeaders
 } from "../all";
 
@@ -94,11 +95,14 @@ describe("api/all.ts utilities", () => {
     it("cleaningDecorator trims and collapses whitespace", () => {
       expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
     });
-    it("decorateVerse converts slash to br and adds dexlinks", () => {
-      const verse = "word one / word two";
+    it("addDexLinks wraps word in correct anchor tag", () => {
+      const result = addDexLinks("hello");
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">hello</a>');
+    });
+    it("decorateVerse handles multiple lines and capitalization", () => {
+      const verse = "hello / world";
       const result = decorateVerse(verse);
-      expect(result).toContain("<br/>");
-      expect(result).toContain("word");
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
     });
   });
   describe("normalizeRarityRange", () => {
