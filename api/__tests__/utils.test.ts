@@ -9,8 +9,10 @@ import {
   capitalizeFirst,
   cleaningDecorator,
   decorateVerse,
+  decorateSentence,
   addDexLinks,
-  buildResponseTimingHeaders
+  buildResponseTimingHeaders,
+  DEXONLINE_URL
 } from "../all";
 
 describe("api/all.ts utilities", () => {
