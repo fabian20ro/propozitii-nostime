@@ -127,6 +127,11 @@ describe("api/all.ts utilities", () => {
       expect(decorateVerse("hello/world")).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
     });
   });
+    it("decorateVerse handles complex whitespace and multiple lines", () => {
+      const verse = "  hello   /   world  /  third  ";
+      const result = decorateVerse(verse);
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a><br/><a href="https://dexonline.ro/definitie/third" target="_blank" rel="noopener" data-word="third">Third</a>');
+    });
   describe("normalizeRarityRange", () => {
     it("handles simple numeric strings", () => {
       expect(normalizeRarityRange("1", "5")).toEqual({ minR: 1, maxR: 5 });
