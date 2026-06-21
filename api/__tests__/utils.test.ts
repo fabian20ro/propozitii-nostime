@@ -12,6 +12,7 @@ import {
   decorateSentence,
   addDexLinks,
   buildResponseTimingHeaders,
+  adjForGender,
   DEXONLINE_URL
 } from "../all";
 
@@ -87,6 +88,7 @@ describe("api/all.ts utilities", () => {
       expect(resolveCorsOrigin("https://c.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
     });
   });
+
   describe("text decorators", () => {
     it("capitalizeFirst handles empty string", () => {
       expect(capitalizeFirst("")).toBe("");
@@ -128,12 +130,13 @@ describe("api/all.ts utilities", () => {
     it("decorateVerse works without spaces around slashes", () => {
       expect(decorateVerse("hello/world")).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
     });
-  });
     it("decorateVerse handles complex whitespace and multiple lines", () => {
       const verse = "  hello   /   world  /  third  ";
       const result = decorateVerse(verse);
       expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a><br/><a href="https://dexonline.ro/definitie/third" target="_blank" rel="noopener" data-word="third">Third</a>');
     });
+  });
+
   describe("normalizeRarityRange", () => {
     it("handles simple numeric strings", () => {
       expect(normalizeRarityRange("1", "5")).toEqual({ minR: 1, maxR: 5 });
@@ -150,28 +153,39 @@ describe("api/all.ts utilities", () => {
       expect(normalizeRarityRange("5", "1")).toEqual({ minR: 1, maxR: 5 });
     });
   });
+
+  describe("adjForGender", () => {
+    it("returns masculine form", () => {
+      const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
+      expect(adjForGender(adj, "M")).toBe("grand");
+    });
+    it("returns feminine form", () => {
+      const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
+      expect(adjForGender(adj, "f")).toBe("grande");
+    });
+  });
 });
 
-  describe("resolveSupabaseInit", () => {
-    it("returns error if Supabase URL is missing", () => {
-      const env = { SUPABASE_PUBLISHABLE_KEY: "key" };
-      const res = resolveSupabaseInit(env);
-      expect(res.error).toBe("Missing SUPABASE_URL.");
-    });
-    it("returns error if no keys are present", () => {
-      expect(resolveSupabaseInit({})).toEqual({
-        keyResolution: { key: "", source: "none", error: "Missing SUPABASE_PUBLISHABLE_KEY." },
-        error: "Missing SUPABASE_URL."
-      });
+describe("resolveSupabaseInit", () => {
+  it("returns error if Supabase URL is missing", () => {
+    const env = { SUPABASE_PUBLISHABLE_KEY: "key" };
+    const res = resolveSupabaseInit(env);
+    expect(res.error).toBe("Missing SUPABASE_URL.");
+  });
+  it("returns error if no keys are present", () => {
+    expect(resolveSupabaseInit({})).toEqual({
+      keyResolution: { key: "", source: "none", error: "Missing SUPABASE_PUBLISHABLE_KEY." },
+      error: "Missing SUPABASE_URL."
     });
   });
+});
 
-  describe("buildResponseTimingHeaders", () => {
-    it("returns correct timing headers", () => {
-      const start = 1000;
-      const end = 1500;
-      const res = buildResponseTimingHeaders(start, end);
-      expect(res.serverTiming).toBe("api-all;dur=500");
-      expect(res.responseTimeMs).toBe("500");
-    });
+describe("buildResponseTimingHeaders", () => {
+  it("returns correct timing headers", () => {
+    const start = 1000;
+    const end = 1500;
+    const res = buildResponseTimingHeaders(start, end);
+    expect(res.serverTiming).toBe("api-all;dur=500");
+    expect(res.responseTimeMs).toBe("500");
   });
+});
