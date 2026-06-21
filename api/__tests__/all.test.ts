@@ -6,6 +6,7 @@ import {
   decorateVerse,
   decorateSentence,
   adjForGender,
+  cleaningDecorator,
   parseAllowedOrigins,
   resolveCorsOrigin,
   resolveSupabaseKey,
