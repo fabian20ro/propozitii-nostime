@@ -9,6 +9,7 @@ import {
   capitalizeFirst,
   cleaningDecorator,
   decorateVerse,
+  addDexLinks,
   buildResponseTimingHeaders
 } from "../all";
 
@@ -91,14 +92,29 @@ describe("api/all.ts utilities", () => {
     it("capitalizeFirst capitalizes first character", () => {
       expect(capitalizeFirst("hello")).toBe("Hello");
     });
+    it("capitalizeFirst handles non-letter start", () => {
+      expect(capitalizeFirst("!hello")).toBe("!hello");
+    });
     it("cleaningDecorator trims and collapses whitespace", () => {
       expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
     });
-    it("decorateVerse converts slash to br and adds dexlinks", () => {
-      const verse = "word one / word two";
+    it("cleaningDecorator handles multiple whitespace types", () => {
+      expect(cleaningDecorator("  hello\t\tworld  ")).toBe("hello world");
+    });
+    it("addDexLinks wraps word in correct anchor tag", () => {
+      const result = addDexLinks("hello");
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">hello</a>');
+    });
+    it("decorateVerse handles multiple lines and capitalization", () => {
+      const verse = "hello / world";
       const result = decorateVerse(verse);
-      expect(result).toContain("<br/>");
-      expect(result).toContain("word");
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
+    });
+    it("decorateVerse works without slashes", () => {
+      expect(decorateVerse("hello")).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a>');
+    });
+    it("decorateVerse works without spaces around slashes", () => {
+      expect(decorateVerse("hello/world")).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
     });
   });
   describe("normalizeRarityRange", () => {
