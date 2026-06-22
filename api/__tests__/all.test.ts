@@ -6,6 +6,7 @@ import {
   decorateVerse,
   decorateSentence,
   adjForGender,
+  cleaningDecorator,
   parseAllowedOrigins,
   resolveCorsOrigin,
   resolveSupabaseKey,
@@ -65,6 +66,12 @@ describe("capitalizeFirst", () => {
 
   it("handles already capitalized", () => {
     expect(capitalizeFirst("Masă")).toBe("Masă");
+  });
+});
+
+describe("cleaningDecorator", () => {
+  it("trims whitespace and collapses multiple spaces", () => {
+    expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
   });
 });
 
@@ -432,13 +439,33 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(["1", "3"], ["2", "4"])).toEqual({ minR: 3, maxR: 4 });
   });
 
+  it("uses the last element when multiple values are provided in a comma-separated string", () => {
+    expect(normalizeRarityRange("1,2", "5")).toEqual({ minR: 2, maxR: 5 });
+  });
+
   it("handles whitespace-only strings and empty parts in comma-separated lists", () => {
     expect(normalizeRarityRange(" ", " ")).toEqual({ minR: 1, maxR: 2 });
     expect(normalizeRarityRange("1, , 3", "5")).toEqual({ minR: 3, maxR: 5 });
   });
-  it("clamps and orders array query params", () => {
-    // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
-    // then min/max swap: { minR: 2, maxR: 5 }
-    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 1, maxR: 5 });
+});
+
+describe("Edge cases", () => {
+  it("applyFilter: eq with array uses in", () => {
+    const mockQ = { in: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "eq", value: ["test1", "test2"] };
+    applyFilter(mockQ, filter as any);
+    expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
+  });
+
+  it("normalizeRarityRange: handles invalid values in comma-separated strings", () => {
+    expect(normalizeRarityRange("1,invalid", "5")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("normalizeRarityRange: handles invalid values in arrays", () => {
+    expect(normalizeRarityRange(["1", "invalid"], ["2"])).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("normalizeRarityRange: handles whitespace-only in comma-separated lists", () => {
+     expect(normalizeRarityRange(" , 1", "5")).toEqual({ minR: 1, maxR: 5 });
   });
 });

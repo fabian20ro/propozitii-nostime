@@ -9,8 +9,11 @@ import {
   capitalizeFirst,
   cleaningDecorator,
   decorateVerse,
+  decorateSentence,
   addDexLinks,
-  buildResponseTimingHeaders
+  buildResponseTimingHeaders,
+  adjForGender,
+  DEXONLINE_URL
 } from "../all";
 
 describe("api/all.ts utilities", () => {
@@ -56,6 +59,23 @@ describe("api/all.ts utilities", () => {
       expect(res.source).toBe("none");
       expect(res.error).toContain("disabled");
     });
+    it("returns error if service-role is set but fallback is disabled (case insensitive check)", () => {
+      const env = {
+        SUPABASE_SERVICE_ROLE_KEY: "ser-key",
+        ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "FALSE"
+      };
+      const res = resolveSupabaseKey(env);
+      expect(res.source).toBe("none");
+      expect(res.error).toContain("disabled");
+    });
+    it("returns error for whitespace-only SUPABASE_PUBLISHABLE_KEY", () => {
+      const env = { SUPABASE_PUBLISHABLE_KEY: "  " };
+      expect(resolveSupabaseKey(env)).toEqual({
+        key: "",
+        source: "none",
+        error: "Missing SUPABASE_PUBLISHABLE_KEY."
+      });
+    });
     it("returns error if no keys are present", () => {
       expect(resolveSupabaseKey({})).toEqual({
         key: "",
@@ -85,6 +105,7 @@ describe("api/all.ts utilities", () => {
       expect(resolveCorsOrigin("https://c.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
     });
   });
+
   describe("text decorators", () => {
     it("capitalizeFirst handles empty string", () => {
       expect(capitalizeFirst("")).toBe("");
@@ -105,6 +126,22 @@ describe("api/all.ts utilities", () => {
       const result = addDexLinks("hello");
       expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">hello</a>');
     });
+    it("handles multiple spaces", () => {
+      const result = addDexLinks("a  b");
+      expect(result).toContain("</a>  <a");
+    });
+    it("handles accented characters", () => {
+      const result = addDexLinks("masă");
+      expect(result).toContain('href="https://dexonline.ro/definitie/mas%C4%83"');
+      expect(result).toContain(">masă</a");
+    });
+    it("handles punctuation and apostrophes", () => {
+      const result = addDexLinks("it's a test");
+      // Should handle it's -> it's or it and s.
+      // Given \p{L}+, it should be <a...>it</a>'<a...>s</a> a <a...>test</a>
+      expect(result).toContain("<a href=\"https://dexonline.ro/definitie/it\" target=\"_blank\" rel=\"noopener\" data-word=\"it\">it</a>'<a href=\"https://dexonline.ro/definitie/s\" target=\"_blank\" rel=\"noopener\" data-word=\"s\">s</a> <a href=\"https://dexonline.ro/definitie/a\" target=\"_blank\" rel=\"noopener\" data-word=\"a\">a</a> <a href=\"https://dexonline.ro/definitie/test\" target=\"_blank\" rel=\"noopener\" data-word=\"test\">test</a>");
+    });
+
     it("decorateVerse handles multiple lines and capitalization", () => {
       const verse = "hello / world";
       const result = decorateVerse(verse);
@@ -116,7 +153,13 @@ describe("api/all.ts utilities", () => {
     it("decorateVerse works without spaces around slashes", () => {
       expect(decorateVerse("hello/world")).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
     });
+    it("decorateVerse handles complex whitespace and multiple lines", () => {
+      const verse = "  hello   /   world  /  third  ";
+      const result = decorateVerse(verse);
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a><br/><a href="https://dexonline.ro/definitie/third" target="_blank" rel="noopener" data-word="third">Third</a>');
+    });
   });
+
   describe("normalizeRarityRange", () => {
     it("handles simple numeric strings", () => {
       expect(normalizeRarityRange("1", "5")).toEqual({ minR: 1, maxR: 5 });
@@ -133,28 +176,39 @@ describe("api/all.ts utilities", () => {
       expect(normalizeRarityRange("5", "1")).toEqual({ minR: 1, maxR: 5 });
     });
   });
+
+  describe("adjForGender", () => {
+    it("returns masculine form", () => {
+      const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
+      expect(adjForGender(adj, "M")).toBe("grand");
+    });
+    it("returns feminine form", () => {
+      const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
+      expect(adjForGender(adj, "f")).toBe("grande");
+    });
+  });
 });
 
-  describe("resolveSupabaseInit", () => {
-    it("returns error if Supabase URL is missing", () => {
-      const env = { SUPABASE_PUBLISHABLE_KEY: "key" };
-      const res = resolveSupabaseInit(env);
-      expect(res.error).toBe("Missing SUPABASE_URL.");
-    });
-    it("returns error if no keys are present", () => {
-      expect(resolveSupabaseInit({})).toEqual({
-        keyResolution: { key: "", source: "none", error: "Missing SUPABASE_PUBLISHABLE_KEY." },
-        error: "Missing SUPABASE_URL."
-      });
+describe("resolveSupabaseInit", () => {
+  it("returns error if Supabase URL is missing", () => {
+    const env = { SUPABASE_PUBLISHABLE_KEY: "key" };
+    const res = resolveSupabaseInit(env);
+    expect(res.error).toBe("Missing SUPABASE_URL.");
+  });
+  it("returns error if no keys are present", () => {
+    expect(resolveSupabaseInit({})).toEqual({
+      keyResolution: { key: "", source: "none", error: "Missing SUPABASE_PUBLISHABLE_KEY." },
+      error: "Missing SUPABASE_URL."
     });
   });
+});
 
-  describe("buildResponseTimingHeaders", () => {
-    it("returns correct timing headers", () => {
-      const start = 1000;
-      const end = 1500;
-      const res = buildResponseTimingHeaders(start, end);
-      expect(res.serverTiming).toBe("api-all;dur=500");
-      expect(res.responseTimeMs).toBe("500");
-    });
+describe("buildResponseTimingHeaders", () => {
+  it("returns correct timing headers", () => {
+    const start = 1000;
+    const end = 1500;
+    const res = buildResponseTimingHeaders(start, end);
+    expect(res.serverTiming).toBe("api-all;dur=500");
+    expect(res.responseTimeMs).toBe("500");
   });
+});
