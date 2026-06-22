@@ -113,6 +113,11 @@ describe("api/all.ts utilities", () => {
       const result = addDexLinks("a  b");
       expect(result).toContain("</a>  <a");
     });
+    it("handles accented characters", () => {
+      const result = addDexLinks("masă");
+      expect(result).toContain('href="https://dexonline.ro/definitie/mas%C4%83"');
+      expect(result).toContain(">masă</a");
+    });
     it("handles emojis and punctuation", () => {
       const result = addDexLinks("😊! la lume");
       expect(result).toContain("😊!");
