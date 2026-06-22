@@ -68,6 +68,14 @@ describe("api/all.ts utilities", () => {
       expect(res.source).toBe("none");
       expect(res.error).toContain("disabled");
     });
+    it("returns error for whitespace-only SUPABASE_PUBLISHABLE_KEY", () => {
+      const env = { SUPABASE_PUBLISHABLE_KEY: "  " };
+      expect(resolveSupabaseKey(env)).toEqual({
+        key: "",
+        source: "none",
+        error: "Missing SUPABASE_PUBLISHABLE_KEY."
+      });
+    });
     it("returns error if no keys are present", () => {
       expect(resolveSupabaseKey({})).toEqual({
         key: "",
