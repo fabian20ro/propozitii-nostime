@@ -439,6 +439,10 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(["1", "3"], ["2", "4"])).toEqual({ minR: 3, maxR: 4 });
   });
 
+  it("uses the last element when multiple values are provided in a comma-separated string", () => {
+    expect(normalizeRarityRange("1,2", "5")).toEqual({ minR: 2, maxR: 5 });
+  });
+
   it("handles whitespace-only strings and empty parts in comma-separated lists", () => {
     expect(normalizeRarityRange(" ", " ")).toEqual({ minR: 1, maxR: 2 });
     expect(normalizeRarityRange("1, , 3", "5")).toEqual({ minR: 3, maxR: 5 });
