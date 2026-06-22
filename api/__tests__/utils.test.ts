@@ -127,12 +127,13 @@ describe("api/all.ts utilities", () => {
       expect(result).toContain('href="https://dexonline.ro/definitie/mas%C4%83"');
       expect(result).toContain(">masă</a");
     });
-    it("handles emojis and punctuation", () => {
-      const result = addDexLinks("😊! la lume");
-      expect(result).toContain("😊!");
-      expect(result).toContain("la");
-      expect(result).toContain("lume");
+    it("handles punctuation and apostrophes", () => {
+      const result = addDexLinks("it's a test");
+      // Should handle it's -> it's or it and s.
+      // Given \p{L}+, it should be <a...>it</a>'<a...>s</a> a <a...>test</a>
+      expect(result).toContain("<a href=\"https://dexonline.ro/definitie/it\" target=\"_blank\" rel=\"noopener\" data-word=\"it\">it</a>'<a href=\"https://dexonline.ro/definitie/s\" target=\"_blank\" rel=\"noopener\" data-word=\"s\">s</a> <a href=\"https://dexonline.ro/definitie/a\" target=\"_blank\" rel=\"noopener\" data-word=\"a\">a</a> <a href=\"https://dexonline.ro/definitie/test\" target=\"_blank\" rel=\"noopener\" data-word=\"test\">test</a>");
     });
+
     it("decorateVerse handles multiple lines and capitalization", () => {
       const verse = "hello / world";
       const result = decorateVerse(verse);
