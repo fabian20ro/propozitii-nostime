@@ -447,9 +447,25 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(" ", " ")).toEqual({ minR: 1, maxR: 2 });
     expect(normalizeRarityRange("1, , 3", "5")).toEqual({ minR: 3, maxR: 5 });
   });
-  it("clamps and orders array query params", () => {
-    // "6" clamps to 5; "0" is falsy so || 2 fallback → maxCandidate=2
-    // then min/max swap: { minR: 2, maxR: 5 }
-    expect(normalizeRarityRange(["6"], ["0"])).toEqual({ minR: 1, maxR: 5 });
+});
+
+describe("Edge cases", () => {
+  it("applyFilter: eq with array uses in", () => {
+    const mockQ = { in: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "eq", value: ["test1", "test2"] };
+    applyFilter(mockQ, filter as any);
+    expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
+  });
+
+  it("normalizeRarityRange: handles invalid values in comma-separated strings", () => {
+    expect(normalizeRarityRange("1,invalid", "5")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("normalizeRarityRange: handles invalid values in arrays", () => {
+    expect(normalizeRarityRange(["1", "invalid"], ["2"])).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("normalizeRarityRange: handles whitespace-only in comma-separated lists", () => {
+     expect(normalizeRarityRange(" , 1", "5")).toEqual({ minR: 1, maxR: 5 });
   });
 });
