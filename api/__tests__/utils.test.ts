@@ -59,6 +59,15 @@ describe("api/all.ts utilities", () => {
       expect(res.source).toBe("none");
       expect(res.error).toContain("disabled");
     });
+    it("returns error if service-role is set but fallback is disabled (case insensitive check)", () => {
+      const env = {
+        SUPABASE_SERVICE_ROLE_KEY: "ser-key",
+        ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "FALSE"
+      };
+      const res = resolveSupabaseKey(env);
+      expect(res.source).toBe("none");
+      expect(res.error).toContain("disabled");
+    });
     it("returns error if no keys are present", () => {
       expect(resolveSupabaseKey({})).toEqual({
         key: "",
