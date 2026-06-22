@@ -69,6 +69,12 @@ describe("capitalizeFirst", () => {
   });
 });
 
+describe("cleaningDecorator", () => {
+  it("trims whitespace and collapses multiple spaces", () => {
+    expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
+  });
+});
+
 // --- adjForGender ---
 
 describe("adjForGender", () => {
