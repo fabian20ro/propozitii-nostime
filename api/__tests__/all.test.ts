@@ -64,6 +64,10 @@ describe("capitalizeFirst", () => {
     expect(capitalizeFirst("")).toBe("");
   });
 
+  it("handles non-letter start", () => {
+    expect(capitalizeFirst("1abc")).toBe("1abc");
+  });
+
   it("handles already capitalized", () => {
     expect(capitalizeFirst("Masă")).toBe("Masă");
   });
@@ -96,6 +100,10 @@ describe("adjForGender", () => {
 
   it("handles lowercase f", () => {
     expect(adjForGender(adj, "f")).toBe("frumoasă");
+  });
+
+  it("returns masculine form for gender m", () => {
+    expect(adjForGender(adj, "m")).toBe("frumos");
   });
   it("returns masculine form for gender N", () => {
     expect(adjForGender(adj, "N")).toBe("frumos");
