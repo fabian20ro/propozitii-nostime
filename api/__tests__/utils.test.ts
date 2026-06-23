@@ -159,6 +159,12 @@ describe("api/all.ts utilities", () => {
       const result = decorateVerse(verse);
       expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a><br/><a href="https://dexonline.ro/definitie/third" target="_blank" rel="noopener" data-word="third">Third</a>');
     });
+
+    it("decorateVerse handles empty segments", () => {
+      const verse = "hello / / world";
+      const result = decorateVerse(verse);
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a>');
+    });
     it("escapeHtml handles special characters", () => {
       expect(escapeHtml("<script>alert('x')</script> & \"hello\"")).toBe("&lt;script&gt;alert('x')&lt;/script&gt; &amp; &quot;hello&quot;");
     });
