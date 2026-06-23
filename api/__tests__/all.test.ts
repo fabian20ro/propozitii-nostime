@@ -64,6 +64,10 @@ describe("capitalizeFirst", () => {
     expect(capitalizeFirst("")).toBe("");
   });
 
+  it("handles non-letter start", () => {
+    expect(capitalizeFirst("1abc")).toBe("1abc");
+  });
+
   it("handles already capitalized", () => {
     expect(capitalizeFirst("Masă")).toBe("Masă");
   });
@@ -96,6 +100,10 @@ describe("adjForGender", () => {
 
   it("handles lowercase f", () => {
     expect(adjForGender(adj, "f")).toBe("frumoasă");
+  });
+
+  it("returns masculine form for gender m", () => {
+    expect(adjForGender(adj, "m")).toBe("frumos");
   });
   it("returns masculine form for gender N", () => {
     expect(adjForGender(adj, "N")).toBe("frumos");
@@ -194,6 +202,12 @@ describe("decorateVerse", () => {
   it("produces <br/> for delimiter-only input (two empty lines)", () => {
     // " / " splits into [" ", " "] → both trim to "" → join with <br/>
     expect(decorateVerse(" / ")).toBe("<br/>");
+  });
+
+  it("handles multiple delimiters", () => {
+    const result = decorateVerse("a / b / c");
+    const breaks = (result.match(/<br\/>/g) || []).length;
+    expect(breaks).toBe(2);
   });
 });
 
