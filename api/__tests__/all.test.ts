@@ -435,7 +435,7 @@ describe("normalizeRarityRange", () => {
   it("defaults to the published fallback range when params are missing", () => {
     expect(normalizeRarityRange(undefined, undefined)).toEqual({ minR: 1, maxR: 2 });
   });
-  it("handles array query params (Vercel multi-value) by using the first element", () => {
+  it("handles array query params (Vercel multi-value) by using the last element", () => {
     expect(normalizeRarityRange(["1", "3"], ["2", "4"])).toEqual({ minR: 3, maxR: 4 });
   });
 
