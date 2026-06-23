@@ -13,7 +13,8 @@ import {
   addDexLinks,
   buildResponseTimingHeaders,
   adjForGender,
-  DEXONLINE_URL
+  DEXONLINE_URL,
+  escapeHtml
 } from "../all";
 
 describe("api/all.ts utilities", () => {
@@ -158,6 +159,13 @@ describe("api/all.ts utilities", () => {
       const result = decorateVerse(verse);
       expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a><br/><a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">World</a><br/><a href="https://dexonline.ro/definitie/third" target="_blank" rel="noopener" data-word="third">Third</a>');
     });
+    it("escapeHtml handles special characters", () => {
+      expect(escapeHtml("<script>alert('x')</script> & \"hello\"")).toBe("&lt;script&gt;alert('x')&lt;/script&gt; &amp; &quot;hello&quot;");
+    });
+
+    it("decorateSentence wraps text in links and capitalizes", () => {
+      expect(decorateSentence("hello world")).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">Hello</a> <a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">world</a>');
+    });
   });
 
   describe("normalizeRarityRange", () => {
@@ -185,6 +193,14 @@ describe("api/all.ts utilities", () => {
     it("returns feminine form", () => {
       const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
       expect(adjForGender(adj, "f")).toBe("grande");
+    });
+    it("returns feminine form with uppercase f", () => {
+      const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
+      expect(adjForGender(adj, "F")).toBe("grande");
+    });
+    it("returns masculine form for unknown gender", () => {
+      const adj = { word: "grand", feminine: "grande", syllables: 1, rhyme: "an", feminine_syllables: 2 } as any;
+      expect(adjForGender(adj, "X")).toBe("grand");
     });
   });
 });
