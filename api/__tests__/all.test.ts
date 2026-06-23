@@ -195,6 +195,12 @@ describe("decorateVerse", () => {
     // " / " splits into [" ", " "] → both trim to "" → join with <br/>
     expect(decorateVerse(" / ")).toBe("<br/>");
   });
+
+  it("handles multiple delimiters", () => {
+    const result = decorateVerse("a / b / c");
+    const breaks = (result.match(/<br\/>/g) || []).length;
+    expect(breaks).toBe(2);
+  });
 });
 
 // --- decorateSentence ---
