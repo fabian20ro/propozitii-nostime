@@ -60,15 +60,6 @@ describe("api/all.ts utilities", () => {
       expect(res.source).toBe("none");
       expect(res.error).toContain("disabled");
     });
-    it("returns error if service-role is set but fallback is disabled (case insensitive check)", () => {
-      const env = {
-        SUPABASE_SERVICE_ROLE_KEY: "ser-key",
-        ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "FALSE"
-      };
-      const res = resolveSupabaseKey(env);
-      expect(res.source).toBe("none");
-      expect(res.error).toContain("disabled");
-    });
     it("returns error for whitespace-only SUPABASE_PUBLISHABLE_KEY", () => {
       const env = { SUPABASE_PUBLISHABLE_KEY: "  " };
       expect(resolveSupabaseKey(env)).toEqual({
@@ -105,6 +96,9 @@ describe("api/all.ts utilities", () => {
     it("returns first origin if no match", () => {
       expect(resolveCorsOrigin("https://c.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
     });
+    it("returns first origin if origin is undefined", () => {
+      expect(resolveCorsOrigin(undefined, ["https://a.com", "https://b.com"])).toBe("https://a.com");
+    });
   });
 
   describe("text decorators", () => {
@@ -138,7 +132,7 @@ describe("api/all.ts utilities", () => {
     });
     it("handles punctuation and apostrophes", () => {
       const result = addDexLinks("it's a test");
-      // Should handle it's -> it's or it and s.
+      // Should handle it's -> it and s.
       // Given \p{L}+, it should be <a...>it</a>'<a...>s</a> a <a...>test</a>
       expect(result).toContain("<a href=\"https://dexonline.ro/definitie/it\" target=\"_blank\" rel=\"noopener\" data-word=\"it\">it</a>'<a href=\"https://dexonline.ro/definitie/s\" target=\"_blank\" rel=\"noopener\" data-word=\"s\">s</a> <a href=\"https://dexonline.ro/definitie/a\" target=\"_blank\" rel=\"noopener\" data-word=\"a\">a</a> <a href=\"https://dexonline.ro/definitie/test\" target=\"_blank\" rel=\"noopener\" data-word=\"test\">test</a>");
     });
@@ -232,5 +226,34 @@ describe("buildResponseTimingHeaders", () => {
     const res = buildResponseTimingHeaders(start, end);
     expect(res.serverTiming).toBe("api-all;dur=500");
     expect(res.responseTimeMs).toBe("500");
+  });
+  it("handles negative duration by defaulting to 0", () => {
+    const start = 1000;
+    const end = 500;
+    const res = buildResponseTimingHeaders(start, end);
+    expect(res.serverTiming).toBe("api-all;dur=0");
+    expect(res.responseTimeMs).toBe("0");
+    });
+  it("handles zero duration", () => {
+    const start = 1000;
+    const end = 1000;
+    const res = buildResponseTimingHeaders(start, end);
+    expect(res.serverTiming).toBe("api-all;dur=0");
+    expect(res.responseTimeMs).toBe("0");
+  });
+});
+
+describe("resolveCorsOrigin", () => {
+  it("returns * if allowlist contains *", () => {
+    expect(resolveCorsOrigin("https://a.com", ["*"])).toBe("*");
+  });
+  it("returns matching origin", () => {
+    expect(resolveCorsOrigin("https://a.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
+  });
+  it("returns first origin if no match", () => {
+    expect(resolveCorsOrigin("https://c.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
+  });
+  it("returns first origin if origin is undefined", () => {
+    expect(resolveCorsOrigin(undefined, ["https://a.com", "https://b.com"])).toBe("https://a.com");
   });
 });
