@@ -76,7 +76,8 @@ class PhraseResource {
             comparison = getComparison(rarity, minRarity).sentence,
             definition = getDefinition(rarity, minRarity).sentence,
             tautogram = getTautogram(rarity, minRarity).sentence,
-            mirror = getMirror(rarity, minRarity).sentence
+            mirror = getMirror(rarity, minRarity).sentence,
+            timestamp = java.time.Instant.now().toString()
         )
 
     @GET
