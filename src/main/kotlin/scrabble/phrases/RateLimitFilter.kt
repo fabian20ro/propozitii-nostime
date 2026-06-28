@@ -31,8 +31,11 @@ class RateLimitFilter : ContainerRequestFilter {
         timestamps.add(now)
 
         if (timestamps.size > MAX_REQUESTS) {
+            val oldest = timestamps.first()
+            val retryAfterSeconds = maxOf(1, ((oldest + WINDOW_MS) - now) / 1000)
             requestContext.abortWith(
                 Response.status(429)
+                    .header("Retry-After", retryAfterSeconds)
                     .entity(mapOf("error" to "Too many requests. Try again later."))
                     .type(MediaType.APPLICATION_JSON)
                     .build()
