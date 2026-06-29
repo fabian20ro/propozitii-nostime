@@ -209,6 +209,12 @@ describe("decorateVerse", () => {
     const breaks = (result.match(/<br\/>/g) || []).length;
     expect(breaks).toBe(2);
   });
+
+  it("handles multiple spaces", () => {
+    const result = decorateVerse("a  /  b");
+    expect(result).toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
 });
 
 // --- decorateSentence ---
