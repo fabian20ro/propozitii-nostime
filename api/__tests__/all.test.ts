@@ -379,6 +379,17 @@ describe("Supabase init validation", () => {
     expect(resolved.error).toContain("Invalid SUPABASE_URL");
     expect(resolved.keyResolution.source).toBe("publishable");
   });
+
+  it("succeeds with valid URL and key", () => {
+    const env = {
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    };
+    const resolved = resolveSupabaseInit(env);
+    expect(resolved.keyResolution.key).toBe("pub-key");
+    expect(resolved.keyResolution.source).toBe("publishable");
+    expect(resolved.error).toBeUndefined();
+  });
 });
 
 describe("validateSupabaseUrl", () => {
