@@ -162,6 +162,11 @@ describe("addDexLinks", () => {
     expect(result).toContain("la");
     expect(result).toContain("lume");
   });
+
+  it("handles numbers and punctuation", () => {
+    const result = addDexLinks("masă 123!");
+    expect(result).toBe(`<a href="${DEXONLINE_URL}mas%C4%83" target="${DEXONLINE_ANCHOR_TARGET}" rel="${DEXONLINE_ANCHOR_REL}" data-word="mas%C4%83">masă</a> 123!`);
+  });
 });
 
 // --- decorateVerse ---
