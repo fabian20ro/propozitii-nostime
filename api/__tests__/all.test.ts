@@ -287,6 +287,12 @@ describe("applyFilter", () => {
     applyFilter(mockQ, filter as any);
     expect(mockQ.neq).toHaveBeenCalledWith("word", "test");
   });
+
+  it("returns undefined for unknown operator", () => {
+    const mockQ = { eq: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "unknown" as any, value: "test" };
+    expect(applyFilter(mockQ, filter)).toBeUndefined();
+  });
 });
 
 describe("definition decoration (now uses decorateSentence)", () => {
