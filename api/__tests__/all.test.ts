@@ -500,3 +500,20 @@ describe("Edge cases", () => {
      expect(normalizeRarityRange(" , 1", "5")).toEqual({ minR: 1, maxR: 5 });
   });
 });
+
+describe("extended functionality", () => {
+  it("addDexLinks handles hyphenated words by splitting them", () => {
+    const result = addDexLinks("so-called");
+    expect(result).toBe(`<a href="${DEXONLINE_URL}so" target="${DEXONLINE_ANCHOR_TARGET}" rel="${DEXONLINE_ANCHOR_REL}" data-word="so">so</a>-<a href="${DEXONLINE_URL}called" target="${DEXONLINE_ANCHOR_TARGET}" rel="${DEXONLINE_ANCHOR_REL}" data-word="called">called</a>`);
+  });
+
+  it("decorateVerse returns a single decorated line if no delimiter is present", () => {
+    const result = decorateVerse("masă mare");
+    expect(result).toContain("<a");
+    expect(result).not.toContain("<br/>");
+  });
+
+  it("cleaningDecorator trims trailing whitespace", () => {
+    expect(cleaningDecorator("hello ")).toBe("hello");
+  });
+});
