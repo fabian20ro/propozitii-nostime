@@ -762,6 +762,11 @@ async function genTautogram(minR: number, maxR: number, cache?: CountCache): Pro
   return decorateSentence(raw);
 }
 
+async function genMinimalist(minR: number, maxR: number, cache?: CountCache): Promise<string> {
+  const noun = await randomNoun(minR, maxR, [], cache);
+  return decorateSentence(noun.articulated);
+}
+
 // --- Main handler ---
 
 export default async function handler(req: VercelRequestLike, res: VercelResponseLike) {
@@ -822,6 +827,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     definition: UNSATISFIABLE,
     tautogram: UNSATISFIABLE,
     mirror: UNSATISFIABLE,
+    minimalist: UNSATISFIABLE,
   };
 
   const taskMap: Record<string, () => Promise<string>> = {
@@ -831,6 +837,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     definition: () => genDefinition(minR, maxR, cache),
     tautogram: () => genTautogram(minR, maxR, cache),
     mirror: () => genMirror(minR, maxR, cache),
+    minimalist: () => genMinimalist(minR, maxR, cache),
   };
 
   const tasks = Object.entries(taskMap)
