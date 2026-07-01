@@ -220,6 +220,28 @@ describe("decorateVerse", () => {
     expect(result).toContain("<br/>");
     expect(result).not.toContain(" / ");
   });
+
+  // Regression: AGENTS.md Rule #1 — verse delimiter contract.
+  // If the split/join logic changes and " / " leaks into output, the invariant throws.
+  it("throws if ' / ' delimiter leaks into decorated multi-line output", () => {
+    expect(() => decorateVerse("un cuvânt / altul")).not.toThrow();
+    const result = decorateVerse("un cuvânt / altul");
+    // Verify: output contains <br/> and never the literal " / "
+    expect(result).toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
+
+  it("single-line input has no <br/>", () => {
+    const result = decorateVerse("doar un cuvânt");
+    expect(result).not.toContain("<br/>");
+    expect(result).toContain("</a>");
+  });
+
+  it("handles uppercase delimiter variants (whitespace-normalized)", () => {
+    const result = decorateVerse("abc   /   def");
+    expect(result).toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
 });
 
 // --- decorateSentence ---
