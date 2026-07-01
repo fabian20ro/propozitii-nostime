@@ -631,9 +631,18 @@ export function cleaningDecorator(sentence: string): string {
 }
 
 export function decorateVerse(sentence: string): string {
+  const hasDelimiter = sentence.includes(" / ");
   const lines = sentence.split(/\s*\/\s*/);
   const decoratedLines = lines.map((line) => addDexLinks(capitalizeFirst(line.trim())));
-  return decoratedLines.join("<br/>");
+  const result = decoratedLines.join("<br/>");
+
+  // Verse delimiter invariant: if input contains " / ", output must use <br/> and never contain literal " / ".
+  // See AGENTS.md Rule #1 — breaking this string silently kills line breaks in the frontend.
+  if (hasDelimiter && result.includes(" / ")) {
+    throw new Error("decorateVerse: ' / ' delimiter leaked into decorated output");
+  }
+
+  return result;
 }
 
 export function decorateSentence(sentence: string): string {

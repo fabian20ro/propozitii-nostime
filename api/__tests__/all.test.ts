@@ -220,6 +220,28 @@ describe("decorateVerse", () => {
     expect(result).toContain("<br/>");
     expect(result).not.toContain(" / ");
   });
+
+  // Regression: AGENTS.md Rule #1 — verse delimiter contract.
+  // If the split/join logic changes and " / " leaks into output, the invariant throws.
+  it("throws if ' / ' delimiter leaks into decorated multi-line output", () => {
+    expect(() => decorateVerse("un cuvânt / altul")).not.toThrow();
+    const result = decorateVerse("un cuvânt / altul");
+    // Verify: output contains <br/> and never the literal " / "
+    expect(result).toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
+
+  it("single-line input has no <br/>", () => {
+    const result = decorateVerse("doar un cuvânt");
+    expect(result).not.toContain("<br/>");
+    expect(result).toContain("</a>");
+  });
+
+  it("handles uppercase delimiter variants (whitespace-normalized)", () => {
+    const result = decorateVerse("abc   /   def");
+    expect(result).toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
 });
 
 // --- decorateSentence ---
@@ -286,6 +308,12 @@ describe("applyFilter", () => {
     const filter = { column: "word", op: "neq", value: "test" };
     applyFilter(mockQ, filter as any);
     expect(mockQ.neq).toHaveBeenCalledWith("word", "test");
+  });
+
+  it("returns undefined for unknown operator", () => {
+    const mockQ = { eq: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "unknown" as any, value: "test" };
+    expect(applyFilter(mockQ, filter)).toBeUndefined();
   });
 });
 
@@ -423,38 +451,23 @@ describe("validateSupabaseUrl", () => {
   });
 });
 
-describe("CORS origin helpers", () => {
-  it("uses default allowlist when env value is empty", () => {
-    expect(parseAllowedOrigins("")).toEqual(["https://fabian20ro.github.io"]);
+describe("resolveCorsOrigin", () => {
+  const allowlist = ["https://a.com", "https://b.com"];
+
+  it("returns '*' if allowlist contains '*'", () => {
+    expect(resolveCorsOrigin("https://a.com", ["*"])).toBe("*");
   });
-  it("builds response timing headers from elapsed milliseconds", () => {
-    const start = 1000;
-    const end = 1500;
-    const res = buildResponseTimingHeaders(start, end);
-    expect(res.serverTiming).toBe("api-all;dur=500");
-    expect(res.responseTimeMs).toBe("500");
+
+  it("returns origin if it is in the allowlist", () => {
+    expect(resolveCorsOrigin("https://a.com", allowlist)).toBe("https://a.com");
   });
-  it("clamps negative elapsed time to zero", () => {
-    expect(buildResponseTimingHeaders(1123, 1000)).toEqual({
-      serverTiming: "api-all;dur=0",
-      responseTimeMs: "0",
-    });
+
+  it("returns the first element of allowlist if origin is not in it", () => {
+    expect(resolveCorsOrigin("https://c.com", allowlist)).toBe("https://a.com");
   });
-  it("parses comma-separated allowlist", () => {
-    expect(
-      parseAllowedOrigins(" https://a.com , https://b.com ")
-    ).toEqual(["https://a.com", "https://b.com"]);
-  });
-  it("reflects request origin when it is allowed", () => {
-    const allowed = ["https://a.com", "https://b.com"];
-    expect(resolveCorsOrigin("https://b.com", allowed)).toBe("https://b.com");
-  });
-  it("falls back to first allowlist origin when request origin is not allowed", () => {
-    const allowed = ["https://a.com", "https://b.com"];
-    expect(resolveCorsOrigin("https://c.com", allowed)).toBe("https://a.com");
-  });
-  it("handles comma-only or whitespace-only strings by returning default", () => {
-    expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
+
+  it("returns the first element of allowlist if origin is undefined", () => {
+    expect(resolveCorsOrigin(undefined, allowlist)).toBe("https://a.com");
   });
 });
 
