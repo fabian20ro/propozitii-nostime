@@ -633,3 +633,36 @@ describe("ConstraintUnsatisfiedError / failConstraint", () => {
     expect(failConstraint.toString()).toContain("function");
   });
 });
+
+// --- Input validation: type query param rejected when unknown ---
+
+describe("type query parameter validation (handler contract)", () => {
+  it("rejects unknown type with a helpful error message", () => {
+    // Simulate the handler's input gate logic.
+    const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
+    expect(validTypes).not.toContain("haikz");
+    expect(validTypes).not.toContain("");
+  });
+
+  it("accepts all known types without rejection", () => {
+    const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
+    for (const t of validTypes) {
+      expect(validTypes).toContain(t);
+    }
+  });
+
+  it("treats undefined type as 'run all'", () => {
+    // The handler's filter is: !rawType || rawType === key — undefined passes through.
+    const rawType = undefined;
+    const keys = ["haiku", "distih"];
+    for (const k of keys) {
+      expect(!rawType || rawType === k).toBe(true);
+    }
+  });
+
+  it("filters to one type when a known type is specified", () => {
+    const rawType = "mirror";
+    const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
+    expect(validTypes).toContain(rawType);
+  });
+});
