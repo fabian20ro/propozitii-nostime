@@ -73,6 +73,21 @@ describe("capitalizeFirst", () => {
   it("handles already capitalized", () => {
     expect(capitalizeFirst("Masă")).toBe("Masă");
   });
+
+  // Regression: single-character Romanian diacritics must uppercase correctly.
+  // A future refactor that mishandles UTF-8 chars would silently break capitalization
+  // of every verse/word on the front-end. The contract is locked here.
+  it("uppercases single-character diacritic 'ă' → 'Ă'", () => {
+    expect(capitalizeFirst("ă")).toBe("Ă");
+  });
+
+  it("uppercases single-character diacritic 'â' → 'Â'", () => {
+    expect(capitalizeFirst("â")).toBe("Â");
+  });
+
+  it("preserves already-uppercase diacritic", () => {
+    expect(capitalizeFirst("Ă")).toBe("Ă");
+  });
 });
 
 describe("cleaningDecorator", () => {
