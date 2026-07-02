@@ -666,3 +666,37 @@ describe("type query parameter validation (handler contract)", () => {
     expect(validTypes).toContain(rawType);
   });
 });
+
+// --- Response timing headers contract (Server-Timing) ---
+
+describe("buildResponseTimingHeaders", () => {
+  it("returns elapsed ms as server-timing dur and responseTimeMs string", () => {
+    const startedAt = 1000;
+    const finishedAt = 1250;
+    const h = buildResponseTimingHeaders(startedAt, finishedAt);
+    expect(h.serverTiming).toBe("api-all;dur=250");
+    expect(h.responseTimeMs).toBe("250");
+  });
+
+  it("clamps negative delta to 0 when finished is before started", () => {
+    const h = buildResponseTimingHeaders(2000, 1500);
+    expect(h.serverTiming).toBe("api-all;dur=0");
+    expect(h.responseTimeMs).toBe("0");
+  });
+
+  it("defaults finishedAt to Date.now when omitted", () => {
+    const startedAt = Date.now();
+    const h = buildResponseTimingHeaders(startedAt);
+    const elapsed = Number(h.responseTimeMs);
+    // Should be a small non-negative number (~0..5 ms in test runner)
+    expect(elapsed).toBeGreaterThanOrEqual(0);
+    expect(h.serverTiming).toMatch(/^api-all;dur=\d+$/);
+  });
+
+  it("returns zero when started and finished are equal", () => {
+    const t = 1700000000;
+    const h = buildResponseTimingHeaders(t, t);
+    expect(h.serverTiming).toBe("api-all;dur=0");
+    expect(h.responseTimeMs).toBe("0");
+  });
+});
