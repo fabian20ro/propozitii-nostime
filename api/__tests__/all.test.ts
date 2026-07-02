@@ -259,6 +259,25 @@ describe("decorateSentence", () => {
     const result = decorateSentence("  masă  ");
     expect(result).toContain(">Masă</a>");
   });
+
+  it("returns a single decorated line with no <br/> delimiter", () => {
+    // Regression: AGENTS.md Rule #1 — single-line sentences must never contain " / ".
+    const result = decorateSentence("câinele fericit aleargă.");
+    expect(result).not.toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
+
+  it("preserves trailing punctuation outside anchors", () => {
+    const result = decorateSentence("câinele fericit aleargă.");
+    // Period should appear after the closing anchor, not inside it.
+    expect(result).toMatch(/aleargă<\/a>\.$/);
+  });
+
+  it("handles empty input gracefully", () => {
+    const result = decorateSentence("");
+    // trim() of "" is "", capitalizeFirst returns "", addDexLinks on "" returns "".
+    expect(result).toBe("");
+  });
 });
 
 describe("applyFilter", () => {
