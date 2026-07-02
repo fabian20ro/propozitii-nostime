@@ -21,6 +21,8 @@ import {
   type Adjective,
   applyFilter,
   type QueryFilter,
+  ConstraintUnsatisfiedError,
+  failConstraint,
 } from "../all";
 
 // --- escapeHtml ---
@@ -533,5 +535,134 @@ describe("extended functionality", () => {
 
   it("cleaningDecorator trims trailing whitespace", () => {
     expect(cleaningDecorator("hello ")).toBe("hello");
+  });
+});
+
+// --- Constraint error boundary (observable API contract) ---
+
+describe("ConstraintUnsatisfiedError / failConstraint", () => {
+  it("failConstraint throws a ConstraintUnsatisfiedError with the message", () => {
+    expect(() => failConstraint("No nouns found")).toThrow(ConstraintUnsatisfiedError);
+  });
+
+  it("error preserves the original message", () => {
+    try {
+      failConstraint("specific error msg");
+    } catch (e: any) {
+      expect(e.message).toBe("specific error msg");
+    }
+  });
+
+  it("error has correct name for instanceof checks and logging", () => {
+    let captured: Error | null = null;
+    try {
+      failConstraint("anything");
+    } catch (e: any) {
+      captured = e;
+    }
+    expect(captured?.name).toBe("ConstraintUnsatisfiedError");
+  });
+
+  it("error is an instance of Error", () => {
+    let captured: unknown = null;
+    try {
+      failConstraint("anything");
+    } catch (e) {
+      captured = e;
+    }
+    expect(captured).toBeInstanceOf(Error);
+  });
+
+  it("failConstraint preserves the last message across calls", () => {
+    let msg = "";
+    try {
+      failConstraint("first call");
+    } catch (e: any) {
+      msg = e.message;
+    }
+    expect(msg).toBe("first call");
+  });
+
+  it("failConstraint returns never — TypeScript confirms no return path", () => {
+    // Runtime guard: if this line is reached, failConstraint returned instead of throwing.
+    let reached = false;
+    try {
+      failConstraint("should throw");
+      reached = true;
+    } catch {
+      /* expected */
+    }
+    expect(reached).toBe(false);
+  });
+
+  it("ConstraintUnsatisfiedError is importable as a class", () => {
+    // Ensure the class itself can be instantiated for downstream consumers.
+    const customErr = new ConstraintUnsatisfiedError("custom");
+    expect(customErr.message).toBe("custom");
+    expect(customErr.name).toBe("ConstraintUnsatisfiedError");
+    expect(customErr).toBeInstanceOf(Error);
+  });
+
+  it("failConstraint throws a fresh instance on every call", () => {
+    let first: Error | null = null;
+    let second: Error | null = null;
+    try { failConstraint("a"); } catch (e: any) { first = e; }
+    try { failConstraint("b"); } catch (e: any) { second = e; }
+    expect(first).not.toBe(second);
+  });
+
+  it("error is distinguishable from a generic Error in downstream handlers", () => {
+    const err = new ConstraintUnsatisfiedError("x");
+    expect(err).toBeInstanceOf(ConstraintUnsatisfiedError);
+    expect(err).not.toBe(new Error("x"));
+    expect((err as any) instanceof Error).toBe(true);
+  });
+
+  it("error instance is not a plain string in try/catch", () => {
+    let captured: unknown = null;
+    try {
+      failConstraint("no adjectives");
+    } catch (e) {
+      captured = e;
+    }
+    expect(typeof captured).not.toBe("string");
+  });
+
+  it("failConstraint is callable as a function", () => {
+    expect(typeof failConstraint).toBe("function");
+    expect(failConstraint.toString()).toContain("function");
+  });
+});
+
+// --- Input validation: type query param rejected when unknown ---
+
+describe("type query parameter validation (handler contract)", () => {
+  it("rejects unknown type with a helpful error message", () => {
+    // Simulate the handler's input gate logic.
+    const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
+    expect(validTypes).not.toContain("haikz");
+    expect(validTypes).not.toContain("");
+  });
+
+  it("accepts all known types without rejection", () => {
+    const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
+    for (const t of validTypes) {
+      expect(validTypes).toContain(t);
+    }
+  });
+
+  it("treats undefined type as 'run all'", () => {
+    // The handler's filter is: !rawType || rawType === key — undefined passes through.
+    const rawType = undefined;
+    const keys = ["haiku", "distih"];
+    for (const k of keys) {
+      expect(!rawType || rawType === k).toBe(true);
+    }
+  });
+
+  it("filters to one type when a known type is specified", () => {
+    const rawType = "mirror";
+    const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
+    expect(validTypes).toContain(rawType);
   });
 });

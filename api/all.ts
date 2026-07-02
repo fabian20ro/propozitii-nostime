@@ -222,14 +222,14 @@ export const DEXONLINE_ANCHOR_REL = "noopener";
 const UNSATISFIABLE =
   "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
 
-class ConstraintUnsatisfiedError extends Error {
+export class ConstraintUnsatisfiedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConstraintUnsatisfiedError";
   }
 }
 
-function failConstraint(message: string): never {
+export function failConstraint(message: string): never {
   throw new ConstraintUnsatisfiedError(message);
 }
 
@@ -827,8 +827,6 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
 
   const cache: CountCache = new Map();
 
-  const type = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
-
   const results: Record<string, string> = {
     haiku: UNSATISFIABLE,
     distih: UNSATISFIABLE,
@@ -849,8 +847,14 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     minimalist: () => genMinimalist(minR, maxR, cache),
   };
 
+  const rawType = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
+  if (rawType !== undefined && !Object.keys(taskMap).includes(rawType)) {
+    setTimingHeaders();
+    return res.status(400).json({ error: "Invalid type." });
+  }
+
   const tasks = Object.entries(taskMap)
-    .filter(([key]) => !type || type === key)
+    .filter(([key]) => !rawType || rawType === key)
     .map(([key, fn]) => safe(fn).then(res => { results[key] = res; }));
 
   await Promise.all(tasks);
