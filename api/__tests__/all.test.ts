@@ -223,6 +223,16 @@ describe("decorateVerse", () => {
     expect(result).not.toContain(" / ");
   });
 
+  // Regression: AGENTS.md Rule #1 — escapeHtml replacement order invariant.
+  // The chain must replace '&' BEFORE '<', otherwise pre-encoded entities like '&lt;'
+  // would be split into broken fragments (e.g. '&l;t;'). This locks in the ordering
+  // contract and catches any future reordering of the regex .replace() calls.
+  it("does not produce broken entities when input contains pre-encoded sequences", () => {
+    const result = escapeHtml("a &lt;b");
+    expect(result).toBe("a &amp;lt;b");
+    expect(result).not.toContain("&l;t;");
+  });
+
   // Regression: AGENTS.md Rule #1 — verse delimiter contract.
   // If the split/join logic changes and " / " leaks into output, the invariant throws.
   it("throws if ' / ' delimiter leaks into decorated multi-line output", () => {
