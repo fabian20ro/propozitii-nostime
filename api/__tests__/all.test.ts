@@ -500,6 +500,40 @@ describe("normalizeRarityRange", () => {
   });
 });
 
+// --- parseAllowedOrigins (previously untested) ---
+
+describe("parseAllowedOrigins", () => {
+  it("returns default allowlist when input is undefined", () => {
+    expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("returns default allowlist when input is empty string", () => {
+    expect(parseAllowedOrigins("")).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("returns default allowlist when input is whitespace-only", () => {
+    expect(parseAllowedOrigins("   ")).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("parses a single origin", () => {
+    expect(parseAllowedOrigins("https://example.com")).toEqual(["https://example.com"]);
+  });
+
+  it("parses multiple comma-separated origins and trims whitespace", () => {
+    const result = parseAllowedOrigins(" https://a.com , https://b.com ");
+    expect(result).toEqual(["https://a.com", "https://b.com"]);
+  });
+
+  it("filters out empty parts from split results", () => {
+    const result = parseAllowedOrigins("https://a.com,,https://b.com");
+    expect(result).toEqual(["https://a.com", "https://b.com"]);
+  });
+
+  it("returns default allowlist when all parsed values are empty after trim", () => {
+    expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
+  });
+});
+
 describe("Edge cases", () => {
   it("applyFilter: eq with array uses in", () => {
     const mockQ = { in: vi.fn().mockReturnThis() } as any;
