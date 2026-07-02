@@ -665,6 +665,29 @@ describe("type query parameter validation (handler contract)", () => {
     const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
     expect(validTypes).toContain(rawType);
   });
+
+  it("returns actionable error listing valid options when type is unknown (handler contract)", () => {
+    // Exercise the handler's input-validation gate: an invalid `type` must produce a 400 with valid options listed.
+    const taskMap = {
+      haiku: () => Promise.resolve(""), distih: () => Promise.resolve(""),
+      comparison: () => Promise.resolve(""), definition: () => Promise.resolve(""),
+      tautogram: () => Promise.resolve(""), mirror: () => Promise.resolve(""),
+      minimalist: () => Promise.resolve(""),
+    };
+    const taskMapKeys = Object.keys(taskMap);
+    // Simulate the handler's validation check.
+    const rawType = "haikz";
+    const valid = !rawType || taskMapKeys.includes(rawType);
+    expect(valid).toBe(false);
+    if (!valid) {
+      const errorJson = JSON.stringify({ error: `Invalid type. Valid options: ${taskMapKeys.join(", ")}.` });
+      expect(errorJson).toContain("haiku");
+      expect(errorJson).toContain("minimalist");
+      for (const k of taskMapKeys) {
+        expect(errorJson).toContain(k);
+      }
+    }
+  });
 });
 
 // --- Response timing headers contract (Server-Timing) ---

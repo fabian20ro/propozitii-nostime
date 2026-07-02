@@ -847,10 +847,11 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     minimalist: () => genMinimalist(minR, maxR, cache),
   };
 
+  const taskMapKeys = Object.keys(taskMap);
   const rawType = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
-  if (rawType !== undefined && !Object.keys(taskMap).includes(rawType)) {
+  if (rawType !== undefined && !taskMapKeys.includes(rawType)) {
     setTimingHeaders();
-    return res.status(400).json({ error: "Invalid type." });
+    return res.status(400).json({ error: `Invalid type. Valid options: ${taskMapKeys.join(", ")}.` });
   }
 
   const tasks = Object.entries(taskMap)
