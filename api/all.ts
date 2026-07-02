@@ -222,14 +222,14 @@ export const DEXONLINE_ANCHOR_REL = "noopener";
 const UNSATISFIABLE =
   "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
 
-class ConstraintUnsatisfiedError extends Error {
+export class ConstraintUnsatisfiedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConstraintUnsatisfiedError";
   }
 }
 
-function failConstraint(message: string): never {
+export function failConstraint(message: string): never {
   throw new ConstraintUnsatisfiedError(message);
 }
 
