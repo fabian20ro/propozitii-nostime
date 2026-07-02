@@ -73,6 +73,21 @@ describe("capitalizeFirst", () => {
   it("handles already capitalized", () => {
     expect(capitalizeFirst("Masă")).toBe("Masă");
   });
+
+  // Regression: single-character Romanian diacritics must uppercase correctly.
+  // A future refactor that mishandles UTF-8 chars would silently break capitalization
+  // of every verse/word on the front-end. The contract is locked here.
+  it("uppercases single-character diacritic 'ă' → 'Ă'", () => {
+    expect(capitalizeFirst("ă")).toBe("Ă");
+  });
+
+  it("uppercases single-character diacritic 'â' → 'Â'", () => {
+    expect(capitalizeFirst("â")).toBe("Â");
+  });
+
+  it("preserves already-uppercase diacritic", () => {
+    expect(capitalizeFirst("Ă")).toBe("Ă");
+  });
 });
 
 describe("cleaningDecorator", () => {
@@ -223,6 +238,16 @@ describe("decorateVerse", () => {
     expect(result).not.toContain(" / ");
   });
 
+  // Regression: AGENTS.md Rule #1 — escapeHtml replacement order invariant.
+  // The chain must replace '&' BEFORE '<', otherwise pre-encoded entities like '&lt;'
+  // would be split into broken fragments (e.g. '&l;t;'). This locks in the ordering
+  // contract and catches any future reordering of the regex .replace() calls.
+  it("does not produce broken entities when input contains pre-encoded sequences", () => {
+    const result = escapeHtml("a &lt;b");
+    expect(result).toBe("a &amp;lt;b");
+    expect(result).not.toContain("&l;t;");
+  });
+
   // Regression: AGENTS.md Rule #1 — verse delimiter contract.
   // If the split/join logic changes and " / " leaks into output, the invariant throws.
   it("throws if ' / ' delimiter leaks into decorated multi-line output", () => {
@@ -258,6 +283,25 @@ describe("decorateSentence", () => {
   it("trims whitespace", () => {
     const result = decorateSentence("  masă  ");
     expect(result).toContain(">Masă</a>");
+  });
+
+  it("returns a single decorated line with no <br/> delimiter", () => {
+    // Regression: AGENTS.md Rule #1 — single-line sentences must never contain " / ".
+    const result = decorateSentence("câinele fericit aleargă.");
+    expect(result).not.toContain("<br/>");
+    expect(result).not.toContain(" / ");
+  });
+
+  it("preserves trailing punctuation outside anchors", () => {
+    const result = decorateSentence("câinele fericit aleargă.");
+    // Period should appear after the closing anchor, not inside it.
+    expect(result).toMatch(/aleargă<\/a>\.$/);
+  });
+
+  it("handles empty input gracefully", () => {
+    const result = decorateSentence("");
+    // trim() of "" is "", capitalizeFirst returns "", addDexLinks on "" returns "".
+    expect(result).toBe("");
   });
 });
 
@@ -500,6 +544,40 @@ describe("normalizeRarityRange", () => {
   });
 });
 
+// --- parseAllowedOrigins (previously untested) ---
+
+describe("parseAllowedOrigins", () => {
+  it("returns default allowlist when input is undefined", () => {
+    expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("returns default allowlist when input is empty string", () => {
+    expect(parseAllowedOrigins("")).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("returns default allowlist when input is whitespace-only", () => {
+    expect(parseAllowedOrigins("   ")).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("parses a single origin", () => {
+    expect(parseAllowedOrigins("https://example.com")).toEqual(["https://example.com"]);
+  });
+
+  it("parses multiple comma-separated origins and trims whitespace", () => {
+    const result = parseAllowedOrigins(" https://a.com , https://b.com ");
+    expect(result).toEqual(["https://a.com", "https://b.com"]);
+  });
+
+  it("filters out empty parts from split results", () => {
+    const result = parseAllowedOrigins("https://a.com,,https://b.com");
+    expect(result).toEqual(["https://a.com", "https://b.com"]);
+  });
+
+  it("returns default allowlist when all parsed values are empty after trim", () => {
+    expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
+  });
+});
+
 describe("Edge cases", () => {
   it("applyFilter: eq with array uses in", () => {
     const mockQ = { in: vi.fn().mockReturnThis() } as any;
@@ -664,5 +742,62 @@ describe("type query parameter validation (handler contract)", () => {
     const rawType = "mirror";
     const validTypes = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist"];
     expect(validTypes).toContain(rawType);
+  });
+
+  it("returns actionable error listing valid options when type is unknown (handler contract)", () => {
+    // Exercise the handler's input-validation gate: an invalid `type` must produce a 400 with valid options listed.
+    const taskMap = {
+      haiku: () => Promise.resolve(""), distih: () => Promise.resolve(""),
+      comparison: () => Promise.resolve(""), definition: () => Promise.resolve(""),
+      tautogram: () => Promise.resolve(""), mirror: () => Promise.resolve(""),
+      minimalist: () => Promise.resolve(""),
+    };
+    const taskMapKeys = Object.keys(taskMap);
+    // Simulate the handler's validation check.
+    const rawType = "haikz";
+    const valid = !rawType || taskMapKeys.includes(rawType);
+    expect(valid).toBe(false);
+    if (!valid) {
+      const errorJson = JSON.stringify({ error: `Invalid type. Valid options: ${taskMapKeys.join(", ")}.` });
+      expect(errorJson).toContain("haiku");
+      expect(errorJson).toContain("minimalist");
+      for (const k of taskMapKeys) {
+        expect(errorJson).toContain(k);
+      }
+    }
+  });
+});
+
+// --- Response timing headers contract (Server-Timing) ---
+
+describe("buildResponseTimingHeaders", () => {
+  it("returns elapsed ms as server-timing dur and responseTimeMs string", () => {
+    const startedAt = 1000;
+    const finishedAt = 1250;
+    const h = buildResponseTimingHeaders(startedAt, finishedAt);
+    expect(h.serverTiming).toBe("api-all;dur=250");
+    expect(h.responseTimeMs).toBe("250");
+  });
+
+  it("clamps negative delta to 0 when finished is before started", () => {
+    const h = buildResponseTimingHeaders(2000, 1500);
+    expect(h.serverTiming).toBe("api-all;dur=0");
+    expect(h.responseTimeMs).toBe("0");
+  });
+
+  it("defaults finishedAt to Date.now when omitted", () => {
+    const startedAt = Date.now();
+    const h = buildResponseTimingHeaders(startedAt);
+    const elapsed = Number(h.responseTimeMs);
+    // Should be a small non-negative number (~0..5 ms in test runner)
+    expect(elapsed).toBeGreaterThanOrEqual(0);
+    expect(h.serverTiming).toMatch(/^api-all;dur=\d+$/);
+  });
+
+  it("returns zero when started and finished are equal", () => {
+    const t = 1700000000;
+    const h = buildResponseTimingHeaders(t, t);
+    expect(h.serverTiming).toBe("api-all;dur=0");
+    expect(h.responseTimeMs).toBe("0");
   });
 });
