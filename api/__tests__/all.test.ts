@@ -94,6 +94,19 @@ describe("cleaningDecorator", () => {
   it("trims whitespace and collapses multiple spaces", () => {
     expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
   });
+
+  // Regression: AGENTS.md Rule #1 — cleaningDecorator uses \\s+ which must
+  // normalize tabs, newlines, and other whitespace into single spaces. If a
+  // future refactor narrows the regex to ' +', multi-line haiku verses would
+  // silently retain embedded newlines and break rendering.
+  it("collapses newlines and tabs into single spaces", () => {
+    expect(cleaningDecorator("linia\tnouă\n  cu\n\t\tspații")).toBe("linia nouă cu spații");
+  });
+
+  it("handles mixed whitespace sequences (space + tab + newline)", () => {
+    const result = cleaningDecorator("a \t \n b  c");
+    expect(result).toBe("a b c");
+  });
 });
 
 // --- adjForGender ---
