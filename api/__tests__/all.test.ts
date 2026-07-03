@@ -638,8 +638,35 @@ describe("Edge cases", () => {
     expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
   });
 
+  // Regression guard — `firstQueryValue` splits comma-separated strings client-side;
+  // if a future refactor silently includes NaN tokens as valid numbers, rarity ranges
+  // would shift without warning. These tests lock the split+filter invariant.
   it("normalizeRarityRange: handles invalid values in comma-separated strings", () => {
     expect(normalizeRarityRange("1,invalid", "5")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("normalizeRarityRange: skips empty parts and invalid tokens in multi-comma split", () => {
+    // "2,,abc" → firstQueryValue splits to ["2","abc"] (empty filtered), last="abc"→NaN.
+    // Both getNum return NaN → defaults apply: minR=1, maxR=2.
+    const result = normalizeRarityRange("2,,abc", undefined);
+    expect(result).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("normalizeRarityRange: handles single valid number with invalid tail in split string", () => {
+    // "3,invalid" → firstQueryValue returns ["invalid"] (last element), getNum→NaN.
+    // Both minVal=NaN and maxVal=NaN → defaults apply.
+    expect(normalizeRarityRange("3,invalid", undefined)).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("normalizeRarityRange: handles whitespace-only parts in comma-separated string", () => {
+    // " , , ,5" → firstQueryValue splits and filters to ["5"]. getNum→5.
+    // Only min specified (max is undefined/NaN) → defaults max=5, clamps min∈[1,5].
+    expect(normalizeRarityRange(" , , ,5", undefined)).toEqual({ minR: 5, maxR: 5 });
+  });
+
+  it("normalizeRarityRange: handles all-invalid comma-separated string falls back to defaults", () => {
+    // "abc,def" → both NaN → defaults apply.
+    expect(normalizeRarityRange("abc,def", "")).toEqual({ minR: 1, maxR: 2 });
   });
 
   it("normalizeRarityRange: handles invalid values in arrays", () => {
