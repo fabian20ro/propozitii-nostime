@@ -542,6 +542,15 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(" ", " ")).toEqual({ minR: 1, maxR: 2 });
     expect(normalizeRarityRange("1, , 3", "5")).toEqual({ minR: 3, maxR: 5 });
   });
+
+  // Single-sided range queries — user specifies only one bound.
+  it("defaults min to 1 when only max is specified", () => {
+    expect(normalizeRarityRange(undefined, "4")).toEqual({ minR: 1, maxR: 4 });
+  });
+
+  it("defaults max to 5 when only min is specified", () => {
+    expect(normalizeRarityRange("3", undefined)).toEqual({ minR: 3, maxR: 5 });
+  });
 });
 
 // --- parseAllowedOrigins (previously untested) ---
