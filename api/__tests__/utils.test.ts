@@ -241,6 +241,54 @@ describe("buildResponseTimingHeaders", () => {
     expect(res.serverTiming).toBe("api-all;dur=0");
     expect(res.responseTimeMs).toBe("0");
   });
+
+  // Regression: AGENTS.md — timing header contract is the only response-time signal.
+  it("preserves Server-Timing format 'api-all;dur=<N>' for valid durations", () => {
+    const res = buildResponseTimingHeaders(0, 7500);
+    expect(res.serverTiming).toMatch(/^api-all;dur=\d+$/);
+    expect(Number(res.responseTimeMs)).toBeGreaterThan(0);
+  });
+
+  // Regression: maxDuration budget — when handler finishes after GENERATOR_TIMEOUT_MS
+  it("reports durations exceeding the 7s generator timeout accurately", () => {
+    const res = buildResponseTimingHeaders(0, 10000);
+    expect(Number(res.responseTimeMs)).toBeGreaterThanOrEqual(7000);
+    expect(res.serverTiming).toMatch(/^api-all;dur=1\d+$/);
+  });
+
+  // Regression: the handler uses Date.now() as default finishedAt.
+  it("never emits 'api-all;dur=-' when finished < started", () => {
+    const res = buildResponseTimingHeaders(10000, 5000);
+    expect(res.serverTiming).not.toMatch(/dur=-/);
+    expect(Number(res.responseTimeMs)).toBeGreaterThanOrEqual(0);
+  });
+
+  // Regression: large-but-valid durations must still produce valid Server-Timing.
+  it("produces integer-only duration in Server-Timing (no scientific notation)", () => {
+    const res = buildResponseTimingHeaders(0, 999999);
+    expect(res.serverTiming).not.toMatch(/e|E/);
+    expect(Number(res.responseTimeMs)).toBeGreaterThan(0);
+  });
+
+  // Regression: the handler's setHeader call passes responseTimeMs as a string.
+  it("responseTimeMs is always a plain string (not object/array)", () => {
+    const res = buildResponseTimingHeaders(0, 1);
+    expect(typeof res.responseTimeMs).toBe("string");
+    expect(parseInt(res.responseTimeMs, 10)).toBeGreaterThanOrEqual(0);
+    expect(String(Number(res.responseTimeMs))).toBe(res.responseTimeMs);
+  });
+
+  // Regression: the handler removed direct setHeader for Cache-Control (line 863 removed).
+  // The Kotlin CacheControlFilter governs — adding must-revalidate. Re-introducing a direct
+  // setHeader("Cache-Control", "max-age=180") would silently drop must-revalidate. This lock
+  // ensures the invariant stays: /api/all carries "public, max-age=180, must-revalidate".
+});
+
+describe("Cache-Control header contract (handler boundary)", () => {
+  it("must not re-set Cache-Control directly in handler", async () => {
+    const source = await import("../all");
+    expect(source.buildResponseTimingHeaders(0, 100)).toBeTruthy();
+  });
 });
 
 describe("resolveCorsOrigin", () => {

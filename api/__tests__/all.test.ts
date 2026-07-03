@@ -94,6 +94,19 @@ describe("cleaningDecorator", () => {
   it("trims whitespace and collapses multiple spaces", () => {
     expect(cleaningDecorator("  hello    world  ")).toBe("hello world");
   });
+
+  // Regression: AGENTS.md Rule #1 — cleaningDecorator uses \\s+ which must
+  // normalize tabs, newlines, and other whitespace into single spaces. If a
+  // future refactor narrows the regex to ' +', multi-line haiku verses would
+  // silently retain embedded newlines and break rendering.
+  it("collapses newlines and tabs into single spaces", () => {
+    expect(cleaningDecorator("linia\tnouă\n  cu\n\t\tspații")).toBe("linia nouă cu spații");
+  });
+
+  it("handles mixed whitespace sequences (space + tab + newline)", () => {
+    const result = cleaningDecorator("a \t \n b  c");
+    expect(result).toBe("a b c");
+  });
 });
 
 // --- adjForGender ---
@@ -236,6 +249,36 @@ describe("decorateVerse", () => {
     const result = decorateVerse("a  /  b");
     expect(result).toContain("<br/>");
     expect(result).not.toContain(" / ");
+  });
+
+  // Regression: AGENTS.md Rule #1 — consecutive delimiters without spaces must still split.
+  // If a future refactor tightens the regex to require spaces around '/', verses like
+  // "a//b" would silently join back together and lose line breaks on the frontend.
+  it("splits consecutive delimiters without spaces (e.g. 'a//b')", () => {
+    const result = decorateVerse("a//b");
+    expect(result).toContain("<br/>");
+    // Consecutive slashes split separately: "a" + "" + "b" → two <br/> breaks.
+    const breaks = (result.match(/<br\/>/g) || []).length;
+    expect(breaks).toBeGreaterThanOrEqual(1);
+  });
+
+  it("handles triple delimiter in a row", () => {
+    const result = decorateVerse("a // b // c");
+    const breaks = (result.match(/<br\/>/g) || []).length;
+    // Current behavior: each / splits separately, producing extra empty lines.
+    expect(breaks).toBeGreaterThanOrEqual(2);
+  });
+
+  // Regression: AGENTS.md Rule #1 — escapeHtml mixed special characters.
+  // If the regex order changes (& first vs < first), pre-encoded sequences like
+  // '&amp;' would be split into broken fragments. This test locks the invariant:
+  // every '<' → '&lt;', every '>' → '&gt;', every '&' → '&amp;'.
+  it("escapes all special characters simultaneously without fragmenting entities", () => {
+    const result = escapeHtml('a & b < c > d "e"');
+    expect(result).toBe("a &amp; b &lt; c &gt; d &quot;e&quot;");
+    // Ensure no raw special chars remain.
+    expect(result).not.toContain('> ');
+    expect(result).not.toContain(' < ');
   });
 
   // Regression: AGENTS.md Rule #1 — escapeHtml replacement order invariant.
@@ -542,6 +585,15 @@ describe("normalizeRarityRange", () => {
     expect(normalizeRarityRange(" ", " ")).toEqual({ minR: 1, maxR: 2 });
     expect(normalizeRarityRange("1, , 3", "5")).toEqual({ minR: 3, maxR: 5 });
   });
+
+  // Single-sided range queries — user specifies only one bound.
+  it("defaults min to 1 when only max is specified", () => {
+    expect(normalizeRarityRange(undefined, "4")).toEqual({ minR: 1, maxR: 4 });
+  });
+
+  it("defaults max to 5 when only min is specified", () => {
+    expect(normalizeRarityRange("3", undefined)).toEqual({ minR: 3, maxR: 5 });
+  });
 });
 
 // --- parseAllowedOrigins (previously untested) ---
@@ -586,8 +638,35 @@ describe("Edge cases", () => {
     expect(mockQ.in).toHaveBeenCalledWith("word", ["test1", "test2"]);
   });
 
+  // Regression guard — `firstQueryValue` splits comma-separated strings client-side;
+  // if a future refactor silently includes NaN tokens as valid numbers, rarity ranges
+  // would shift without warning. These tests lock the split+filter invariant.
   it("normalizeRarityRange: handles invalid values in comma-separated strings", () => {
     expect(normalizeRarityRange("1,invalid", "5")).toEqual({ minR: 1, maxR: 5 });
+  });
+
+  it("normalizeRarityRange: skips empty parts and invalid tokens in multi-comma split", () => {
+    // "2,,abc" → firstQueryValue splits to ["2","abc"] (empty filtered), last="abc"→NaN.
+    // Both getNum return NaN → defaults apply: minR=1, maxR=2.
+    const result = normalizeRarityRange("2,,abc", undefined);
+    expect(result).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("normalizeRarityRange: handles single valid number with invalid tail in split string", () => {
+    // "3,invalid" → firstQueryValue returns ["invalid"] (last element), getNum→NaN.
+    // Both minVal=NaN and maxVal=NaN → defaults apply.
+    expect(normalizeRarityRange("3,invalid", undefined)).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("normalizeRarityRange: handles whitespace-only parts in comma-separated string", () => {
+    // " , , ,5" → firstQueryValue splits and filters to ["5"]. getNum→5.
+    // Only min specified (max is undefined/NaN) → defaults max=5, clamps min∈[1,5].
+    expect(normalizeRarityRange(" , , ,5", undefined)).toEqual({ minR: 5, maxR: 5 });
+  });
+
+  it("normalizeRarityRange: handles all-invalid comma-separated string falls back to defaults", () => {
+    // "abc,def" → both NaN → defaults apply.
+    expect(normalizeRarityRange("abc,def", "")).toEqual({ minR: 1, maxR: 2 });
   });
 
   it("normalizeRarityRange: handles invalid values in arrays", () => {
