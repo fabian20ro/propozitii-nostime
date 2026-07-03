@@ -860,7 +860,8 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
 
   await Promise.all(tasks);
 
-  res.setHeader("Cache-Control", "max-age=180");
+  // Cache-Control is governed by CacheControlFilter (must-revalidate + public) —
+  // do NOT override here; doing so silently drops the must-revalidate directive.
   setTimingHeaders();
   return res.status(200).json(results);
 }
