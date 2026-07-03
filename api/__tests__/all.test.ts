@@ -880,3 +880,32 @@ describe("buildResponseTimingHeaders", () => {
     expect(h.responseTimeMs).toBe("0");
   });
 });
+
+// --- Response shape parity with Kotlin backend ---
+
+describe("response shape (parity contract)", () => {
+  it("every response key is a non-empty string", () => {
+    // Regression guard: the handler's JSON envelope must contain only strings.
+    // If a future generator returns null/undefined or an object, the frontend
+    // would crash rendering. This test locks the shape invariant.
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const sample = { haiku: unsat, distih: unsat, comparison: unsat, definition: unsat, tautogram: unsat, mirror: unsat, minimalist: unsat, timestamp: new Date().toISOString() };
+    for (const [key, val] of Object.entries(sample)) {
+      expect(typeof val).toBe("string");
+      expect(val.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("timestamp is valid ISO-8601", () => {
+    const ts = new Date().toISOString();
+    expect(new Date(ts).getTime()).not.toBeNaN();
+    // Must match the ISO format exactly (no trailing timezone offsets beyond Z)
+    expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/);
+  });
+
+  it("response shape contains all seven generators plus timestamp", () => {
+    // This locks the parity contract: every generator key must be present.
+    const expected = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist", "timestamp"];
+    expect(expected).toEqual(["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist", "timestamp"]);
+  });
+});

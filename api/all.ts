@@ -835,6 +835,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     tautogram: UNSATISFIABLE,
     mirror: UNSATISFIABLE,
     minimalist: UNSATISFIABLE,
+    timestamp: new Date().toISOString(),
   };
 
   const taskMap: Record<string, () => Promise<string>> = {
