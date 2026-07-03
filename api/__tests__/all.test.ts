@@ -251,6 +251,36 @@ describe("decorateVerse", () => {
     expect(result).not.toContain(" / ");
   });
 
+  // Regression: AGENTS.md Rule #1 — consecutive delimiters without spaces must still split.
+  // If a future refactor tightens the regex to require spaces around '/', verses like
+  // "a//b" would silently join back together and lose line breaks on the frontend.
+  it("splits consecutive delimiters without spaces (e.g. 'a//b')", () => {
+    const result = decorateVerse("a//b");
+    expect(result).toContain("<br/>");
+    // Consecutive slashes split separately: "a" + "" + "b" → two <br/> breaks.
+    const breaks = (result.match(/<br\/>/g) || []).length;
+    expect(breaks).toBeGreaterThanOrEqual(1);
+  });
+
+  it("handles triple delimiter in a row", () => {
+    const result = decorateVerse("a // b // c");
+    const breaks = (result.match(/<br\/>/g) || []).length;
+    // Current behavior: each / splits separately, producing extra empty lines.
+    expect(breaks).toBeGreaterThanOrEqual(2);
+  });
+
+  // Regression: AGENTS.md Rule #1 — escapeHtml mixed special characters.
+  // If the regex order changes (& first vs < first), pre-encoded sequences like
+  // '&amp;' would be split into broken fragments. This test locks the invariant:
+  // every '<' → '&lt;', every '>' → '&gt;', every '&' → '&amp;'.
+  it("escapes all special characters simultaneously without fragmenting entities", () => {
+    const result = escapeHtml('a & b < c > d "e"');
+    expect(result).toBe("a &amp; b &lt; c &gt; d &quot;e&quot;");
+    // Ensure no raw special chars remain.
+    expect(result).not.toContain('> ');
+    expect(result).not.toContain(' < ');
+  });
+
   // Regression: AGENTS.md Rule #1 — escapeHtml replacement order invariant.
   // The chain must replace '&' BEFORE '<', otherwise pre-encoded entities like '&lt;'
   // would be split into broken fragments (e.g. '&l;t;'). This locks in the ordering
