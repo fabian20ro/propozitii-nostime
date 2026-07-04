@@ -197,6 +197,52 @@ describe("addDexLinks", () => {
     const result = addDexLinks("masă 123!");
     expect(result).toBe(`<a href="${DEXONLINE_URL}mas%C4%83" target="${DEXONLINE_ANCHOR_TARGET}" rel="${DEXONLINE_ANCHOR_REL}" data-word="mas%C4%83">masă</a> 123!`);
   });
+
+  // Regression: each word is encoded and lowercased independently in href/data-word.
+  // If a future refactor URL-encodes the whole sentence as one unit, dexonline links
+  // would return 404 (wrong URL path). This test locks the per-word invariant.
+  it("encodes each word individually — not the whole sentence", () => {
+    const result = addDexLinks("Câinele și Pisica");
+    expect(result).toContain(`href="${DEXONLINE_URL}c%C3%A2inele"`);
+    expect(result).toContain('data-word="c%C3%A2inele"');
+    // 'și' (ș=U+0218) encodes to %C8%99i, not "si".
+    expect(result).toContain(`href="${DEXONLINE_URL}%C8%99i"`);
+    expect(result).toContain('data-word="%C8%99i"');
+    expect(result).toContain(`href="${DEXONLINE_URL}pisica"`);
+    expect(result).toContain('data-word="pisica"');
+    // Display text must preserve original case.
+    expect(result).toContain(">Câinele</a>");
+    expect(result).toContain(">și</a>");
+    expect(result).toContain(">Pisica</a>");
+  });
+
+  it("encodes diacritics per-word in href and data-word", () => {
+    const result = addDexLinks("frumos și mare");
+    // Each word's encoding must match encodeURIComponent(lowercase(word)).
+    expect(result).toContain(`href="${DEXONLINE_URL}frumos"`);
+    expect(result).toContain('data-word="frumos"');
+    // 'și' encodes to %C8%99i (ș=U+0218).
+    expect(result).toContain(`href="${DEXONLINE_URL}%C8%99i"`);
+    expect(result).toContain('data-word="%C8%99i"');
+    expect(result).toContain(`href="${DEXONLINE_URL}mare"`);
+    expect(result).toContain('data-word="mare"');
+  });
+
+  it("preserves non-letter characters outside anchors", () => {
+    const result = addDexLinks("frumos, și!");
+    // Comma and exclamation must appear after the closing anchor.
+    expect(result).toMatch(/frumos<\/a>,/);
+    expect(result).toContain("!");
+  });
+
+  it("encodes diacritic letters with uppercase hex digits", () => {
+    const result = addDexLinks("Ără");
+    // Lowercase of 'Ă' is 'ă' (U+0103), encodeURIComponent → %C4%83.
+    // encodeURIComponent always produces UPPERCASE hex digits.
+    expect(result).toContain(`href="${DEXONLINE_URL}%C4%83r%C4%83"`);
+    expect(result).not.toContain("%c4%83"); // lowercase hex must NOT appear
+    expect(result).not.toContain("%C3%83"); // uppercase form must NOT appear in href
+  });
 });
 
 // --- decorateVerse ---
