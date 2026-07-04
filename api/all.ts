@@ -233,6 +233,36 @@ export function failConstraint(message: string): never {
   throw new ConstraintUnsatisfiedError(message);
 }
 
+/**
+ * Distinct error type for unexpected system failures (network, DB down, etc.)
+ * so the frontend can distinguish them from legitimate "no data" responses.
+ */
+export class InternalServerError extends Error {
+  constructor(original: unknown) {
+    const msg = original instanceof Error ? original.message : String(original ?? "unknown");
+    super(msg);
+    this.name = "InternalServerError";
+  }
+}
+
+/**
+ * Wraps a generator function with timeout + error boundary.
+ * ConstraintUnsatisfiedError → UNSATISFIABLE (legitimate no-data).
+ * Any other error → InternalServerError (system failure, frontend should show "error").
+ */
+export function safe(
+  fn: () => Promise<string>
+): Promise<string | InternalServerError> {
+  const startedAtMs = Date.now();
+  return withTimeout(fn(), UNSATISFIABLE, GENERATOR_TIMEOUT_MS)
+    .then((result) => result)
+    .catch((err) => {
+      if (err instanceof ConstraintUnsatisfiedError) return UNSATISFIABLE;
+      console.error("Sentence generation failed:", err);
+      return new InternalServerError(err);
+    });
+}
+
 // --- Types ---
 
 interface Noun {
@@ -815,19 +845,9 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   const maxRarity = req.query.rarity ?? req.query.max_rarity;
   const { minR, maxR } = normalizeRarityRange(minRarity, maxRarity);
 
-  async function safe(fn: () => Promise<string>): Promise<string> {
-    try {
-      return await withTimeout(fn(), UNSATISFIABLE, GENERATOR_TIMEOUT_MS);
-    } catch (err) {
-      if (err instanceof ConstraintUnsatisfiedError) return UNSATISFIABLE;
-      console.error("Sentence generation failed:", err);
-      return UNSATISFIABLE;
-    }
-  }
-
   const cache: CountCache = new Map();
 
-  const results: Record<string, string> = {
+  const results: Record<string, string | InternalServerError> = {
     haiku: UNSATISFIABLE,
     distih: UNSATISFIABLE,
     comparison: UNSATISFIABLE,
@@ -857,7 +877,10 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
 
   const tasks = Object.entries(taskMap)
     .filter(([key]) => !rawType || rawType === key)
-    .map(([key, fn]) => safe(fn).then(res => { results[key] = res; }));
+    .map(async ([key, fn]) => {
+      const result = await safe(fn);
+      results[key] = result;
+    });
 
   await Promise.all(tasks);
 
