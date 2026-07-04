@@ -882,7 +882,14 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
       results[key] = result;
     });
 
-  await Promise.all(tasks);
+  try {
+    await Promise.all(tasks);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err ?? "unknown");
+    console.error("Sentence generation failed:", msg, err);
+    setTimingHeaders();
+    return res.status(500).json({ error: new InternalServerError(err).message });
+  }
 
   // Cache-Control is governed by CacheControlFilter (must-revalidate + public) —
   // do NOT override here; doing so silently drops the must-revalidate directive.
