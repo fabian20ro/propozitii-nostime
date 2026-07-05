@@ -376,6 +376,19 @@ describe("decorateVerse", () => {
     expect(result).not.toContain("&l;t;");
   });
 
+  // Regression: if replacement order ever changes (& after < or >), pre-encoded
+  // entities would fragment (e.g. "&lt;" → "&l&lt;t;" instead of "&amp;lt;").
+  // This test locks the invariant across all entity types simultaneously.
+  it("preserves all pre-encoded entities when input contains consecutive encoded sequences", () => {
+    const result = escapeHtml("&lt;&gt;&amp;");
+    expect(result).toBe("&amp;lt;&amp;gt;&amp;amp;");
+    // No raw angle brackets or unescaped ampersands should remain.
+    expect(result).not.toContain("<");
+    expect(result).not.toContain(">");
+    // Only escaped entities (&amp; &lt; &gt; &quot;) allowed — no raw &.
+    expect(result).not.toMatch(/&(?!amp;|lt;|gt;|quot;|#\d+;)/);
+  });
+
   // Regression: AGENTS.md Rule #1 — verse delimiter contract.
   // If the split/join logic changes and " / " leaks into output, the invariant throws.
   it("throws if ' / ' delimiter leaks into decorated multi-line output", () => {
