@@ -636,6 +636,18 @@ async function findTwoVerbRhymeGroups(
 
 // --- Decorators ---
 
+/**
+ * Safe timestamp formatter. Returns ISO string or falls back to a sentinel
+ * if Date is somehow unavailable in the runtime (e.g. test env mock).
+ */
+export function safeTimestamp(): string {
+  try {
+    return new Date().toISOString();
+  } catch {
+    return "1970-01-01T00:00:00.000Z";
+  }
+}
+
 export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -855,7 +867,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     tautogram: UNSATISFIABLE,
     mirror: UNSATISFIABLE,
     minimalist: UNSATISFIABLE,
-    timestamp: new Date().toISOString(),
+    timestamp: safeTimestamp(),
   };
 
   const taskMap: Record<string, () => Promise<string>> = {
