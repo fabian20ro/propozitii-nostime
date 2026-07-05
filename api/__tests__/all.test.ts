@@ -90,6 +90,42 @@ describe("capitalizeFirst", () => {
   it("preserves already-uppercase diacritic", () => {
     expect(capitalizeFirst("Ă")).toBe("Ă");
   });
+
+  // Regression: AGENTS.md Rule #1 — every word in a verse is capitalized.
+  // If capitalizeFirst mishandles words that start with lowercase diacritics,
+  // entire verses render with broken capitalization on the frontend.
+  it("capitalizes word starting with 'î' (inverted breve)", () => {
+    expect(capitalizeFirst("înainte")).toBe("Înainte");
+  });
+
+  it("capitalizes word starting with ș (comma below s)", () => {
+    // ș = U+0218; uppercase Ş = U+0217.
+    expect(capitalizeFirst("școală")).toBe("Școală");
+  });
+
+  it("capitalizes word starting with ț (comma below t)", () => {
+    // ț = U+021B; uppercase Ț = U+021A.
+    expect(capitalizeFirst("țară")).toBe("Țară");
+  });
+
+  it("handles string that starts with a diacritic followed by lowercase", () => {
+    // Only the first char is uppercased; rest stays unchanged.
+    const result = capitalizeFirst("îi");
+    expect(result).toBe("Îi");
+  });
+
+  it("preserves case of non-first characters", () => {
+    // If a future refactor uppercases the whole string, words like "aer" would become "AER".
+    const result = capitalizeFirst("aer cald");
+    expect(result).toBe("Aer cald");
+    expect(result).not.toBe("AER CALD");
+  });
+
+  it("punctuation at start passes through unchanged", () => {
+    // Punctuation .toUpperCase() is identity — only first LETTER changes.
+    const result = capitalizeFirst("'abba'");
+    expect(result).toBe("'abba'");
+  });
 });
 
 describe("cleaningDecorator", () => {
