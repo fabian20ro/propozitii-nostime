@@ -25,6 +25,7 @@ import {
   InternalServerError,
   failConstraint,
   safe,
+  safeTimestamp,
 } from "../all";
 
 // --- escapeHtml ---
@@ -1112,5 +1113,45 @@ describe("response shape (parity contract)", () => {
     // This locks the parity contract: every generator key must be present.
     const expected = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist", "timestamp"];
     expect(expected).toEqual(["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist", "timestamp"]);
+  });
+});
+
+// --- safeTimestamp() regression guard (response envelope fallback) ---
+
+describe("safeTimestamp", () => {
+  it("returns a valid ISO-8601 timestamp string on success", () => {
+    const ts = safeTimestamp();
+    expect(typeof ts).toBe("string");
+    expect(new Date(ts).getTime()).not.toBeNaN();
+    // Must match the standard ISO format with trailing Z.
+    expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/);
+  });
+
+  it("falls back to epoch sentinel when Date throws", () => {
+    const originalDate = globalThis.Date;
+    vi.stubGlobal("Date", class extends (originalDate as any) {}) as any;
+    // Force the constructor to throw by monkey-patching prototype method.
+    // Create a subclass whose toString / valueOf will succeed but
+    // .toISOString() throws — simulate runtime Date instability.
+    const MockDate = vi.fn().mockImplementation(() => {
+      throw new Error("clock unavailable");
+    });
+    (globalThis as any).Date = MockDate;
+    const ts = safeTimestamp();
+    expect(ts).toBe("1970-01-01T00:00:00.000Z");
+
+    vi.restoreAllMocks();
+  });
+
+  it("always returns a string (never throws, never null)", () => {
+    // Regression guard — the handler's JSON envelope must have valid strings for every key.
+    // If safeTimestamp() ever threw or returned undefined/null, frontend rendering would crash.
+    const ts = safeTimestamp();
+    expect(typeof ts).toBe("string");
+    expect(ts.length).toBeGreaterThan(0);
+
+    let threw = false;
+    try { safeTimestamp(); } catch { threw = true; }
+    expect(threw).toBe(false);
   });
 });
