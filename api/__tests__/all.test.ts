@@ -1065,6 +1065,25 @@ describe("buildResponseTimingHeaders", () => {
     expect(h.serverTiming).toBe("api-all;dur=0");
     expect(h.responseTimeMs).toBe("0");
   });
+
+  // Regression: AGENTS.md — safe() wraps every generator with GENERATOR_TIMEOUT_MS.
+  // If the timeout guard stops working (e.g., a refactor drops withTimeout or Promise.race),
+  // one slow generator (e.g. genMirror's bulk rhyme query) would block all responses and exhaust
+  // Vercel's maxDuration, returning a 504 instead of graceful "no data". This test locks the
+  // contract that safe() always returns UNSATISFIABLE on timeout.
+  it("safe(): slow generator is capped at GENERATOR_TIMEOUT_MS and returns UNSATISFIABLE", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    vi.stubGlobal("setTimeout", ((fn: () => void, _ms: number) => {
+      return (originalSetTimeout as any)(() => fn(), 0);
+    }) as typeof globalThis.setTimeout);
+
+    const slowGen = async (): Promise<string> => new Promise(() => {} /* never resolves */);
+    const unsatMsg = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const result = await safe(slowGen);
+    expect(result).toBe(unsatMsg);
+
+    vi.restoreAllMocks();
+  });
 });
 
 // --- Response shape parity with Kotlin backend ---
