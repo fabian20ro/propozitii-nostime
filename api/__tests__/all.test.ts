@@ -22,7 +22,9 @@ import {
   applyFilter,
   type QueryFilter,
   ConstraintUnsatisfiedError,
+  InternalServerError,
   failConstraint,
+  safe,
 } from "../all";
 
 // --- escapeHtml ---
@@ -834,6 +836,108 @@ describe("ConstraintUnsatisfiedError / failConstraint", () => {
   it("failConstraint is callable as a function", () => {
     expect(typeof failConstraint).toBe("function");
     expect(failConstraint.toString()).toContain("function");
+  });
+});
+
+// --- Error boundary: safe() wrapper and InternalServerError class (observable API contract) ---
+
+describe("safe() error boundary", () => {
+  it("returns UNSATISFIABLE string when generator throws ConstraintUnsatisfiedError", async () => {
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const result = await safe(async () => { throw new ConstraintUnsatisfiedError("no adjectives"); });
+    expect(result).toBe(unsat);
+  });
+
+  it("returns InternalServerError wrapping non-constraint errors", async () => {
+    const networkErr = new Error("ECONNRESET: connection reset by peer");
+    const result = await safe(async () => { throw networkErr; });
+    expect(result).toBeInstanceOf(InternalServerError);
+    if (result instanceof InternalServerError) {
+      expect(result.message).toContain("connection reset by peer");
+    }
+  });
+
+  it("wraps non-Error throws as InternalServerError with stringified message", async () => {
+    const result = await safe(async () => { throw "boom"; });
+    expect(result).toBeInstanceOf(InternalServerError);
+    if (result instanceof InternalServerError) {
+      expect(result.message).toContain("boom");
+    }
+  });
+
+  it("preserves successful string results unchanged", async () => {
+    const result = await safe(async () => "un cuvânt frumos.");
+    expect(result).toBe("un cuvânt frumos.");
+  });
+
+  it("does not propagate ConstraintUnsatisfiedError to the caller", async () => {
+    let threw = false;
+    try {
+      await safe(async () => { throw new ConstraintUnsatisfiedError("x"); });
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(false);
+  });
+
+  // Regression guard — AGENTS.md: every sentence generator is wrapped by safe().
+  // If safe() stops catching ConstraintUnsatisfiedError, the handler's Promise.all
+  // would reject and the frontend would see a 500 instead of "no data". This test
+  // locks that contract here.
+  it("ConstraintUnsatisfiedError from any depth in generator chain is caught", async () => {
+    const result = await safe(async () => {
+      await Promise.resolve();
+      throw new ConstraintUnsatisfiedError("deep failure");
+    });
+    expect(result).toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
+  });
+
+  it("InternalServerError preserves original error message", async () => {
+    const err = new Error("database timeout after 30s");
+    const result = await safe(async () => { throw err; });
+    if (result instanceof InternalServerError) {
+      expect(result.message).toBe("database timeout after 30s");
+    }
+  });
+
+  it("InternalServerError.name matches 'InternalServerError' for downstream detection", async () => {
+    const result = await safe(async () => { throw new Error("x"); });
+    if (result instanceof InternalServerError) {
+      expect(result.name).toBe("InternalServerError");
+    }
+  });
+});
+
+describe("InternalServerError class", () => {
+  it("is instantiable with an original error", () => {
+    const original = new Error("DB down");
+    const err = new InternalServerError(original);
+    expect(err.message).toBe("DB down");
+    expect(err.name).toBe("InternalServerError");
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("is instantiable with a string", () => {
+    const err = new InternalServerError("raw failure");
+    expect(err.message).toBe("raw failure");
+  });
+
+  it("is distinguishable from ConstraintUnsatisfiedError via instanceof", () => {
+    const err = new InternalServerError("x");
+    expect(err).not.toBeInstanceOf(ConstraintUnsatisfiedError);
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("wraps a plain string as-is (no JSON stringify)", () => {
+    const err = new InternalServerError("network error: timeout");
+    expect(err.message).toBe("network error: timeout");
+  });
+
+  it("handles null/undefined originals gracefully", () => {
+    const eNull = new InternalServerError(null);
+    const eUndef = new InternalServerError(undefined);
+    expect(eNull.message).toBe("unknown");
+    expect(eUndef.message).toBe("unknown");
   });
 });
 
