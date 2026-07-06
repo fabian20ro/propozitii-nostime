@@ -904,6 +904,23 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     return res.status(500).json({ error: new InternalServerError(err).message });
   }
 
+  // Post-task gate: escalate system failures (InternalServerError) to non-2xx.
+  // Legitimate "no data" responses from ConstraintUnsatisfiedError stay as UNSATISFIABLE strings in the envelope —
+  // the frontend distinguishes them by checking for InternalServerError instances at status 503.
+  const errors = taskMapKeys.map((k) => {
+    const r = results[k];
+    if (r instanceof InternalServerError) return r.message;
+    return null;
+  }).filter(Boolean);
+
+  if (errors.length > 0) {
+    setTimingHeaders();
+    res.status(503).json({
+      error: "Sentence generation failed",
+      details: errors,
+    });
+  }
+
   // Cache-Control is governed by CacheControlFilter (must-revalidate + public) —
   // do NOT override here; doing so silently drops the must-revalidate directive.
   setTimingHeaders();

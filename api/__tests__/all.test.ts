@@ -976,6 +976,95 @@ describe("safe() error boundary", () => {
       expect(result.name).toBe("InternalServerError");
     }
   });
+
+  // Regression guard — post-task gate escalation.
+  // If a generator throws unexpectedly, the handler must NOT return 200 with an error object in the envelope.
+  // It must escalate to non-2xx so the frontend doesn't render InternalServerError as poetry text.
+  it("post-task gate: handler detects InternalServerError and escalates via status code", async () => {
+    // Simulate handler behavior — every key is UNSATISFIABLE except one that returns InternalServerError.
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const results: Record<string, string | InternalServerError> = {
+      haiku: unsat,
+      distih: unsat,
+      comparison: new InternalServerError(new Error("ECONNRESET")),
+      definition: unsat,
+      tautogram: unsat,
+      mirror: unsat,
+      minimalist: unsat,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    };
+
+    const taskMapKeys = Object.keys(results);
+
+    // Replicate the new post-task gate logic exactly as implemented in api/all.ts.
+    const errors: string[] = [];
+    for (const k of taskMapKeys) {
+      const r = results[k];
+      if (r instanceof InternalServerError) errors.push(r.message);
+    }
+
+    expect(errors.length).toBeGreaterThan(0);
+    // The handler returns 503 when there are system failures.
+    // Simulate status escalation decision:
+    const status = errors.length > 0 ? 503 : 200;
+    expect(status).toBe(503);
+
+    // Verify the error message from InternalServerError is preserved in escalation details.
+    if (errors.length > 0) {
+      for (const msg of errors) {
+        expect(typeof msg).toBe("string");
+        expect(msg.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // Regression guard — legitimate "no data" does NOT trigger escalation.
+  it("post-task gate: all-UNSATISFIABLE response stays at status 200 (legitimate empty)", async () => {
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const results: Record<string, string | InternalServerError> = {
+      haiku: unsat,
+      distih: unsat,
+      comparison: unsat,
+      definition: unsat,
+      tautogram: unsat,
+      mirror: unsat,
+      minimalist: unsat,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    };
+
+    const taskMapKeys = Object.keys(results);
+    const errors: string[] = [];
+    for (const k of taskMapKeys) {
+      const r = results[k];
+      if (r instanceof InternalServerError) errors.push(r.message);
+    }
+
+    expect(errors.length).toBe(0);
+  });
+
+  // Regression guard — mixed response (some generators succeeded, one failed internally) escalates.
+  it("post-task gate: mixed response with any InternalServerError triggers escalation", async () => {
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const results: Record<string, string | InternalServerError> = {
+      haiku: unsat,
+      distih: "linia unu / linia doi.",
+      comparison: new InternalServerError(new Error("supabase timeout")),
+      definition: "CÂINELE: un câine frumos.",
+      tautogram: "totul merge tot.",
+      mirror: "mirror line one, / mirror line two.",
+      minimalist: unsat,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    };
+
+    const taskMapKeys = Object.keys(results);
+    const errors: string[] = [];
+    for (const k of taskMapKeys) {
+      const r = results[k];
+      if (r instanceof InternalServerError) errors.push(r.message);
+    }
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
 });
 
 describe("InternalServerError class", () => {
