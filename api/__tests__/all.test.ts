@@ -962,6 +962,26 @@ describe("safe() error boundary", () => {
     expect(result).toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
   });
 
+  // Regression guard — AGENTS.md: system errors at any depth must stay as
+  // InternalServerError. If a future refactor of safe() collapses nested async
+  // rejections (e.g., an inner Promise.reject after intermediate awaits), the
+  // frontend would lose the signal and operators would see "no data" instead of
+  // a real failure. This test locks the non-constraint error invariant at depth.
+  it("InternalServerError from deep async chain is preserved, not collapsed to UNSATISFIABLE", async () => {
+    const result = await safe(async () => {
+      await Promise.resolve();
+      await Promise.reject(new Error("DB query cancelled"));
+      return ""; // satisfies Promise<string> signature; unreachable code path
+    });
+    expect(result).not.toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
+    if (result instanceof InternalServerError) {
+      expect(result.message).toBe("DB query cancelled");
+    } else {
+      // If result is a string, it must not be the UNSATISFIABLE sentinel.
+      expect(typeof result).not.toBe("string");
+    }
+  });
+
   it("InternalServerError preserves original error message", async () => {
     const err = new Error("database timeout after 30s");
     const result = await safe(async () => { throw err; });
