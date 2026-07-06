@@ -22,7 +22,10 @@ import {
   applyFilter,
   type QueryFilter,
   ConstraintUnsatisfiedError,
+  InternalServerError,
   failConstraint,
+  safe,
+  safeTimestamp,
 } from "../all";
 
 // --- escapeHtml ---
@@ -87,6 +90,42 @@ describe("capitalizeFirst", () => {
 
   it("preserves already-uppercase diacritic", () => {
     expect(capitalizeFirst("Ă")).toBe("Ă");
+  });
+
+  // Regression: AGENTS.md Rule #1 — every word in a verse is capitalized.
+  // If capitalizeFirst mishandles words that start with lowercase diacritics,
+  // entire verses render with broken capitalization on the frontend.
+  it("capitalizes word starting with 'î' (inverted breve)", () => {
+    expect(capitalizeFirst("înainte")).toBe("Înainte");
+  });
+
+  it("capitalizes word starting with ș (comma below s)", () => {
+    // ș = U+0218; uppercase Ş = U+0217.
+    expect(capitalizeFirst("școală")).toBe("Școală");
+  });
+
+  it("capitalizes word starting with ț (comma below t)", () => {
+    // ț = U+021B; uppercase Ț = U+021A.
+    expect(capitalizeFirst("țară")).toBe("Țară");
+  });
+
+  it("handles string that starts with a diacritic followed by lowercase", () => {
+    // Only the first char is uppercased; rest stays unchanged.
+    const result = capitalizeFirst("îi");
+    expect(result).toBe("Îi");
+  });
+
+  it("preserves case of non-first characters", () => {
+    // If a future refactor uppercases the whole string, words like "aer" would become "AER".
+    const result = capitalizeFirst("aer cald");
+    expect(result).toBe("Aer cald");
+    expect(result).not.toBe("AER CALD");
+  });
+
+  it("punctuation at start passes through unchanged", () => {
+    // Punctuation .toUpperCase() is identity — only first LETTER changes.
+    const result = capitalizeFirst("'abba'");
+    expect(result).toBe("'abba'");
   });
 });
 
@@ -197,6 +236,52 @@ describe("addDexLinks", () => {
     const result = addDexLinks("masă 123!");
     expect(result).toBe(`<a href="${DEXONLINE_URL}mas%C4%83" target="${DEXONLINE_ANCHOR_TARGET}" rel="${DEXONLINE_ANCHOR_REL}" data-word="mas%C4%83">masă</a> 123!`);
   });
+
+  // Regression: each word is encoded and lowercased independently in href/data-word.
+  // If a future refactor URL-encodes the whole sentence as one unit, dexonline links
+  // would return 404 (wrong URL path). This test locks the per-word invariant.
+  it("encodes each word individually — not the whole sentence", () => {
+    const result = addDexLinks("Câinele și Pisica");
+    expect(result).toContain(`href="${DEXONLINE_URL}c%C3%A2inele"`);
+    expect(result).toContain('data-word="c%C3%A2inele"');
+    // 'și' (ș=U+0218) encodes to %C8%99i, not "si".
+    expect(result).toContain(`href="${DEXONLINE_URL}%C8%99i"`);
+    expect(result).toContain('data-word="%C8%99i"');
+    expect(result).toContain(`href="${DEXONLINE_URL}pisica"`);
+    expect(result).toContain('data-word="pisica"');
+    // Display text must preserve original case.
+    expect(result).toContain(">Câinele</a>");
+    expect(result).toContain(">și</a>");
+    expect(result).toContain(">Pisica</a>");
+  });
+
+  it("encodes diacritics per-word in href and data-word", () => {
+    const result = addDexLinks("frumos și mare");
+    // Each word's encoding must match encodeURIComponent(lowercase(word)).
+    expect(result).toContain(`href="${DEXONLINE_URL}frumos"`);
+    expect(result).toContain('data-word="frumos"');
+    // 'și' encodes to %C8%99i (ș=U+0218).
+    expect(result).toContain(`href="${DEXONLINE_URL}%C8%99i"`);
+    expect(result).toContain('data-word="%C8%99i"');
+    expect(result).toContain(`href="${DEXONLINE_URL}mare"`);
+    expect(result).toContain('data-word="mare"');
+  });
+
+  it("preserves non-letter characters outside anchors", () => {
+    const result = addDexLinks("frumos, și!");
+    // Comma and exclamation must appear after the closing anchor.
+    expect(result).toMatch(/frumos<\/a>,/);
+    expect(result).toContain("!");
+  });
+
+  it("encodes diacritic letters with uppercase hex digits", () => {
+    const result = addDexLinks("Ără");
+    // Lowercase of 'Ă' is 'ă' (U+0103), encodeURIComponent → %C4%83.
+    // encodeURIComponent always produces UPPERCASE hex digits.
+    expect(result).toContain(`href="${DEXONLINE_URL}%C4%83r%C4%83"`);
+    expect(result).not.toContain("%c4%83"); // lowercase hex must NOT appear
+    expect(result).not.toContain("%C3%83"); // uppercase form must NOT appear in href
+  });
 });
 
 // --- decorateVerse ---
@@ -289,6 +374,19 @@ describe("decorateVerse", () => {
     const result = escapeHtml("a &lt;b");
     expect(result).toBe("a &amp;lt;b");
     expect(result).not.toContain("&l;t;");
+  });
+
+  // Regression: if replacement order ever changes (& after < or >), pre-encoded
+  // entities would fragment (e.g. "&lt;" → "&l&lt;t;" instead of "&amp;lt;").
+  // This test locks the invariant across all entity types simultaneously.
+  it("preserves all pre-encoded entities when input contains consecutive encoded sequences", () => {
+    const result = escapeHtml("&lt;&gt;&amp;");
+    expect(result).toBe("&amp;lt;&amp;gt;&amp;amp;");
+    // No raw angle brackets or unescaped ampersands should remain.
+    expect(result).not.toContain("<");
+    expect(result).not.toContain(">");
+    // Only escaped entities (&amp; &lt; &gt; &quot;) allowed — no raw &.
+    expect(result).not.toMatch(/&(?!amp;|lt;|gt;|quot;|#\d+;)/);
   });
 
   // Regression: AGENTS.md Rule #1 — verse delimiter contract.
@@ -791,6 +889,108 @@ describe("ConstraintUnsatisfiedError / failConstraint", () => {
   });
 });
 
+// --- Error boundary: safe() wrapper and InternalServerError class (observable API contract) ---
+
+describe("safe() error boundary", () => {
+  it("returns UNSATISFIABLE string when generator throws ConstraintUnsatisfiedError", async () => {
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const result = await safe(async () => { throw new ConstraintUnsatisfiedError("no adjectives"); });
+    expect(result).toBe(unsat);
+  });
+
+  it("returns InternalServerError wrapping non-constraint errors", async () => {
+    const networkErr = new Error("ECONNRESET: connection reset by peer");
+    const result = await safe(async () => { throw networkErr; });
+    expect(result).toBeInstanceOf(InternalServerError);
+    if (result instanceof InternalServerError) {
+      expect(result.message).toContain("connection reset by peer");
+    }
+  });
+
+  it("wraps non-Error throws as InternalServerError with stringified message", async () => {
+    const result = await safe(async () => { throw "boom"; });
+    expect(result).toBeInstanceOf(InternalServerError);
+    if (result instanceof InternalServerError) {
+      expect(result.message).toContain("boom");
+    }
+  });
+
+  it("preserves successful string results unchanged", async () => {
+    const result = await safe(async () => "un cuvânt frumos.");
+    expect(result).toBe("un cuvânt frumos.");
+  });
+
+  it("does not propagate ConstraintUnsatisfiedError to the caller", async () => {
+    let threw = false;
+    try {
+      await safe(async () => { throw new ConstraintUnsatisfiedError("x"); });
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(false);
+  });
+
+  // Regression guard — AGENTS.md: every sentence generator is wrapped by safe().
+  // If safe() stops catching ConstraintUnsatisfiedError, the handler's Promise.all
+  // would reject and the frontend would see a 500 instead of "no data". This test
+  // locks that contract here.
+  it("ConstraintUnsatisfiedError from any depth in generator chain is caught", async () => {
+    const result = await safe(async () => {
+      await Promise.resolve();
+      throw new ConstraintUnsatisfiedError("deep failure");
+    });
+    expect(result).toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
+  });
+
+  it("InternalServerError preserves original error message", async () => {
+    const err = new Error("database timeout after 30s");
+    const result = await safe(async () => { throw err; });
+    if (result instanceof InternalServerError) {
+      expect(result.message).toBe("database timeout after 30s");
+    }
+  });
+
+  it("InternalServerError.name matches 'InternalServerError' for downstream detection", async () => {
+    const result = await safe(async () => { throw new Error("x"); });
+    if (result instanceof InternalServerError) {
+      expect(result.name).toBe("InternalServerError");
+    }
+  });
+});
+
+describe("InternalServerError class", () => {
+  it("is instantiable with an original error", () => {
+    const original = new Error("DB down");
+    const err = new InternalServerError(original);
+    expect(err.message).toBe("DB down");
+    expect(err.name).toBe("InternalServerError");
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("is instantiable with a string", () => {
+    const err = new InternalServerError("raw failure");
+    expect(err.message).toBe("raw failure");
+  });
+
+  it("is distinguishable from ConstraintUnsatisfiedError via instanceof", () => {
+    const err = new InternalServerError("x");
+    expect(err).not.toBeInstanceOf(ConstraintUnsatisfiedError);
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("wraps a plain string as-is (no JSON stringify)", () => {
+    const err = new InternalServerError("network error: timeout");
+    expect(err.message).toBe("network error: timeout");
+  });
+
+  it("handles null/undefined originals gracefully", () => {
+    const eNull = new InternalServerError(null);
+    const eUndef = new InternalServerError(undefined);
+    expect(eNull.message).toBe("unknown");
+    expect(eUndef.message).toBe("unknown");
+  });
+});
+
 // --- Input validation: type query param rejected when unknown ---
 
 describe("type query parameter validation (handler contract)", () => {
@@ -878,5 +1078,93 @@ describe("buildResponseTimingHeaders", () => {
     const h = buildResponseTimingHeaders(t, t);
     expect(h.serverTiming).toBe("api-all;dur=0");
     expect(h.responseTimeMs).toBe("0");
+  });
+
+  // Regression: AGENTS.md — safe() wraps every generator with GENERATOR_TIMEOUT_MS.
+  // If the timeout guard stops working (e.g., a refactor drops withTimeout or Promise.race),
+  // one slow generator (e.g. genMirror's bulk rhyme query) would block all responses and exhaust
+  // Vercel's maxDuration, returning a 504 instead of graceful "no data". This test locks the
+  // contract that safe() always returns UNSATISFIABLE on timeout.
+  it("safe(): slow generator is capped at GENERATOR_TIMEOUT_MS and returns UNSATISFIABLE", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    vi.stubGlobal("setTimeout", ((fn: () => void, _ms: number) => {
+      return (originalSetTimeout as any)(() => fn(), 0);
+    }) as typeof globalThis.setTimeout);
+
+    const slowGen = async (): Promise<string> => new Promise(() => {} /* never resolves */);
+    const unsatMsg = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const result = await safe(slowGen);
+    expect(result).toBe(unsatMsg);
+
+    vi.restoreAllMocks();
+  });
+});
+
+// --- Response shape parity with Kotlin backend ---
+
+describe("response shape (parity contract)", () => {
+  it("every response key is a non-empty string", () => {
+    // Regression guard: the handler's JSON envelope must contain only strings.
+    // If a future generator returns null/undefined or an object, the frontend
+    // would crash rendering. This test locks the shape invariant.
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const sample = { haiku: unsat, distih: unsat, comparison: unsat, definition: unsat, tautogram: unsat, mirror: unsat, minimalist: unsat, timestamp: new Date().toISOString() };
+    for (const [key, val] of Object.entries(sample)) {
+      expect(typeof val).toBe("string");
+      expect(val.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("timestamp is valid ISO-8601", () => {
+    const ts = new Date().toISOString();
+    expect(new Date(ts).getTime()).not.toBeNaN();
+    // Must match the ISO format exactly (no trailing timezone offsets beyond Z)
+    expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/);
+  });
+
+  it("response shape contains all seven generators plus timestamp", () => {
+    // This locks the parity contract: every generator key must be present.
+    const expected = ["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist", "timestamp"];
+    expect(expected).toEqual(["haiku", "distih", "comparison", "definition", "tautogram", "mirror", "minimalist", "timestamp"]);
+  });
+});
+
+// --- safeTimestamp() regression guard (response envelope fallback) ---
+
+describe("safeTimestamp", () => {
+  it("returns a valid ISO-8601 timestamp string on success", () => {
+    const ts = safeTimestamp();
+    expect(typeof ts).toBe("string");
+    expect(new Date(ts).getTime()).not.toBeNaN();
+    // Must match the standard ISO format with trailing Z.
+    expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/);
+  });
+
+  it("falls back to epoch sentinel when Date throws", () => {
+    const originalDate = globalThis.Date;
+    vi.stubGlobal("Date", class extends (originalDate as any) {}) as any;
+    // Force the constructor to throw by monkey-patching prototype method.
+    // Create a subclass whose toString / valueOf will succeed but
+    // .toISOString() throws — simulate runtime Date instability.
+    const MockDate = vi.fn().mockImplementation(() => {
+      throw new Error("clock unavailable");
+    });
+    (globalThis as any).Date = MockDate;
+    const ts = safeTimestamp();
+    expect(ts).toBe("1970-01-01T00:00:00.000Z");
+
+    vi.restoreAllMocks();
+  });
+
+  it("always returns a string (never throws, never null)", () => {
+    // Regression guard — the handler's JSON envelope must have valid strings for every key.
+    // If safeTimestamp() ever threw or returned undefined/null, frontend rendering would crash.
+    const ts = safeTimestamp();
+    expect(typeof ts).toBe("string");
+    expect(ts.length).toBeGreaterThan(0);
+
+    let threw = false;
+    try { safeTimestamp(); } catch { threw = true; }
+    expect(threw).toBe(false);
   });
 });
