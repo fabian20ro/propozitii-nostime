@@ -374,6 +374,7 @@ export function applyFilter(q: any, f: QueryFilter): any {
     case "neq": return q.neq(f.column, f.value);
     case "in": return q.in(f.column, f.value);
   }
+  throw new Error(`Unknown filter operator: "${f.op}" on column "${f.column}".`);
 }
 
 function rarityFilters(minR: number, maxR: number): QueryFilter[] {
@@ -901,6 +902,23 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     console.error("Sentence generation failed:", msg, err);
     setTimingHeaders();
     return res.status(500).json({ error: new InternalServerError(err).message });
+  }
+
+  // Post-task gate: escalate system failures (InternalServerError) to non-2xx.
+  // Legitimate "no data" responses from ConstraintUnsatisfiedError stay as UNSATISFIABLE strings in the envelope —
+  // the frontend distinguishes them by checking for InternalServerError instances at status 503.
+  const errors = taskMapKeys.map((k) => {
+    const r = results[k];
+    if (r instanceof InternalServerError) return r.message;
+    return null;
+  }).filter(Boolean);
+
+  if (errors.length > 0) {
+    setTimingHeaders();
+    res.status(503).json({
+      error: "Sentence generation failed",
+      details: errors,
+    });
   }
 
   // Cache-Control is governed by CacheControlFilter (must-revalidate + public) —

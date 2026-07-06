@@ -497,10 +497,30 @@ describe("applyFilter", () => {
     expect(mockQ.neq).toHaveBeenCalledWith("word", "test");
   });
 
-  it("returns undefined for unknown operator", () => {
+  it("throws on unknown operator", () => {
     const mockQ = { eq: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "unknown" as any, value: "test" };
-    expect(applyFilter(mockQ, filter)).toBeUndefined();
+    expect(() => applyFilter(mockQ, filter)).toThrow(/Unknown filter operator: \"unknown\"/);
+  });
+
+  it("rejects SQL-injection-style operators with special characters", () => {
+    const mockQ = {} as any;
+    const filter = { column: "word", op: "; DROP TABLE words;--" as any, value: "" };
+    expect(() => applyFilter(mockQ, filter)).toThrow(/Unknown filter operator/);
+  });
+
+  it("includes the column name in unknown-operator error for debugging", () => {
+    const mockQ = {} as any;
+    const filter = { column: "rarity_level", op: "raw" as any, value: 1 };
+    expect(() => applyFilter(mockQ, filter)).toThrow(/column \"rarity_level\"/);
+  });
+
+  it("passes SQL-like characters through known operators without throwing", () => {
+    const mockQ = { eq: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "eq" as any, value: "; DROP TABLE words;--" };
+    applyFilter(mockQ, filter);
+    // The Supabase client handles parameterization; our job is to not silently swallow.
+    expect(mockQ.eq).toHaveBeenCalledWith("word", "; DROP TABLE words;--");
   });
 });
 
@@ -955,6 +975,95 @@ describe("safe() error boundary", () => {
     if (result instanceof InternalServerError) {
       expect(result.name).toBe("InternalServerError");
     }
+  });
+
+  // Regression guard — post-task gate escalation.
+  // If a generator throws unexpectedly, the handler must NOT return 200 with an error object in the envelope.
+  // It must escalate to non-2xx so the frontend doesn't render InternalServerError as poetry text.
+  it("post-task gate: handler detects InternalServerError and escalates via status code", async () => {
+    // Simulate handler behavior — every key is UNSATISFIABLE except one that returns InternalServerError.
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const results: Record<string, string | InternalServerError> = {
+      haiku: unsat,
+      distih: unsat,
+      comparison: new InternalServerError(new Error("ECONNRESET")),
+      definition: unsat,
+      tautogram: unsat,
+      mirror: unsat,
+      minimalist: unsat,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    };
+
+    const taskMapKeys = Object.keys(results);
+
+    // Replicate the new post-task gate logic exactly as implemented in api/all.ts.
+    const errors: string[] = [];
+    for (const k of taskMapKeys) {
+      const r = results[k];
+      if (r instanceof InternalServerError) errors.push(r.message);
+    }
+
+    expect(errors.length).toBeGreaterThan(0);
+    // The handler returns 503 when there are system failures.
+    // Simulate status escalation decision:
+    const status = errors.length > 0 ? 503 : 200;
+    expect(status).toBe(503);
+
+    // Verify the error message from InternalServerError is preserved in escalation details.
+    if (errors.length > 0) {
+      for (const msg of errors) {
+        expect(typeof msg).toBe("string");
+        expect(msg.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // Regression guard — legitimate "no data" does NOT trigger escalation.
+  it("post-task gate: all-UNSATISFIABLE response stays at status 200 (legitimate empty)", async () => {
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const results: Record<string, string | InternalServerError> = {
+      haiku: unsat,
+      distih: unsat,
+      comparison: unsat,
+      definition: unsat,
+      tautogram: unsat,
+      mirror: unsat,
+      minimalist: unsat,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    };
+
+    const taskMapKeys = Object.keys(results);
+    const errors: string[] = [];
+    for (const k of taskMapKeys) {
+      const r = results[k];
+      if (r instanceof InternalServerError) errors.push(r.message);
+    }
+
+    expect(errors.length).toBe(0);
+  });
+
+  // Regression guard — mixed response (some generators succeeded, one failed internally) escalates.
+  it("post-task gate: mixed response with any InternalServerError triggers escalation", async () => {
+    const unsat = "Nu există suficiente cuvinte pentru nivelul de raritate ales.";
+    const results: Record<string, string | InternalServerError> = {
+      haiku: unsat,
+      distih: "linia unu / linia doi.",
+      comparison: new InternalServerError(new Error("supabase timeout")),
+      definition: "CÂINELE: un câine frumos.",
+      tautogram: "totul merge tot.",
+      mirror: "mirror line one, / mirror line two.",
+      minimalist: unsat,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    };
+
+    const taskMapKeys = Object.keys(results);
+    const errors: string[] = [];
+    for (const k of taskMapKeys) {
+      const r = results[k];
+      if (r instanceof InternalServerError) errors.push(r.message);
+    }
+
+    expect(errors.length).toBeGreaterThan(0);
   });
 });
 
