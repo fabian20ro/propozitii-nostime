@@ -374,6 +374,7 @@ export function applyFilter(q: any, f: QueryFilter): any {
     case "neq": return q.neq(f.column, f.value);
     case "in": return q.in(f.column, f.value);
   }
+  throw new Error(`Unknown filter operator: "${f.op}" on column "${f.column}".`);
 }
 
 function rarityFilters(minR: number, maxR: number): QueryFilter[] {

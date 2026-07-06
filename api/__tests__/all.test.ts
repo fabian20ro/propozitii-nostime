@@ -497,10 +497,30 @@ describe("applyFilter", () => {
     expect(mockQ.neq).toHaveBeenCalledWith("word", "test");
   });
 
-  it("returns undefined for unknown operator", () => {
+  it("throws on unknown operator", () => {
     const mockQ = { eq: vi.fn().mockReturnThis() } as any;
     const filter = { column: "word", op: "unknown" as any, value: "test" };
-    expect(applyFilter(mockQ, filter)).toBeUndefined();
+    expect(() => applyFilter(mockQ, filter)).toThrow(/Unknown filter operator: \"unknown\"/);
+  });
+
+  it("rejects SQL-injection-style operators with special characters", () => {
+    const mockQ = {} as any;
+    const filter = { column: "word", op: "; DROP TABLE words;--" as any, value: "" };
+    expect(() => applyFilter(mockQ, filter)).toThrow(/Unknown filter operator/);
+  });
+
+  it("includes the column name in unknown-operator error for debugging", () => {
+    const mockQ = {} as any;
+    const filter = { column: "rarity_level", op: "raw" as any, value: 1 };
+    expect(() => applyFilter(mockQ, filter)).toThrow(/column \"rarity_level\"/);
+  });
+
+  it("passes SQL-like characters through known operators without throwing", () => {
+    const mockQ = { eq: vi.fn().mockReturnThis() } as any;
+    const filter = { column: "word", op: "eq" as any, value: "; DROP TABLE words;--" };
+    applyFilter(mockQ, filter);
+    // The Supabase client handles parameterization; our job is to not silently swallow.
+    expect(mockQ.eq).toHaveBeenCalledWith("word", "; DROP TABLE words;--");
   });
 });
 
