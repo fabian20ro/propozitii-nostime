@@ -232,6 +232,22 @@ describe("resolveSupabaseInit", () => {
       error: "Missing SUPABASE_URL."
     });
   });
+  it("succeeds when URL is valid and a publishable key is present", () => {
+    const env = { SUPABASE_URL: "https://example.supabase.co", SUPABASE_PUBLISHABLE_KEY: "pub-key" };
+    const res = resolveSupabaseInit(env);
+    expect(res.error).toBeUndefined();
+    expect(res.keyResolution.key).toBe("pub-key");
+    expect(res.keyResolution.source).toBe("publishable");
+  });
+  it("propagates key-resolution errors without re-checking the URL", () => {
+    const env = {
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "ser-key",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "false"
+    };
+    const res = resolveSupabaseInit(env);
+    expect(res.error).toContain("SUPABASE_PUBLISHABLE_KEY");
+  });
 });
 
 describe("buildResponseTimingHeaders", () => {
