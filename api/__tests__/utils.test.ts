@@ -13,6 +13,7 @@ import {
   addDexLinks,
   buildResponseTimingHeaders,
   adjForGender,
+  safeTimestamp,
   DEXONLINE_URL,
   escapeHtml
 } from "../all";
@@ -83,6 +84,9 @@ describe("api/all.ts utilities", () => {
     });
     it("returns trimmed origins for comma-separated list", () => {
       expect(parseAllowedOrigins(" https://a.com , https://b.com ")).toEqual(["https://a.com", "https://b.com"]);
+    });
+    it("returns default when env variable is undefined (no ALLOWED_ORIGINS set)", () => {
+      expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
     });
   });
 
@@ -197,6 +201,15 @@ describe("api/all.ts utilities", () => {
     });
     it("handles reversed ranges by sorting them", () => {
       expect(normalizeRarityRange("5", "1")).toEqual({ minR: 1, maxR: 5 });
+    });
+    it("clamps values outside [1..5] to the range boundaries", () => {
+      expect(normalizeRarityRange("0", "7")).toEqual({ minR: 1, maxR: 5 });
+      expect(normalizeRarityRange("-3", "-1")).toEqual({ minR: 1, maxR: 1 });
+    });
+    it("handles array inputs (multi-value query params)", () => {
+      expect(normalizeRarityRange(["2"], ["4"])).toEqual({ minR: 2, maxR: 4 });
+      // Last element of multi-value arrays wins (matches firstQueryValue behavior).
+      expect(normalizeRarityRange(["1", "3"], ["6", "7"])).toEqual({ minR: 3, maxR: 5 });
     });
   });
 
@@ -340,5 +353,28 @@ describe("buildResponseTimingHeaders", () => {
     expect(typeof res.responseTimeMs).toBe("string");
     expect(parseInt(res.responseTimeMs, 10)).toBeGreaterThanOrEqual(0);
     expect(String(Number(res.responseTimeMs))).toBe(res.responseTimeMs);
+  });
+});
+
+describe("safeTimestamp", () => {
+  it("returns an ISO string", () => {
+    const ts = safeTimestamp();
+    // Must parse as a valid Date.
+    expect(new Date(ts).getTime()).not.toBeNaN();
+    // Must match ISO format (YYYY-MM-DDTHH:MM:SS.sssZ) within the last 10s to ensure it is current.
+    expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    const delta = Math.abs(Date.now() - new Date(ts).getTime());
+    expect(delta).toBeLessThan(10_000);
+  });
+
+  // Regression: AGENTS.md — safeTimestamp is the only timestamp signal in the handler's JSON envelope.
+  it("falls back to a sentinel when Date constructor throws", () => {
+    const orig = global.Date;
+    delete (global as any).Date;
+    try {
+      expect(safeTimestamp()).toBe("1970-01-01T00:00:00.000Z");
+    } finally {
+      (global as any).Date = orig;
+    }
   });
 });
