@@ -11,6 +11,9 @@ class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvi
         const val LINK_TARGET = "_blank"
         const val LINK_REL = "noopener"
         const val ATTR_DATA_WORD = "data-word"
+
+        /** HTML meta-characters that must not pass through to the href attribute. */
+        private val META_CHARS = Regex("[<>&\"']")
     }
 
     override fun getSentence(): String =
@@ -18,6 +21,7 @@ class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvi
 
     private fun addHref(word: String): String {
         val encodedWord = URLEncoder.encode(word.lowercase(), StandardCharsets.UTF_8)
+        require(!META_CHARS.containsMatchIn(encodedWord)) { "encoded word $encodedWord contains HTML meta-characters; href would be unsafe" }
         val url = "$DEXONLINE_URL$encodedWord"
         val escapedWord = escapeHtml(word)
         return """<a href="$url" target="$LINK_TARGET" rel="$LINK_REL" $ATTR_DATA_WORD="$encodedWord">$escapedWord</a>"""
