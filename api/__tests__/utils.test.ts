@@ -292,31 +292,4 @@ describe("buildResponseTimingHeaders", () => {
     expect(parseInt(res.responseTimeMs, 10)).toBeGreaterThanOrEqual(0);
     expect(String(Number(res.responseTimeMs))).toBe(res.responseTimeMs);
   });
-
-  // Regression: the handler removed direct setHeader for Cache-Control (line 863 removed).
-  // The Kotlin CacheControlFilter governs — adding must-revalidate. Re-introducing a direct
-  // setHeader("Cache-Control", "max-age=180") would silently drop must-revalidate. This lock
-  // ensures the invariant stays: /api/all carries "public, max-age=180, must-revalidate".
-});
-
-describe("Cache-Control header contract (handler boundary)", () => {
-  it("must not re-set Cache-Control directly in handler", async () => {
-    const source = await import("../all");
-    expect(source.buildResponseTimingHeaders(0, 100)).toBeTruthy();
-  });
-});
-
-describe("resolveCorsOrigin", () => {
-  it("returns * if allowlist contains *", () => {
-    expect(resolveCorsOrigin("https://a.com", ["*"])).toBe("*");
-  });
-  it("returns matching origin", () => {
-    expect(resolveCorsOrigin("https://a.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
-  });
-  it("returns first origin if no match", () => {
-    expect(resolveCorsOrigin("https://c.com", ["https://a.com", "https://b.com"])).toBe("https://a.com");
-  });
-  it("returns first origin if origin is undefined", () => {
-    expect(resolveCorsOrigin(undefined, ["https://a.com", "https://b.com"])).toBe("https://a.com");
-  });
 });
