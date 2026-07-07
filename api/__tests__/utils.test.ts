@@ -121,6 +121,21 @@ describe("api/all.ts utilities", () => {
       const result = addDexLinks("hello");
       expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">hello</a>');
     });
+    it("addDexLinks returns empty string for empty input", () => {
+      expect(addDexLinks("")).toBe("");
+    });
+    it("addDexLinks preserves non-letter-only input without generating links", () => {
+      const result = addDexLinks("123 !@#");
+      expect(result).toBe("123 !@#");
+    });
+    it("decorateSentence renders all-caps words preserving case in text but lowercase in data attrs", () => {
+      const result = decorateSentence("HELLO world");
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/hello" target="_blank" rel="noopener" data-word="hello">HELLO</a> <a href="https://dexonline.ro/definitie/world" target="_blank" rel="noopener" data-word="world">world</a>');
+    });
+    it("decorateSentence handles single-character input", () => {
+      const result = decorateSentence("i");
+      expect(result).toBe('<a href="https://dexonline.ro/definitie/i" target="_blank" rel="noopener" data-word="i">I</a>');
+    });
     it("handles multiple spaces", () => {
       const result = addDexLinks("a  b");
       expect(result).toContain("</a>  <a");
