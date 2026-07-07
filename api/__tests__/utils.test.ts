@@ -248,6 +248,23 @@ describe("resolveSupabaseInit", () => {
     const res = resolveSupabaseInit(env);
     expect(res.error).toContain("SUPABASE_PUBLISHABLE_KEY");
   });
+
+  // Regression: AGENTS.md — when both URL validation and key resolution fail,
+  // the URL error takes precedence (line 151 of all.ts) but keyResolution is
+  // still included for operator diagnostics. If a future refactor drops the
+  // diagnostic payload or swaps precedence order, deployment operators would
+  // lose visibility into which config values to fix first. This test locks that.
+  it("returns URL error when both URL and keys are invalid (precedence + diagnostics)", () => {
+    const env = {
+      SUPABASE_URL: "not-a-valid-url",
+      // No publishable or service-role key provided at all.
+    };
+    const res = resolveSupabaseInit(env);
+    expect(res.error).toContain("Invalid SUPABASE_URL");
+    expect(res.keyResolution.source).toBe("none");
+    expect(res.keyResolution.key).toBe("");
+    expect(res.keyResolution.error).toContain("SUPABASE_PUBLISHABLE_KEY");
+  });
 });
 
 describe("buildResponseTimingHeaders", () => {
