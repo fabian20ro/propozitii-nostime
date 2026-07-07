@@ -13,13 +13,18 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
     private val log = Logger.getLogger(GlobalExceptionMapper::class.java)
 
     override fun toResponse(exception: Exception): Response {
-        if (exception is WebApplicationException) {
+        log.error("Unhandled exception", exception)
+        if (exception is WebApplicationException && responseContextStatusOk(exception)) {
             return exception.response
         }
-        log.error("Unhandled exception", exception)
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
             .entity(mapOf("error" to "Internal server error"))
             .type(MediaType.APPLICATION_JSON)
             .build()
+    }
+
+    private fun responseContextStatusOk(e: WebApplicationException): Boolean {
+        val r = e.response ?: return false
+        return r.status in 200..399
     }
 }
