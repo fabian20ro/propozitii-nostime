@@ -301,6 +301,22 @@ describe("buildResponseTimingHeaders", () => {
     expect(Number(res.responseTimeMs)).toBeGreaterThan(0);
   });
 
+  // Regression: integer inputs must produce integer-only output — no .0 suffix that would break Server-Timing parsing.
+  it("produces integer-only duration strings for common medium durations", () => {
+    const res = buildResponseTimingHeaders(1000, 2500);
+    expect(res.responseTimeMs).toBe("1500");
+    expect(res.serverTiming).toBe("api-all;dur=1500");
+    // Roundtrip: the string must survive Number() → String() losslessly.
+    expect(String(Number(res.responseTimeMs))).toBe(res.responseTimeMs);
+  });
+
+  it("produces integer-only duration for zero-start edge case", () => {
+    const res = buildResponseTimingHeaders(0, 12345);
+    expect(res.responseTimeMs).toBe("12345");
+    expect(res.serverTiming).toMatch(/^api-all;dur=\d+$/);
+    expect(String(Number(res.responseTimeMs))).toBe(res.responseTimeMs);
+  });
+
   // Regression: the handler's setHeader call passes responseTimeMs as a string.
   it("responseTimeMs is always a plain string (not object/array)", () => {
     const res = buildResponseTimingHeaders(0, 1);
