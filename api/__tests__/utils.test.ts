@@ -88,6 +88,10 @@ describe("api/all.ts utilities", () => {
     it("returns default when env variable is undefined (no ALLOWED_ORIGINS set)", () => {
       expect(parseAllowedOrigins(undefined)).toEqual(["https://fabian20ro.github.io"]);
     });
+    it("returns defaults when all comma-split items are empty after trim", () => {
+      // Source: .split(",").map(trim).filter(Boolean) → [] → falls back to DEFAULT_ALLOWED_ORIGINS.
+      expect(parseAllowedOrigins(", , ")).toEqual(["https://fabian20ro.github.io"]);
+    });
   });
 
   describe("resolveCorsOrigin", () => {
@@ -205,6 +209,10 @@ describe("api/all.ts utilities", () => {
     it("clamps values outside [1..5] to the range boundaries", () => {
       expect(normalizeRarityRange("0", "7")).toEqual({ minR: 1, maxR: 5 });
       expect(normalizeRarityRange("-3", "-1")).toEqual({ minR: 1, maxR: 1 });
+    });
+    it("returns default [1,2] when both values are invalid (both-NaN branch)", () => {
+      // Source: if (isNaN(minVal) && isNaN(maxVal)) { [minC, maxC] = [1, 2]; }
+      expect(normalizeRarityRange("abc", "xyz")).toEqual({ minR: 1, maxR: 2 });
     });
     it("handles array inputs (multi-value query params)", () => {
       expect(normalizeRarityRange(["2"], ["4"])).toEqual({ minR: 2, maxR: 4 });
