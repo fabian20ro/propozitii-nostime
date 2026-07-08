@@ -8,6 +8,16 @@ class DistihProvider(
     private val maxRarity: Int
 ) : ISentenceProvider {
 
+    init {
+        require(minRarity in VALID_RARITY_RANGE) { "minRarity must be between ${VALID_RARITY_RANGE.first} and ${VALID_RARITY_RANGE.last}, got $minRarity" }
+        require(maxRarity in VALID_RARITY_RANGE) { "maxRarity must be between ${VALID_RARITY_RANGE.first} and ${VALID_RARITY_RANGE.last}, got $maxRarity" }
+        require(minRarity <= maxRarity) { "minRarity ($minRarity) must not exceed maxRarity ($maxRarity)" }
+    }
+
+    companion object {
+        private val VALID_RARITY_RANGE = IntRange(1, 5)
+    }
+
     override fun getSentence(): String {
         val usedNouns = mutableSetOf<String>()
         val usedAdjs = mutableSetOf<String>()
