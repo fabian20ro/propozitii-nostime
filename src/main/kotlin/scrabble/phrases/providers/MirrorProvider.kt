@@ -20,7 +20,7 @@ class MirrorProvider(
         fun buildLine(rhyme: String, punct: String): String {
             val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = usedNouns)
             usedNouns.add(noun.word)
-            val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs)
+            val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs) ?: throw IllegalStateException("No adjective found for rarity ${minRarity}-$maxRarity")
             usedAdjs.add(adj.word)
             val verb = repo.getRandomVerbByRhyme(rhyme, minRarity = minRarity, maxRarity = maxRarity, exclude = usedVerbs)
                 ?: throw IllegalStateException("No verb found for rhyme '$rhyme'")
