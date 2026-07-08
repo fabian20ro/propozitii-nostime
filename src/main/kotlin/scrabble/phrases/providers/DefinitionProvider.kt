@@ -9,12 +9,21 @@ class DefinitionProvider(
 ) : ISentenceProvider {
 
     override fun getSentence(): String {
-        val defined = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
-        val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word))
-        val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity)
-        val verb = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity)
-        val object_ = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word, noun.word))
+        try {
+            val defined = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
+            val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word))
+            val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity)
+            val verb = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity)
+            val object_ = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word, noun.word))
 
-        return "${defined.word.uppercase()}: ${noun.articulated} ${adj.forGender(noun.gender)} care ${verb.word} ${object_.articulated}."
+            return "${defined.word.uppercase()}: ${noun.articulated} ${adj.forGender(noun.gender)} care ${verb.word} ${object_.articulated}."
+        } catch (e: IllegalStateException) {
+            throw IllegalStateException(
+                "DefinitionProvider needs at least one noun, adjective and verb in rarity range ${rarityDesc(minRarity, maxRarity)} — database may be empty or misconfigured", e
+            )
+        }
     }
+
+    private fun rarityDesc(min: Int, max: Int): String =
+        if (min <= 1) "<= $max" else "between $min and $max"
 }
