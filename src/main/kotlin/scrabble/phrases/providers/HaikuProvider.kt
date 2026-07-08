@@ -1,5 +1,6 @@
 package scrabble.phrases.providers
 
+import org.jboss.logging.Logger
 import scrabble.phrases.repository.WordRepository
 import scrabble.phrases.words.NounGender
 
@@ -8,6 +9,8 @@ class HaikuProvider(
     private val minRarity: Int = 1,
     private val maxRarity: Int
 ) : ISentenceProvider {
+
+    private val log: Logger = Logger.getLogger(HaikuProvider::class.java)
 
     override fun getSentence(): String {
         val noun = repo.getRandomNounByArticulatedSyllables(5, minRarity = minRarity, maxRarity = maxRarity)
@@ -18,10 +21,13 @@ class HaikuProvider(
         // Falls back to masculine-syllable query if feminine_syllables column is not yet backfilled.
         val adj = if (noun.gender == NounGender.F) {
             repo.getRandomAdjectiveByFeminineSyllables(4, minRarity = minRarity, maxRarity = maxRarity)
-                ?: repo.getRandomAdjectiveBySyllables(3, minRarity = minRarity, maxRarity = maxRarity)
+                ?: run {
+                    log.debugf("HaikuProvider: feminine_syllables column not available for %s, falling back to masculine syllable query", noun.word)
+                    repo.getRandomAdjectiveBySyllables(3, minRarity = minRarity, maxRarity = maxRarity)
+                }
         } else {
             repo.getRandomAdjectiveBySyllables(4, minRarity = minRarity, maxRarity = maxRarity)
-        } ?: throw IllegalStateException("No adjective with 4 syllables found for gender ${noun.gender}")
+        } ?: throw IllegalStateException("No adjective with 4 syllables found for gender ${noun.gender} (word: ${noun.word})")
 
         val adjForm = adj.forGender(noun.gender)
 

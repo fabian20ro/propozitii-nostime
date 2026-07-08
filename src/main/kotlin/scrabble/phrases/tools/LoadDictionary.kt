@@ -97,7 +97,11 @@ private fun loadWords(conn: Connection, wordsFile: File) {
                         "MF" -> insertNoun(stmt, word, NounGender.M)
                         "A" -> insertAdjective(stmt, word)
                         "V", "VT" -> insertVerb(stmt, word)
-                        else -> { skipped++; return@forEachLine }
+                        else -> {
+                            skipped++
+                            println("Skipped unsupported type '$type' for word '${pieces[0]}': $line")
+                            return@forEachLine
+                        }
                     }
                     count++
                     if (count % 10000 == 0) {
