@@ -7,6 +7,9 @@ data class Noun(
     override val rhyme: String = WordUtils.computeRhyme(word),
     val articulated: String = computeArticulated(word, gender)
 ) : Word {
+    init {
+        require(!word.isNullOrBlank()) { "Noun word cannot be blank" }
+    }
 
     companion object {
         fun computeArticulated(word: String, gender: NounGender): String = when (gender) {
