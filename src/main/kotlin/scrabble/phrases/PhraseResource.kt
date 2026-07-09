@@ -88,7 +88,8 @@ class PhraseResource {
     private fun safeGenerate(generator: () -> String): String =
         try {
             generator()
-        } catch (_: IllegalStateException) {
+        } catch (e: Exception) {
+            // Providers may throw any runtime error; degrade gracefully instead of 500.
             UNSATISFIABLE_PLACEHOLDER
         }
 
