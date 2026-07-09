@@ -65,6 +65,16 @@ class WordRepository(private val dataSource: AgroalDataSource) {
             nounRhymeGroupsMin3ByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadRhymeGroups("N", 3, rarity) }
             verbRhymeGroupsMin2ByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadRhymeGroups("V", 2, rarity) }
             validPrefixesByMaxRarity = (1..MAX_RARITY).associateWith { rarity -> loadValidPrefixes(rarity) }
+
+            // Fail fast: if the database is empty, surface this at startup instead of silent nulls.
+            val totalWords = conn.prepareStatement("SELECT COUNT(*) AS c FROM words").use { stmt ->
+                stmt.executeQuery().use { rs ->
+                    if (rs.next()) rs.getInt("c") else 0
+                }
+            }
+            check(totalWords > 0) {
+                "Word database is empty — no words found for any type/rarity combination. Cannot generate sentences."
+            }
         }
     }
 
