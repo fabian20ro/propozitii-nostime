@@ -23,6 +23,12 @@ class HaikuProviderTest {
         // So there should be exactly 2 " / " delimiters.
         val delimiterCount = sentence.split(" / ").size
         assertTrue(delimiterCount == 3, "Expected 3 parts separated by ' / ', but found $delimiterCount. Sentence: $sentence")
+
+        val lines = sentence.split(" / ")
+        lines.forEachIndexed { index, line ->
+            assertTrue(line.isNotBlank(), "Haiku part #$index is blank; full sentence: $sentence")
+        }
+
         assertTrue(sentence.endsWith("."), "Sentence should end with a dot")
     }
 }
