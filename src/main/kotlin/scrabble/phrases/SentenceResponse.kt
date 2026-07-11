@@ -1,3 +1,5 @@
 package scrabble.phrases
 
-data class SentenceResponse(val sentence: String)
+class SentenceResponse(val sentence: String) {
+    init { require(sentence.isNotBlank()) { "sentence cannot be blank" } }
+}

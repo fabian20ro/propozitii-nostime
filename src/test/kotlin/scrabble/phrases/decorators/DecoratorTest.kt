@@ -28,5 +28,8 @@ class DecoratorTest {
         assertTrue(result.contains("<a href=\"https://dexonline.ro/definitie/ana\""))
         assertTrue(result.contains("<br/>"))
         assertTrue(result.contains("<a href=\"https://dexonline.ro/definitie/are\""))
+
+        val expected = "<a href=\"https://dexonline.ro/definitie/ana\" target=\"_blank\" rel=\"noopener\" data-word=\"ana\">ana</a><br/><a href=\"https://dexonline.ro/definitie/are\" target=\"_blank\" rel=\"noopener\" data-word=\"are\">are</a>"
+        assertEquals(expected, result)
     }
 }

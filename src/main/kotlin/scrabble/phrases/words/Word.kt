@@ -5,3 +5,6 @@ sealed interface Word {
     val syllables: Int
     val rhyme: String
 }
+
+val Word.syllableCount: Int
+    get() = this.syllables
