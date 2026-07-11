@@ -53,5 +53,8 @@ class WordUtilsTest {
         assertEquals("neam", WordUtils.fixWordCharacters("ne'am"))
         assertEquals("curat", WordUtils.fixWordCharacters("curat"))
         assertEquals("hello", WordUtils.fixWordCharacters("hello'"))
+        // Unicode right-single-quote (\u2019) must also be stripped; source handles both.
+        assertEquals("mam dus", WordUtils.fixWordCharacters("m\u2019am dus"))
+        assertEquals("neam", WordUtils.fixWordCharacters("ne\u2019am"))
     }
 }
