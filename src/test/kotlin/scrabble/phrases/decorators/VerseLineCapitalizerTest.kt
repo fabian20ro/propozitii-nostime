@@ -37,4 +37,18 @@ class VerseLineCapitalizerTest {
         val capitalizer = VerseLineCapitalizer(provider)
         assertEquals("Line1 / Line2", capitalizer.getSentence())
     }
+
+    @Test
+    fun `should return empty for blank input`() {
+        val provider = MockProvider("")
+        val capitalizer = VerseLineCapitalizer(provider)
+        assertEquals("", capitalizer.getSentence())
+    }
+
+    @Test
+    fun `should return empty for whitespace-only input`() {
+        val provider = MockProvider("   ")
+        val capitalizer = VerseLineCapitalizer(provider)
+        assertEquals("", capitalizer.getSentence())
+    }
 }
