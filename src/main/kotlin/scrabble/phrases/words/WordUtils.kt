@@ -22,7 +22,7 @@ object WordUtils {
     fun computeRhyme(name: String): String =
         name.substring(maxOf(0, name.length - 3))
 
-    fun fixWordCharacters(word: String): String = word.replace("'", "")
+    fun fixWordCharacters(word: String): String = word.replace("'", "").replace("\u2019", "")
 
     private fun replaceTongsWithChar(chars: CharArray) {
         val clength = chars.size
