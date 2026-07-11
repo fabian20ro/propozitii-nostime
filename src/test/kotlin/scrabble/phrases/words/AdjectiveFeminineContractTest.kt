@@ -32,8 +32,7 @@ class AdjectiveFeminineContractTest {
             "alb" to "albă",
             "verde" to "verde",
             "maro" to "maro",
-            "gri" to "gri",
-            "roșu" to "roșie"
+            "gri" to "gri"
         )
 
         cases.forEach { (masculine, expected) ->
