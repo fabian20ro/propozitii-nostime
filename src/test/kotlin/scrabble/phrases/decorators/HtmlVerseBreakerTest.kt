@@ -26,4 +26,11 @@ class HtmlVerseBreakerTest {
         val breaker = HtmlVerseBreaker(mockProvider)
         assertEquals("<p>Hello<br/>World</p>", breaker.getSentence())
     }
+
+    @Test
+    fun `should replace all verse delimiters in a sentence`() {
+        val mockProvider = ISentenceProvider { "Line1 / Line2 / Line3" }
+        val breaker = HtmlVerseBreaker(mockProvider)
+        assertEquals("Line1<br/>Line2<br/>Line3", breaker.getSentence())
+    }
 }
