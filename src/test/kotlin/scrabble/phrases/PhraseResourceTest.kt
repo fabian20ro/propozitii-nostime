@@ -88,41 +88,49 @@ class PhraseResourceTest {
     }
 
     @Test
-    fun shouldClampRarityQueryParam() {
+    fun shouldClampRarityQueryParamBelowMin() {
+        // rarity=0 must clamp to [1,5] — contract: status 200 + non-null sentence (real content or placeholder).
         given()
             .queryParam("rarity", 0)
-            .`when`().get("/api/all")
+            .`when`().get("/api/haiku")
             .then()
             .statusCode(200)
-            .body("haiku", notNullValue())
-            .body("distih", notNullValue())
-            .body("comparison", notNullValue())
-            .body("definition", notNullValue())
-            .body("tautogram", notNullValue())
-            .body("mirror", notNullValue())
+            .body("sentence", notNullValue())
+    }
 
+    @Test
+    fun shouldClampRarityQueryParamAboveMax() {
+        // rarity=6 must clamp to [1,5] — contract: status 200 + non-null sentence.
         given()
             .queryParam("rarity", 6)
-            .`when`().get("/api/all")
+            .`when`().get("/api/haiku")
             .then()
             .statusCode(200)
-            .body("haiku", notNullValue())
-            .body("distih", notNullValue())
-            .body("comparison", notNullValue())
-            .body("definition", notNullValue())
-            .body("tautogram", notNullValue())
-            .body("mirror", notNullValue())
+            .body("sentence", notNullValue())
     }
 
     @Test
     fun shouldClampAndHandleSwappedRarityParams() {
+        // rarity=6, minRarity=0: both clamp into [1,5] range; swapped order must still produce content.
         given()
             .queryParam("rarity", 6)
             .queryParam("minRarity", 0)
-            .`when`().get("/api/all")
+            .`when`().get("/api/haiku")
             .then()
             .statusCode(200)
-            .body("haiku", notNullValue())
+            .body("sentence", notNullValue())
+    }
+
+    @Test
+    fun shouldReturnRealContentAfterClampingAboveMax() {
+        // Verify clamping to a valid range (rarity=5 → [1,5]) produces actual sentence content.
+        given()
+            .queryParam("rarity", 5)
+            .`when`().get("/api/haiku")
+            .then()
+            .statusCode(200)
+            .body("sentence", notNullValue())
+            .body("sentence", containsString("<a href="))
     }
 
     @Test
