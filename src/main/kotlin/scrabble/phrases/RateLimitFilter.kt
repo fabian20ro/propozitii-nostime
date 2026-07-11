@@ -40,6 +40,7 @@ class RateLimitFilter : ContainerRequestFilter {
                     .type(MediaType.APPLICATION_JSON)
                     .build()
             )
+            timestamps.clear()
             return
         }
 
