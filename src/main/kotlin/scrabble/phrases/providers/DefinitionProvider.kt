@@ -1,6 +1,7 @@
 package scrabble.phrases.providers
 
 import scrabble.phrases.repository.WordRepository
+import scrabble.phrases.words.NounGender
 
 class DefinitionProvider(
     private val repo: WordRepository,
@@ -12,6 +13,7 @@ class DefinitionProvider(
         try {
             val defined = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
             val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word))
+            require(noun.gender == NounGender.M || noun.gender == NounGender.F) { "noun '${noun.word}' has invalid gender $noun.gender" }
             val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity)
             val verb = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity)
             val object_ = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word, noun.word))
