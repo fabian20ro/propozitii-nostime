@@ -8,7 +8,10 @@ class VerseLineCapitalizer(private val provider: ISentenceProvider) : ISentenceP
     override fun getSentence(): String {
         val raw = provider.getSentence()
         if (raw.isBlank()) return ""
-        return raw.split(Regex("\\s*/\\s*"))
-            .joinToString(" / ") { WordUtils.capitalizeFirstLetter(it.trim()) ?: "" }
+        val parts = raw.split(Regex("\\s*/\\s*"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (parts.isEmpty()) return ""
+        return parts.joinToString(" / ") { WordUtils.capitalizeFirstLetter(it) ?: "" }
     }
 }
