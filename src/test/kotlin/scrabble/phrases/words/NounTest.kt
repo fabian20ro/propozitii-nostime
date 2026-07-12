@@ -30,9 +30,12 @@ class NounTest {
         "macara, F, macaraua",
         "ploaie, F, ploaia",
         "rodie, F, rodia",
+        // Masculine row — proves M-gender routing diverges from feminine;
+        // masculine path appends 'ul' → macaraul (vs macaraua under F).
+        "macara, M, macaraul",
     )
     fun shouldArticulateFeminine(word: String, gender: String, expected: String) {
-        val noun = Noun(word, NounGender.F)
+        val noun = Noun(word, NounGender.valueOf(gender))
         assertEquals(expected, noun.articulated)
     }
 

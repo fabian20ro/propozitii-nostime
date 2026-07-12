@@ -65,7 +65,7 @@ class WordRepositoryTest {
                 stmt.setString(1, word)
                 stmt.setString(2, type)
                 stmt.executeQuery().use { rs ->
-                    check(rs.next()) { "Missing word in seed data:  ()" }
+                    check(rs.next()) { "Missing $word/$type in seed data" }
                     return rs.getInt("rarity_level")
                 }
             }
