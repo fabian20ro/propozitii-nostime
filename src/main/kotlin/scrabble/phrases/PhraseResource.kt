@@ -6,6 +6,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
+import org.jboss.logging.Logger
 import scrabble.phrases.decorators.DexlineLinkAdder
 import scrabble.phrases.decorators.FirstSentenceLetterCapitalizer
 import scrabble.phrases.decorators.HtmlVerseBreaker
@@ -22,6 +23,8 @@ import scrabble.phrases.repository.WordRepository
 @Path("/api")
 @Produces(MediaType.APPLICATION_JSON)
 class PhraseResource {
+
+    private val logger = Logger.getLogger(PhraseResource::class.java)
 
     @Inject
     lateinit var wordRepository: WordRepository
@@ -89,7 +92,7 @@ class PhraseResource {
         try {
             generator()
         } catch (e: Exception) {
-            // Providers may throw any runtime error; degrade gracefully instead of 500.
+            logger.warnf("Provider failed to generate sentence: %s", e.message ?: "unknown")
             UNSATISFIABLE_PLACEHOLDER
         }
 
