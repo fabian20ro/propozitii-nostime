@@ -83,9 +83,11 @@ private fun loadWords(conn: Connection, wordsFile: File) {
                     // Handle numeric type format
                     try {
                         type.toInt()
-                        val breakIndex = if (word[word.length - 2] <= 'Z') 2 else 1
-                        type = word.substring(word.length - breakIndex)
-                        word = word.substring(0, word.length - breakIndex)
+                        if (word.length >= 3) {
+                            val breakIndex = if (word[word.length - 2] <= 'Z') 2 else 1
+                            type = word.substring(word.length - breakIndex)
+                            word = word.substring(0, word.length - breakIndex)
+                        }
                     } catch (_: NumberFormatException) {
                         // Not numeric, use as-is
                     }
