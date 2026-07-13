@@ -23,12 +23,26 @@ class DistihProvider(
         val usedAdjs = mutableSetOf<String>()
         val usedVerbs = mutableSetOf<String>()
 
-        fun nextNoun() = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = usedNouns)
-            .also { usedNouns.add(it.word) }
-        fun nextAdj() = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs)
-            .also { usedAdjs.add(it.word) }
-        fun nextVerb() = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity, exclude = usedVerbs)
-            .also { usedVerbs.add(it.word) }
+        fun nextNoun() = run {
+            val n = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = usedNouns)
+                ?: throw IllegalStateException("No valid noun found in word space")
+            usedNouns.add(n.word)
+            n
+        }
+
+        fun nextAdj() = run {
+            val a = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs)
+                ?: throw IllegalStateException("No valid adjective found in word space")
+            usedAdjs.add(a.word)
+            a
+        }
+
+        fun nextVerb() = run {
+            val v = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity, exclude = usedVerbs)
+                ?: throw IllegalStateException("No valid verb found in word space")
+            usedVerbs.add(v.word)
+            v
+        }
 
         fun buildLine(): String {
             val n1 = nextNoun()
