@@ -246,7 +246,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val min = clampRarity(minRarity)
         val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
-            debugSelection("order_by_random_not_in", "V", min, max, "exclude=${exclude.size}")
+            debugSelection("order_by_random_not_in", "A", min, max, "exclude=${exclude.size}")
             val notIn = notInClause(exclude.size)
             return queryAdjective(
                 "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
