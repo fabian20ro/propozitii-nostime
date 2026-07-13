@@ -8,8 +8,13 @@ data class Adjective(
     val feminineSyllables: Int = WordUtils.computeSyllableNumber(feminine)
 ) : Word {
 
-    fun forGender(gender: NounGender): String =
-        if (gender == NounGender.F) feminine else word
+    /** Returns the appropriate adjective form for a noun of given gender.
+     *  Masculine and neuter singular share the same form in Romanian, so both return `word`.
+     */
+    fun forGender(gender: NounGender): String = when (gender) {
+        NounGender.F -> feminine
+        NounGender.M, NounGender.N -> word
+    }
 
     companion object {
         fun computeFeminine(word: String): String {
