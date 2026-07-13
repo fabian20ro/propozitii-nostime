@@ -9,6 +9,7 @@ class MirrorProvider(
 ) : ISentenceProvider {
 
     override fun getSentence(): String {
+        if (minRarity > maxRarity) throw IllegalArgumentException("Invalid rarity range: min=$minRarity, max=$maxRarity — swap or align values in sentence config")
         val rhymes = repo.findTwoRhymeGroups("V", 2, minRarity = minRarity, maxRarity = maxRarity)
             ?: throw IllegalStateException("Cannot find 2 verb rhyme groups with 2+ verbs each")
 
