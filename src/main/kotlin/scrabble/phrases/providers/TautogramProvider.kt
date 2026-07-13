@@ -22,6 +22,13 @@ class TautogramProvider(
         val noun2 = repo.getRandomNounByPrefix(prefix, minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(noun1.word))
             ?: throw IllegalStateException("[Tautogram] No second noun for prefix '$prefix' excluding '${noun1.word}' (rarity=$minRarity..$maxRarity)")
 
+        val words = listOf(noun1.word, adj.word, verb.word, noun2.word)
+        for (word in words) {
+            if (!word.lowercase().startsWith(prefix.lowercase())) {
+                throw IllegalStateException("[Tautogram] Word '$word' does not start with prefix '$prefix'")
+            }
+        }
+
         return "${noun1.articulated} ${adj.forGender(noun1.gender)} ${verb.word} ${noun2.articulated}."
     }
 }

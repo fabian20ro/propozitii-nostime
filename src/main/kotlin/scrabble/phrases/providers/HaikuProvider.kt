@@ -15,6 +15,7 @@ class HaikuProvider(
     override fun getSentence(): String {
         val noun = repo.getRandomNounByArticulatedSyllables(5, minRarity = minRarity, maxRarity = maxRarity)
             ?: repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
+            ?: throw IllegalStateException("No suitable noun found within rarity range ${minRarity}–${maxRarity}")
 
         // Adjective form in line 2 must be 4 syllables (+ verb 3 = 7 total).
         // For feminine nouns the feminine form is used, so query by feminine_syllables.
@@ -38,6 +39,7 @@ class HaikuProvider(
         // Second noun: articulated form has 5 syllables, distinct from first
         val noun2 = repo.getRandomNounByArticulatedSyllables(5, minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(noun.word))
             ?: repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(noun.word))
+            ?: throw IllegalStateException("No second noun found within rarity range ${minRarity}–${maxRarity}")
 
         return "${noun.articulated} / $adjForm ${verb.word} / ${noun2.articulated}."
     }
