@@ -8,7 +8,9 @@ data class Noun(
     val articulated: String = computeArticulated(word, gender)
 ) : Word {
     init {
-        require(!word.isNullOrBlank()) { "Noun word cannot be blank" }
+        require(!word.isBlank()) { "Noun word must not be blank or whitespace-only" }
+        val validPattern = Regex("^[a-zA-Z\\u0103\\u0102\\u00E2\\u00CE\\u00EE\\u0218\\u0219\\u021A\\u021B]+$")
+        require(validPattern.matches(word)) { "Noun word contains invalid characters: '$word' (allowed: a-z, A-Z, ă/Ă, â/Î/î, Ș/ș, Ţ/ţ)" }
     }
 
     companion object {
