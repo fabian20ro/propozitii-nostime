@@ -60,6 +60,8 @@ class PhraseResourceTest {
             .statusCode(200)
             .body("sentence", notNullValue())
             .body("sentence", containsString("<a href="))
+            // Tautogram is NOT a verse type — must not contain verse delimiters (<br/>).
+            .body("sentence", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<br/>")))
     }
 
     @Test

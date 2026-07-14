@@ -53,4 +53,13 @@ class DexlineLinkAdderTest {
             "href must use the exact dexonline base URL so frontend sanitizer accepts it; got: $result"
         )
     }
+
+    @Test
+    fun `should leave non-letter input unchanged`() {
+        val provider = MockSentenceProvider("123!")
+        val decorator = DexlineLinkAdder(provider)
+        val result = decorator.getSentence()
+
+        assertEquals("123!", result, "input with no letters must pass through without generating links")
+    }
 }
