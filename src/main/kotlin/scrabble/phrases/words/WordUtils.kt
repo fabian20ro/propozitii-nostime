@@ -19,8 +19,11 @@ object WordUtils {
         return chars.count { isVowel(it) }
     }
 
-    fun computeRhyme(name: String): String =
-        name.substring(maxOf(0, name.length - 3))
+    fun computeRhyme(name: String): String {
+        if (name.isNullOrEmpty()) return ""
+        val len = name.length
+        return if (len >= 3) name.substring(len - 3) else name
+    }
 
     fun fixWordCharacters(word: String): String = word.replace("'", "").replace("\u2019", "")
 
