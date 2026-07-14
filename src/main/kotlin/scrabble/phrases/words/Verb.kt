@@ -7,5 +7,7 @@ data class Verb(
 ) : Word {
     init {
         require(word.isNotBlank()) { "verb word must not be blank" }
+        require(word.length >= 2) { "verb word must have at least 2 characters" }
+        require(!word.all { it.isDigit() }) { "verb word must contain at least one letter" }
     }
 }
