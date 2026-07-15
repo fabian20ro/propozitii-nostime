@@ -2,6 +2,7 @@ package scrabble.phrases.words
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class AdjectiveFeminineContractTest {
 
@@ -38,6 +39,16 @@ class AdjectiveFeminineContractTest {
         cases.forEach { (masculine, expected) ->
             val adj = Adjective(masculine)
             assertThat(adj.feminine).isEqualTo(expected)
+        }
+    }
+
+    @Test
+    fun shouldThrowOnBlankInput() {
+        assertThrows<IllegalArgumentException> {
+            Adjective("")
+        }
+        assertThrows<IllegalArgumentException> {
+            Adjective("   ")
         }
     }
 }
