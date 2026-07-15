@@ -32,6 +32,8 @@ class NounTest {
         "rodie, F, rodia",
         // Masculine row — proves M-gender routing diverges from feminine;
         // masculine path appends 'ul' → macaraul (vs macaraua under F).
+        // ă-ending row — proves F-branch drops trailing ă and appends 'a';
+        // masculine ă-branch instead appends 'l' → tatăl (vs fata under F).
         "macara, M, macaraul",
     )
     fun shouldArticulateFeminine(word: String, gender: String, expected: String) {
