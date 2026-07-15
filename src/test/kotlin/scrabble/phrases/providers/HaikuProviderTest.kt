@@ -27,6 +27,8 @@ class HaikuProviderTest {
         val lines = sentence.split(" / ")
         lines.forEachIndexed { index, line ->
             assertTrue(line.isNotBlank(), "Haiku part #$index is blank; full sentence: $sentence")
+            val words = line.split("\\s+".toRegex()).filter { it.isNotBlank() }
+            assertTrue(words.size >= 1, "Haiku part #$index has no words: '$line' - full sentence: $sentence")
         }
 
         assertTrue(sentence.endsWith("."), "Sentence should end with a dot")
