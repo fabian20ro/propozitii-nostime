@@ -4,6 +4,10 @@ package scrabble.phrases.providers
  *  Implementations produce one sentence string. The verse-line delimiter `" / "` is part of the contract:
  *  [HtmlVerseBreaker] converts it to `<br/>`; mutating that literal breaks rendering in the frontend.
  */
+/** Value used by [HtmlVerseBreaker] to convert verse lines into `<br/>`.
+ *  Do not change without updating the frontend sanitizer and HtmlVerseBreaker. */
+const val VERSE_DELIMITER = " / "
+
 fun interface ISentenceProvider {
     fun getSentence(): String
 }

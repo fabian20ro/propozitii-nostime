@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.assertThrows
 
 @QuarkusTest
 class DefinitionProviderTest {
@@ -55,5 +56,19 @@ class DefinitionProviderTest {
         // Verify the key word itself isn't reused as one of the three distinct nouns
         val nounWord = words[0].trim().lowercase()
         assertFalse(nounWord == objArticulated.trim().lowercase(), "Noun and object should be different")
+    }
+
+    @Test
+    fun `should throw when rarity constraints cannot be satisfied`() {
+        val provider = DefinitionProvider(repository, minRarity = 100, maxRarity = 200)
+
+        val ex = assertThrows<IllegalStateException> {
+            provider.getSentence()
+        }
+
+        assertTrue(
+            ex.message!!.contains("rarity") || ex.message!!.contains("database"),
+            "Error message should reference rarity or database (got: '${ex.message}')"
+        )
     }
 }

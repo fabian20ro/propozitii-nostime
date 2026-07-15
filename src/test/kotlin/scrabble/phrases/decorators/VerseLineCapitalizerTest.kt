@@ -51,4 +51,18 @@ class VerseLineCapitalizerTest {
         val capitalizer = VerseLineCapitalizer(provider)
         assertEquals("", capitalizer.getSentence())
     }
+
+    @Test
+    fun `should handle trailing slash without producing empty segment`() {
+        val provider = MockProvider("line one /")
+        val capitalizer = VerseLineCapitalizer(provider)
+        assertEquals("Line one", capitalizer.getSentence())
+    }
+
+    @Test
+    fun `should capitalize first letter without altering rest of input`() {
+        val provider = MockProvider("LINE ONE / LINE TWO")
+        val capitalizer = VerseLineCapitalizer(provider)
+        assertEquals("LINE ONE / LINE TWO", capitalizer.getSentence())
+    }
 }
