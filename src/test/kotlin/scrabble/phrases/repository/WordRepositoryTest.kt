@@ -5,7 +5,8 @@ import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 @QuarkusTest
 class WordRepositoryTest {
@@ -47,16 +48,33 @@ class WordRepositoryTest {
 
     @Test
     fun shouldThrowExceptionWhenNoNounsFound() {
-        assertThrows<IllegalStateException> {
+        // Defensive precondition: no nouns at rarity level 5 in seed data.
+        val countStmt = dataSource.connection.prepareStatement(
+            "SELECT COUNT(*) FROM words WHERE type='N' AND rarity_level=5"
+        )
+        val exists = countStmt.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+        check(exists == 0) { "Expected no nouns at max rarity 5; seed data changed" }
+
+        var caught: IllegalStateException? = null
+        try {
             repository.getRandomNoun(minRarity = 5, maxRarity = 5)
+        } catch (e: IllegalStateException) {
+            caught = e
         }
+        assertThat(caught).isNotNull()
+        assertThat(caught!!.message).contains("between 5 and 5")
     }
 
     @Test
     fun shouldThrowExceptionWhenMinRarityGreaterThanMaxRarity() {
-        assertThrows<IllegalStateException> {
+        var caught: IllegalStateException? = null
+        try {
             repository.getRandomNoun(minRarity = 3, maxRarity = 2)
+        } catch (e: IllegalStateException) {
+            caught = e
         }
+        assertThat(caught).isNotNull()
+        assertThat(caught!!.message).contains("between 3 and 2")
     }
 
     private fun rarityOf(word: String, type: String): Int {
