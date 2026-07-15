@@ -33,4 +33,11 @@ class HtmlVerseBreakerTest {
         val breaker = HtmlVerseBreaker(mockProvider)
         assertEquals("Line1<br/>Line2<br/>Line3", breaker.getSentence())
     }
+
+    @Test
+    fun `should return empty string for blank input`() {
+        val mockProvider = ISentenceProvider { "   \t  " }
+        val breaker = HtmlVerseBreaker(mockProvider)
+        assertEquals("", breaker.getSentence())
+    }
 }
