@@ -44,6 +44,7 @@ class AdjectiveTest {
         "deșert, deșeartă",
         "mort, moartă",
         "bun, bună",
+        "minunat, minunată",
     )
     fun shouldDeriveFeminineForm(masculine: String, expectedFeminine: String) {
         val adj = Adjective(masculine)
