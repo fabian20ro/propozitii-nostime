@@ -13,7 +13,7 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
     private val log = Logger.getLogger(GlobalExceptionMapper::class.java)
 
     override fun toResponse(exception: Exception): Response {
-        log.error("Unhandled exception", exception)
+        log.error("Unhandled exception: {}", exception.javaClass.name, exception)
         if (exception is WebApplicationException && responseContextStatusOk(exception)) {
             return exception.response
         }
