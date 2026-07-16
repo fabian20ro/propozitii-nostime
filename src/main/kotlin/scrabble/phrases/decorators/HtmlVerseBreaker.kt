@@ -4,7 +4,8 @@ import scrabble.phrases.providers.ISentenceProvider
 
 class HtmlVerseBreaker(private val provider: ISentenceProvider) : ISentenceProvider {
     override fun getSentence(): String {
-        val text = provider.getSentence() ?: return ""
+        val text = provider.getSentence()
+            ?: throw IllegalArgumentException("sentence is null")
         // Guard empty/whitespace-only input — avoids regex compilation and protects the
         // " / " → <br/> contract boundary (AGENTS.md constraint #1).
         if (text.isBlank()) return ""
