@@ -79,7 +79,7 @@ class PhraseResource {
             comparison = getComparison(rarity, minRarity).sentence,
             definition = getDefinition(rarity, minRarity).sentence,
             tautogram = getTautogram(rarity, minRarity).sentence,
-            mirror = getMirror(rarity, minRarity).sentence,
+            mirror = generate(rarity, minRarity, ::decorateVerse) { min, max -> MirrorProvider(wordRepository, minRarity = min, maxRarity = max) }.sentence,
             timestamp = java.time.Instant.now().toString()
         )
 
