@@ -12,6 +12,8 @@ class VerseLineCapitalizer(private val provider: ISentenceProvider) : ISentenceP
             .map { it.trim() }
             .filter { it.isNotEmpty() }
         if (parts.isEmpty()) return ""
-        return parts.joinToString(" / ") { WordUtils.capitalizeFirstLetter(it) ?: "" }
+        // Preserve the original segment when capitalizeFirstLetter returns null,
+        // matching FirstSentenceLetterCapitalizer's "preserve instead of mask" pattern.
+        return parts.joinToString(" / ") { WordUtils.capitalizeFirstLetter(it) ?: it }
     }
 }
