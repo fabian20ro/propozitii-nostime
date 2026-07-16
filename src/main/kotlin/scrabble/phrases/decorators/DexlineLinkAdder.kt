@@ -17,7 +17,9 @@ class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvi
     }
 
     override fun getSentence(): String {
-        return provider.getSentence().replace(Regex("[\\p{L}']+")) { addHref(it.value) }
+        val raw = provider.getSentence()
+        if (raw.isNullOrBlank()) return ""
+        return raw.replace(Regex("[\\p{L}']+")) { addHref(it.value) }
     }
 
     private fun addHref(word: String): String {
