@@ -12,9 +12,18 @@ class CacheControlFilter : ContainerResponseFilter {
     override fun filter(requestContext: ContainerRequestContext, responseContext: ContainerResponseContext) {
         val uriInfo = requestContext.uriInfo ?: return
         val path = uriInfo.path ?: return
-        if (path.startsWith("api/") && !isDiagnosticEndpoint(path) && responseContext.status in 200..299) {
-            responseContext.headers.putSingle("Cache-Control", "public, max-age=$MAX_AGE_SECONDS, must-revalidate")
+        if (path.startsWith("api/") && responseContext.status in 200..299) {
+            when {
+                isDiagnosticEndpoint(path) -> applyNoCacheHeaders(responseContext)
+                else -> responseContext.headers.putSingle(
+                    "Cache-Control", "public, max-age=$MAX_AGE_SECONDS, must-revalidate"
+                )
+            }
         }
+    }
+
+    private fun applyNoCacheHeaders(context: ContainerResponseContext) {
+        context.headers.putSingle("Cache-Control", "no-cache, no-store")
     }
 
     private fun isDiagnosticEndpoint(path: String): Boolean {
