@@ -56,5 +56,8 @@ class WordUtilsTest {
         // Unicode right-single-quote (\u2019) must also be stripped; source handles both.
         assertEquals("mam dus", WordUtils.fixWordCharacters("m\u2019am dus"))
         assertEquals("neam", WordUtils.fixWordCharacters("ne\u2019am"))
+        // Multiple apostrophes in one word — replace is global, removes all.
+        assertEquals("cpast", WordUtils.fixWordCharacters("c'pas't'"))
+        assertEquals("numa zis", WordUtils.fixWordCharacters("n\u2019um\u2019a zis"))
     }
 }
