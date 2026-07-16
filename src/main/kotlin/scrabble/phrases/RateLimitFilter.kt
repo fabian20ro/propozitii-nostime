@@ -17,11 +17,7 @@ class RateLimitFilter : ContainerRequestFilter {
         val path = requestContext.uriInfo.path
         if (!path.startsWith("api/")) return
 
-        val ip = requestContext.getHeaderString("X-Forwarded-For")
-            ?.split(",")
-            ?.firstOrNull()
-            ?.trim()
-            ?: "unknown"
+        val ip = extractIp(requestContext) ?: "unknown"
 
         val now = System.currentTimeMillis()
         val windowStart = now - WINDOW_MS
@@ -32,7 +28,7 @@ class RateLimitFilter : ContainerRequestFilter {
 
         if (timestamps.size > MAX_REQUESTS) {
             // Prefer server-supplied reset headers; fall back to window-based estimate.
-            val retryAfterSeconds = calculateRetryAfterSeconds(requestContext, System.currentTimeMillis())
+            val retryAfterSeconds = calculateRetryAfterSeconds(ip, now)
             requestContext.abortWith(
                 Response.status(429)
                     .header("Retry-After", retryAfterSeconds)
@@ -47,32 +43,15 @@ class RateLimitFilter : ContainerRequestFilter {
         cleanupStaleEntries(windowStart)
     }
 
-    private fun calculateRetryAfterSeconds(context: ContainerRequestContext, nowMs: Long): Int {
-        // Prefer server-supplied reset headers over the generic retry_after field.
-        val reset = context.getHeaderString("X-RateLimit-Reset") ?: context.getHeaderString("x-ratelimit-reset")
-        if (reset != null) {
-            try {
-                val resetEpochSec = reset.toLong()
-                return maxOf(1, ((resetEpochSec * 1000 - nowMs + 999) / 1000).toInt())
-            } catch (_: Exception) { /* fall through */ }
-        }
+    private fun calculateRetryAfterSeconds(ip: String, nowMs: Long): Int {
+        val oldest = oldestTimestampFor(ip)
+        val raw = (oldest + WINDOW_MS - nowMs).coerceAtLeast(1L) / 1000
+        return maxOf(1, raw.toInt())
+    }
 
-        val retryAfter = context.getHeaderString("retry_after") ?: context.getHeaderString("Retry-After")
-        if (retryAfter != null) {
-            try {
-                val secs = retryAfter.toLong()
-                return maxOf(1, secs.toInt())
-            } catch (_: Exception) {
-                val fallback = retryAfter.toLongOrNull()
-                if (fallback != null && fallback > 0) return maxOf(1, fallback.toInt())
-            }
-        }
-
-        // Fall back to window-based estimate using oldest tracked timestamp.
-        val ip = context.getHeaderString("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim() ?: return WINDOW_MS.toInt() / 1000
-        val timestamps = requests[ip] ?: return WINDOW_MS.toInt() / 1000
-        val oldest = timestamps.firstOrNull() ?: return WINDOW_MS.toInt() / 1000
-        return maxOf(1, ((oldest + WINDOW_MS) - nowMs) / 1000).toInt()
+    private fun oldestTimestampFor(ip: String): Long {
+        val timestamps = requests[ip] ?: return 0L
+        return timestamps.firstOrNull() ?: return 0L
     }
 
     private fun cleanupStaleEntries(windowStart: Long) {
@@ -81,6 +60,13 @@ class RateLimitFilter : ContainerRequestFilter {
             .filter { it.value.isEmpty() || it.value.all { ts -> ts < windowStart } }
             .map { it.key }
         staleKeys.forEach { requests.remove(it) }
+    }
+
+    private fun extractIp(context: ContainerRequestContext): String? {
+        return context.getHeaderString("X-Forwarded-For")
+            ?.split(",")
+            ?.firstOrNull()
+            ?.trim()
     }
 
     companion object {
