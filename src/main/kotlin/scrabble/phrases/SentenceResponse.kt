@@ -8,7 +8,13 @@ class SentenceResponse(val sentence: String) {
         /** Factory with distinct failure signals for null vs. blank input. */
         @JvmStatic fun of(input: String?): SentenceResponse = when (input) {
             null -> throw IllegalArgumentException("sentence is null")
-            else -> SentenceResponse(input)
+            else -> ofNotBlank(input)
+        }
+
+        /** Explicit factory for non-null strings — validates non-blank before construction. */
+        @JvmStatic fun ofNotBlank(input: String): SentenceResponse {
+            if (input.isBlank()) throw IllegalArgumentException("sentence is blank")
+            return SentenceResponse(input)
         }
     }
 }
