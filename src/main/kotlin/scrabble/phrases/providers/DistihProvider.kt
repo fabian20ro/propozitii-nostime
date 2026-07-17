@@ -25,21 +25,27 @@ class DistihProvider(
 
         fun nextNoun() = run {
             val n = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = usedNouns)
-                ?: throw IllegalStateException("No valid noun found in word space")
+                ?: throw IllegalStateException(
+                    "No valid noun found for rarity range $minRarity..$maxRarity (excluded: ${usedNouns.size})"
+                )
             usedNouns.add(n.word)
             n
         }
 
         fun nextAdj() = run {
             val a = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs)
-                ?: throw IllegalStateException("No valid adjective found in word space")
+                ?: throw IllegalStateException(
+                    "No valid adjective found for rarity range $minRarity..$maxRarity (excluded: ${usedAdjs.size})"
+                )
             usedAdjs.add(a.word)
             a
         }
 
         fun nextVerb() = run {
             val v = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity, exclude = usedVerbs)
-                ?: throw IllegalStateException("No valid verb found in word space")
+                ?: throw IllegalStateException(
+                    "No valid verb found for rarity range $minRarity..$maxRarity (excluded: ${usedVerbs.size})"
+                )
             usedVerbs.add(v.word)
             v
         }
