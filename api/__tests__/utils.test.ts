@@ -219,6 +219,15 @@ describe("api/all.ts utilities", () => {
       // Last element of multi-value arrays wins (matches firstQueryValue behavior).
       expect(normalizeRarityRange(["1", "3"], ["6", "7"])).toEqual({ minR: 3, maxR: 5 });
     });
+    it("clamps array elements outside [1..5] to range boundaries", () => {
+      // Source: Math.max(1, Math.min(5, v)) applied per element.
+      expect(normalizeRarityRange(["0"], ["7"])).toEqual({ minR: 1, maxR: 5 });
+      expect(normalizeRarityRange(["-10"], ["100"])).toEqual({ minR: 1, maxR: 5 });
+    });
+    it("returns [2,1] clamped to valid range when array values reverse", () => {
+      // Source: if (minC > maxC) [minC, maxC] = [maxC, minC]; applied after clamping.
+      expect(normalizeRarityRange(["5"], ["1"])).toEqual({ minR: 1, maxR: 5 });
+    });
   });
 
   describe("adjForGender", () => {
