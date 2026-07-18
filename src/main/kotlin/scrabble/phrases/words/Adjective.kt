@@ -9,12 +9,18 @@ data class Adjective(
 ) : Word {
 
     /** Returns the appropriate adjective form for a noun of given gender.
-     *  Masculine and neuter singular share the same form in Romanian, so both return `word`.
+     *  Romanian neuter singular uses the feminine adjectival form; masculine uses base word.
      */
     fun forGender(gender: NounGender): String = when (gender) {
-        NounGender.F -> feminine
-        NounGender.M, NounGender.N -> word
+        NounGender.M -> word
+        NounGender.F, NounGender.N -> feminine
     }
+
+    /** Returns the masculine form of this adjective. */
+    fun forMasculine(): String = word
+
+    /** Returns the neuter/feminine form of this adjective (same in Romanian). */
+    fun forNeuterOrFeminine(): String = feminine
 
     companion object {
         fun computeFeminine(word: String): String {
