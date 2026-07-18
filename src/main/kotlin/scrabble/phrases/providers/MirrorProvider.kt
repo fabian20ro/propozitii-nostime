@@ -10,31 +10,39 @@ class MirrorProvider(
 
     override fun getSentence(): String {
         if (minRarity > maxRarity) throw IllegalArgumentException("Invalid rarity range: min=$minRarity, max=$maxRarity — swap or align values in sentence config")
-        val rhymes = repo.findTwoRhymeGroups("V", 2, minRarity = minRarity, maxRarity = maxRarity)
-            ?: throw IllegalStateException("Cannot find 2 verb rhyme groups with 2+ verbs each")
+        try {
+            val rhymes = repo.findTwoRhymeGroups("V", 2, minRarity = minRarity, maxRarity = maxRarity)
+                ?: throw IllegalStateException("Cannot find 2 verb rhyme groups with 2+ verbs each")
 
-        val (rhymeA, rhymeB) = rhymes
-        val usedNouns = mutableSetOf<String>()
-        val usedAdjs = mutableSetOf<String>()
-        val usedVerbs = mutableSetOf<String>()
+            val (rhymeA, rhymeB) = rhymes
+            val usedNouns = mutableSetOf<String>()
+            val usedAdjs = mutableSetOf<String>()
+            val usedVerbs = mutableSetOf<String>()
 
-        fun buildLine(rhyme: String, punct: String): String {
-            val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = usedNouns)
-            usedNouns.add(noun.word)
-            val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs) ?: throw IllegalStateException("No adjective found for rarity ${minRarity}-$maxRarity")
-            usedAdjs.add(adj.word)
-            val verb = repo.getRandomVerbByRhyme(rhyme, minRarity = minRarity, maxRarity = maxRarity, exclude = usedVerbs)
-                ?: throw IllegalStateException("No verb found for rhyme '$rhyme'")
-            usedVerbs.add(verb.word)
-            return "${noun.articulated} ${adj.forGender(noun.gender)} ${verb.word}$punct"
+            fun buildLine(rhyme: String, punct: String): String {
+                val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = usedNouns)
+                    ?: throw IllegalStateException("No noun found in rarity ${minRarity}..$maxRarity")
+                usedNouns.add(noun.word)
+                val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity, exclude = usedAdjs)
+                    ?: throw IllegalStateException("No adjective found for rarity ${minRarity}-$maxRarity")
+                usedAdjs.add(adj.word)
+                val verb = repo.getRandomVerbByRhyme(rhyme, minRarity = minRarity, maxRarity = maxRarity, exclude = usedVerbs)
+                    ?: throw IllegalStateException("No verb found for rhyme '$rhyme'")
+                usedVerbs.add(verb.word)
+                return "${noun.articulated} ${adj.forGender(noun.gender)} ${verb.word}$punct"
+            }
+
+            // ABBA rhyme pattern
+            return listOf(
+                buildLine(rhymeA, ","),
+                buildLine(rhymeB, ","),
+                buildLine(rhymeB, ","),
+                buildLine(rhymeA, ".")
+            ).joinToString(" / ")
+        } catch (e: IllegalStateException) {
+            throw IllegalStateException(
+                "MirrorProvider needs 2 verb rhyme groups plus noun/adjective/verb in rarity range ${minRarity}..$maxRarity — database may be empty or misconfigured", e
+            )
         }
-
-        // ABBA rhyme pattern
-        return listOf(
-            buildLine(rhymeA, ","),
-            buildLine(rhymeB, ","),
-            buildLine(rhymeB, ","),
-            buildLine(rhymeA, ".")
-        ).joinToString(" / ")
     }
 }
