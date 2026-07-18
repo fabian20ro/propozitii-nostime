@@ -80,13 +80,19 @@ private fun loadWords(conn: Connection, wordsFile: File) {
                     var word = WordUtils.fixWordCharacters(pieces[0])
                     var type = pieces[1]
 
-                    // Handle numeric type format
+                    // Handle numeric type format (e.g., "copilM" → type="M")
                     try {
                         type.toInt()
                         if (word.length >= 3) {
                             val breakIndex = if (word[word.length - 2] <= 'Z') 2 else 1
-                            type = word.substring(word.length - breakIndex)
+                            type = word.substring(word.length - breakIndex).uppercase()
                             word = word.substring(0, word.length - breakIndex)
+                            // Validate extracted gender code against known NounGender values
+                            if (!NounGender.isValidCode(type)) {
+                                skipped++
+                                println("Skipped invalid extracted gender '${type}' for word '${pieces[0]}': $line")
+                                return@forEachLine
+                            }
                         }
                     } catch (_: NumberFormatException) {
                         // Not numeric, use as-is
