@@ -5,7 +5,7 @@ import scrabble.phrases.repository.WordRepository
 class ComparisonProvider(
     private val repo: WordRepository,
     private val minRarity: Int = 1,
-    private val maxRarity: Int
+    private val maxRarity: Int = WordRepository.DEFAULT_MAX_RARITY
 ) : ISentenceProvider {
 
     override fun getSentence(): String {
