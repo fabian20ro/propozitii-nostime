@@ -847,10 +847,14 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
+  // System failure (DB down, config missing) → 503. Frontend distinguishes
+  // from legitimate "no data" by checking for InternalServerError at 503 vs
+  // UNSATISFIABLE strings at 2xx.
   if (!getSupabaseClient()) {
     setTimingHeaders();
-    return res.status(500).json({
-      error: supabaseError ?? "Missing SUPABASE_URL or Supabase API key",
+    return res.status(503).json({
+      error: new InternalServerError(supabaseError ?? "Missing SUPABASE_URL or Supabase API key").message,
+      details: [supabaseError ?? "Missing SUPABASE_URL or Supabase API key"],
     });
   }
 
