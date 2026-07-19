@@ -982,6 +982,26 @@ describe("safe() error boundary", () => {
     }
   });
 
+  // Regression guard — AGENTS.md: thrown errors (not just rejected promises) at depth must be wrapped as InternalServerError.
+  // If a future refactor of safe() fails to catch synchronous throws inside async generators,
+  // the error would propagate uncaught instead of being converted to a distinguishable signal.
+  // This test locks the invariant for the more common pattern: await → throw.
+  it("InternalServerError wraps thrown errors deep in generator chain (await-then-throw pattern)", async () => {
+    const dbErr = new Error("ECONNREFUSED: database unreachable");
+    const result = await safe(async () => {
+      await Promise.resolve(); // simulate network latency
+      await Promise.resolve(); // simulate second query
+      throw dbErr; // common pattern: throw after awaits, not reject a promise directly
+    });
+    expect(result).not.toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
+    expect(result).toBeInstanceOf(InternalServerError);
+    if (result instanceof InternalServerError) {
+      expect(result.message).toBe("ECONNREFUSED: database unreachable");
+      // Verify the original error is preserved, not mangled to a generic message.
+      expect(result.name).toBe("InternalServerError");
+    }
+  });
+
   it("InternalServerError preserves original error message", async () => {
     const err = new Error("database timeout after 30s");
     const result = await safe(async () => { throw err; });
