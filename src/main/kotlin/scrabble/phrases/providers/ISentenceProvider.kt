@@ -8,6 +8,15 @@ package scrabble.phrases.providers
  *  Do not change without updating the frontend sanitizer and HtmlVerseBreaker. */
 const val VERSE_DELIMITER = " / "
 
+@Suppress("ClassName")
+private object VerseDelimiterContractGuard {
+    init {
+        require(VERSE_DELIMITER == " / ") {
+            "VERSE_DELIMITER contract violated — must equal ' / ' for HtmlVerseBreaker frontend rendering"
+        }
+    }
+}
+
 fun interface ISentenceProvider {
     fun getSentence(): String
 }
