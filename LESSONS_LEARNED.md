@@ -37,6 +37,8 @@ Obsolete lessons move to Archive section at bottom (with date and reason). Never
 
 <!-- Format: **[YYYY-MM-DD]** Brief title — Explanation -->
 
+**[2026-07-20]** Async warm-up success must clear fallback UI — Setting only the backend health flag after a delayed request or health poll leaves the earlier "still cold" notice visible indefinitely. Centralize the healthy transition so state and informational UI are updated together.
+
 **[2026-05-12]** Exhausted health polls deserve their own diagnostic — If the frontend has already fallen back to Vercel because Render was cold, the background health loop should emit a retry-counted message (and log warning) when it exhausts all probes. A single generic "fallback active" notice hides the important difference between "temporarily using fallback" and "primary never recovered."
 **[2026-05-13]** Clear abort timers in `finally` — Fetch helpers that attach `AbortController` timeouts should clear the timer in `finally`, not only on the success path. That keeps rejected/aborted requests from leaving stray timers behind.
 **[2026-02-11]** Kotlin `require()` lazy evaluation — Kotlin `require()` lazily evaluates its message lambda; avoid side effects in that lambda.

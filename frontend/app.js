@@ -89,6 +89,14 @@ function renderColdMessage(retries = null) {
 
 // Track whether Render backend is known to be up
 let renderIsHealthy = false;
+
+function markRenderHealthy() {
+    renderIsHealthy = true;
+    if (errorMessage.classList.contains('info')) {
+        hideMessage();
+    }
+}
+
 const RARITY_MIN_KEY = 'rarity-min';
 const RARITY_MAX_KEY = 'rarity-max';
 const OLD_RARITY_KEY = 'rarity-level';
@@ -297,13 +305,13 @@ async function fetchAllSentences(range) {
     try {
         const winner = await firstSuccessful([renderAttempt, fallbackAttempt]);
         if (winner.source === 'render') {
-            renderIsHealthy = true;
+            markRenderHealthy();
             return winner.data;
         }
         showInfo(renderColdMessage());
         wakeRenderInBackground();
         renderAttempt
-            .then(() => { renderIsHealthy = true; })
+            .then(markRenderHealthy)
             .catch(() => { /* no-op */ });
         return winner.data;
     } catch (err) {
@@ -323,7 +331,10 @@ function wakeRenderInBackground() {
         try {
             for (let i = 0; i < MAX_RETRIES; i++) {
                 const up = await checkHealth();
-                if (up) { renderIsHealthy = true; break; }
+                if (up) {
+                    markRenderHealthy();
+                    break;
+                }
                 if (i < MAX_RETRIES - 1) {
                     await delay(RETRY_DELAY);
                 }
