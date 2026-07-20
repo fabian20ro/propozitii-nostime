@@ -28,6 +28,147 @@ import {
   safeTimestamp,
 } from "../all";
 
+// --- resolveSupabaseKey ---
+
+describe("resolveSupabaseKey", () => {
+  it("prefers SUPABASE_PUBLISHABLE_KEY over service-role key", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: "pub-key-123",
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+    });
+    expect(res.source).toBe("publishable");
+    expect(res.key).toBe("pub-key-123");
+    expect(res.error).toBeUndefined();
+  });
+
+  it("uses service-role key only when fallback is explicitly enabled", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "true",
+    });
+    expect(res.source).toBe("service-role");
+    expect(res.key).toBe("svc-secret");
+    expect(res.error).toBeUndefined();
+  });
+
+  it("returns error when service-role key is set but fallback is disabled", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+    });
+    expect(res.source).toBe("none");
+    expect(res.key).toBe("");
+    expect(res.error).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(res.error).toContain("disabled for this public endpoint");
+  });
+
+  it("returns error when no key is configured", () => {
+    const res = resolveSupabaseKey({});
+    expect(res.source).toBe("none");
+    expect(res.key).toBe("");
+    expect(res.error).toBe("Missing SUPABASE_PUBLISHABLE_KEY.");
+  });
+
+  // Regression: AGENTS.md security coupling — the publishable-key path must
+  // always win. If a future refactor accidentally lets service-role leak into
+  // public endpoints, Supabase will expose write/delete access. This test
+  // locks the precedence invariant.
+  it("never leaks service-role key as the active key in production", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+    });
+    expect(res.source).toBe("publishable");
+    // Service-role key must NOT be used — even if it were checked first,
+    // the publishable check runs before and short-circuits.
+    expect(res.key).not.toBe("svc-secret");
+  });
+
+  // Regression: whitespace-only keys must not pass through as "valid".
+  // If a future env-var gets set to spaces only, trim() + length check must
+  // prevent it from being treated as a real key.
+  it("treats whitespace-only publishable key as absent", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: "   ",
+      SUPABASE_SERVICE_ROLE_KEY: "",
+    });
+    expect(res.source).toBe("none");
+    expect(res.key).toBe("");
+    // Falls through to the missing-key error path.
+    expect(res.error).toBe("Missing SUPABASE_PUBLISHABLE_KEY.");
+  });
+
+  it("treats whitespace-only service-role key as absent", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "   ",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "true",
+    });
+    expect(res.source).toBe("none");
+  });
+
+  it("treats 'TRUE' (uppercase) as enabled — fallback check is case-insensitive", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "TRUE", // toLowerCase === "true" matches
+    });
+    expect(res.source).toBe("service-role");
+  });
+
+  it("treats non-true string values as disabled", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "yes", // not equal to "true" after lowercase
+    });
+    expect(res.source).toBe("none");
+  });
+
+  it("trims surrounding whitespace from keys", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: " pub-key ",
+    });
+    expect(res.key).toBe("pub-key");
+    expect(res.source).toBe("publishable");
+  });
+
+  // Regression: undefined key must not fall through to service-role.
+  it("does not fall through to service-role when publishable is undefined", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_PUBLISHABLE_KEY: undefined,
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+    });
+    // No publishable → checks service-role with fallback OFF (default).
+    expect(res.source).toBe("none");
+    expect(res.error).toContain("SUPABASE_SERVICE_ROLE_KEY");
+  });
+
+  it("treats false-ish fallback as disabled", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "false",
+    });
+    expect(res.source).toBe("none");
+  });
+
+  // Regression: empty publishable key (after trim) must not satisfy the check.
+  it("treats empty-string publishable key as absent", () => {
+    const res = resolveSupabaseKey({ SUPABASE_PUBLISHABLE_KEY: "" });
+    expect(res.source).toBe("none");
+    expect(res.error).toBe("Missing SUPABASE_PUBLISHABLE_KEY.");
+  });
+
+  it("empty service-role with fallback enabled does not activate", () => {
+    const res = resolveSupabaseKey({
+      SUPABASE_SERVICE_ROLE_KEY: "",
+      ALLOW_SUPABASE_SERVICE_ROLE_FALLBACK: "true",
+    });
+    expect(res.source).toBe("none");
+  });
+
+  it("returns undefined error for valid publishable key (no error path)", () => {
+    const res = resolveSupabaseKey({ SUPABASE_PUBLISHABLE_KEY: "k" });
+    expect(res.error).toBeUndefined();
+  });
+});
+
 // --- escapeHtml ---
 
 describe("escapeHtml", () => {
@@ -979,6 +1120,26 @@ describe("safe() error boundary", () => {
     } else {
       // If result is a string, it must not be the UNSATISFIABLE sentinel.
       expect(typeof result).not.toBe("string");
+    }
+  });
+
+  // Regression guard — AGENTS.md: thrown errors (not just rejected promises) at depth must be wrapped as InternalServerError.
+  // If a future refactor of safe() fails to catch synchronous throws inside async generators,
+  // the error would propagate uncaught instead of being converted to a distinguishable signal.
+  // This test locks the invariant for the more common pattern: await → throw.
+  it("InternalServerError wraps thrown errors deep in generator chain (await-then-throw pattern)", async () => {
+    const dbErr = new Error("ECONNREFUSED: database unreachable");
+    const result = await safe(async () => {
+      await Promise.resolve(); // simulate network latency
+      await Promise.resolve(); // simulate second query
+      throw dbErr; // common pattern: throw after awaits, not reject a promise directly
+    });
+    expect(result).not.toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
+    expect(result).toBeInstanceOf(InternalServerError);
+    if (result instanceof InternalServerError) {
+      expect(result.message).toBe("ECONNREFUSED: database unreachable");
+      // Verify the original error is preserved, not mangled to a generic message.
+      expect(result.name).toBe("InternalServerError");
     }
   });
 
