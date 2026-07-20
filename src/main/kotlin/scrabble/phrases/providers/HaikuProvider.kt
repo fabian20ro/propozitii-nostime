@@ -24,7 +24,7 @@ class HaikuProvider(
             repo.getRandomAdjectiveByFeminineSyllables(4, minRarity = minRarity, maxRarity = maxRarity)
                 ?: run {
                     log.debugf("HaikuProvider: feminine_syllables column not available for %s, falling back to masculine syllable query", noun.word)
-                    repo.getRandomAdjectiveBySyllables(3, minRarity = minRarity, maxRarity = maxRarity)
+                    repo.getRandomAdjectiveBySyllables(4, minRarity = minRarity, maxRarity = maxRarity)
                 }
         } else {
             repo.getRandomAdjectiveBySyllables(4, minRarity = minRarity, maxRarity = maxRarity)
