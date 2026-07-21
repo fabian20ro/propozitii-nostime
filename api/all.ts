@@ -323,6 +323,14 @@ async function randomRow<T extends WordRow>(
   const client = getSupabaseClient();
   if (!client) throw new Error(supabaseError ?? "Supabase client unavailable.");
 
+  // Supabase returns `{ data, error }` on every query. Any transient DB or
+  // network error would otherwise be silently dropped (returning null →
+  // "no data" instead of surfacing the failure to the operator). Check `error`
+  // after each await and throw so it propagates through safe() into InternalServerError.
+  function requireSuccess(result: { data?: unknown; error?: unknown }): void {
+    if (result.error) throw result.error instanceof Error ? result.error : new Error(String(result.error));
+  }
+
   const cKey = countCacheKey(filters);
   const usedCachedCount = cache?.has(cKey) ?? false;
   let count: number | null | undefined = cache?.get(cKey);
@@ -330,8 +338,9 @@ async function randomRow<T extends WordRow>(
   if (count === undefined) {
     let countQ = client.from("words").select("word", { count: "exact", head: true });
     for (const f of filters) countQ = applyFilter(countQ, f);
-    const result = await countQ;
-    count = result.count;
+    const resp = await countQ;
+    requireSuccess(resp);
+    count = resp.count;
     if (count != null && cache) cache.set(cKey, count);
   }
   if (!count) return null;
@@ -340,7 +349,9 @@ async function randomRow<T extends WordRow>(
   const offset = Math.floor(Math.random() * count);
   let dataQ = client.from("words").select(select);
   for (const f of filters) dataQ = applyFilter(dataQ, f);
-  const { data } = await dataQ.range(offset, offset).limit(1);
+  const resp = await dataQ.range(offset, offset).limit(1);
+  requireSuccess(resp);
+  const { data } = resp;
 
   // If data miss and we used a cached count (possibly stale due to exclude
   // filters), retry once with a fresh count to handle small-pool edge cases.
@@ -348,14 +359,17 @@ async function randomRow<T extends WordRow>(
     cache?.delete(cKey);
     let freshQ = client.from("words").select("word", { count: "exact", head: true });
     for (const f of filters) freshQ = applyFilter(freshQ, f);
-    const freshResult = await freshQ;
-    const freshCount = freshResult.count;
+    const freshResp = await freshQ;
+    requireSuccess(freshResp);
+    const freshCount = freshResp.count;
     if (!freshCount) return null;
     if (cache) cache.set(cKey, freshCount);
     const retryOffset = Math.floor(Math.random() * freshCount);
     let retryQ = client.from("words").select(select).range(retryOffset, retryOffset).limit(1);
     for (const f of filters) retryQ = applyFilter(retryQ, f);
-    const { data: retryData } = await retryQ;
+    const retryResp = await retryQ;
+    requireSuccess(retryResp);
+    const { data: retryData } = retryResp;
     if (!retryData || retryData.length === 0) return null;
     return retryData[0] as unknown as T;
   }
