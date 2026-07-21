@@ -26,7 +26,10 @@ object WordUtils {
     }
 
     fun fixWordCharacters(word: String): String = word.replace("'", "").replace("\u2019", "")
-
+    fun fixWordCharactersSafe(word: String?): String? {
+        if (word.isNullOrEmpty()) return word
+        return fixWordCharacters(word)
+    }
     private fun replaceTongsWithChar(chars: CharArray) {
         val clength = chars.size
         for (tong in tongs) {
