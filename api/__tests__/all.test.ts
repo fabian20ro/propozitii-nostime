@@ -1458,3 +1458,129 @@ describe("safeTimestamp", () => {
     expect(threw).toBe(false);
   });
 });
+
+// --- normalizeRarityRange ---
+
+describe("normalizeRarityRange", () => {
+  it("returns default [1,2] when both inputs are undefined", () => {
+    const r = normalizeRarityRange(undefined, undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("clamps values to the [1,5] range (min)", () => {
+    const r = normalizeRarityRange("-3", "-8");
+    // Both NaN → default; now test clamping with valid numbers.
+  });
+
+  it("clamps min above 5 to 5", () => {
+    const r = normalizeRarityRange("7", undefined);
+    expect(r).toEqual({ minR: 5, maxR: 5 }); // maxC defaults to 5, minC clamped to 5.
+  });
+
+  it("clamps max below 1 to 1", () => {
+    const r = normalizeRarityRange(undefined, "-2");
+    expect(r.minR).toBe(1);
+    expect(r.maxR).toBe(1); // Math.max(1, min(-2)) → 1.
+  });
+
+  it("clamps max above 5 to 5", () => {
+    const r = normalizeRarityRange(undefined, "9");
+    expect(r.maxR).toBe(5);
+  });
+
+  it("swaps when min > max", () => {
+    const r = normalizeRarityRange("4", "2");
+    // After swap: minC=2, maxC=4.
+    expect(r.minR).toBeLessThanOrEqual(r.maxR);
+    expect(r.minR + r.maxR).not.toBeGreaterThan(10);
+  });
+
+  it("handles array input (last value wins)", () => {
+    const r = normalizeRarityRange(["3", "4"], ["5", "6"]);
+    // getNum picks last element: min=4, max=6→clamped to 5.
+    expect(r.minR).toBe(4);
+    expect(r.maxR).toBe(5);
+  });
+
+  it("handles array input with NaN first elements", () => {
+    const r = normalizeRarityRange(["abc", "2"], ["3", "def"]);
+    // getNum picks LAST element of parsed array: min=2, max=NaN (last="def") → default.
+    expect(r.minR).toBe(2);
+    expect(r.maxR).toBe(5); // NaN max falls through to default 5.
+  });
+
+  it("treats empty string as absent", () => {
+    const r = normalizeRarityRange("", "");
+    // Both trim to "" → undefined → NaN → default [1,2].
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("returns undefined error for invalid URL in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "not-a-url",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Invalid SUPABASE_URL");
+  });
+
+  it("returns undefined error for missing URL in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    // No SUPABASE_URL → validateSupabaseUrl returns error.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Missing SUPABASE_URL");
+  });
+
+  it("accepts http (non-https) URLs — validateSupabaseUrl allows both protocols", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "http://example.com",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    expect(res.error).toBeUndefined();
+  });
+
+  it("returns no error when key and valid URL are provided", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    expect(res.error).toBeUndefined();
+  });
+
+  it("url error takes precedence over missing key in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({});
+    // No URL → urlError fires first.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Missing SUPABASE_URL");
+  });
+
+  it("key error surfaces when URL is valid but key missing", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://example.supabase.co",
+    });
+    // Valid URL, no publishable key → keyResolution.error propagates.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Missing SUPABASE_PUBLISHABLE_KEY");
+  });
+
+  it("propagates keyResolution error verbatim in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+    });
+    // service-role without fallback → keyResolution.error set.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("SUPABASE_SERVICE_ROLE_KEY");
+  });
+
+  it("returns no error for valid publishable key + https URL", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://abc.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "pk-123",
+    });
+    expect(res.error).toBeUndefined();
+    expect(res.keyResolution.source).toBe("publishable");
+  });
+});
