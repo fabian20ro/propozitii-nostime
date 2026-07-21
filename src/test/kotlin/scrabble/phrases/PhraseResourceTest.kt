@@ -87,6 +87,14 @@ class PhraseResourceTest {
             .body("definition", notNullValue())
             .body("tautogram", notNullValue())
             .body("mirror", notNullValue())
+            // Every sentence field must carry dexonline links — matches per-endpoint contract.
+            .body("haiku", containsString("<a href="))
+            .body("distih", containsString("<a href="))
+            .body("comparison", containsString("<a href="))
+            .body("definition", containsString("<a href="))
+            // Tautogram: has links but NOT verse delimiters (<br/>).
+            .body("tautogram", containsString("<a href="))
+            .body("mirror", containsString("<a href="))
     }
 
     @Test
