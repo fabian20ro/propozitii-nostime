@@ -1103,7 +1103,28 @@ describe("safe() error boundary", () => {
     expect(result).toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
   });
 
-  // Regression guard — AGENTS.md: system errors at any depth must stay as
+  // Regression guard — successful generator output must return unchanged.
+  // If safe() ever wraps successes in an InternalServerError or applies extra
+  // processing, frontend rendering would break (e.g., verse text getting doubled).
+  it("returns raw success string from generator without wrapping", async () => {
+    const originalText = "Câinele fericit aleargă prin parc.";
+    const result = await safe(async () => originalText);
+    expect(result).toBe(originalText);
+    // Must NOT be wrapped in any error type.
+    expect(result).not.toBeInstanceOf(InternalServerError);
+  });
+
+  it("returns raw success string through deep async chain without wrapping", async () => {
+    const originalText = "Un câine fericit aleargă prin parc.";
+    const result = await safe(async () => {
+      await Promise.resolve(); // simulate delay
+      return originalText;
+    });
+    expect(result).toBe(originalText);
+    expect(typeof result).toBe("string");
+  });
+
+  // Regression guard — system errors at any depth must stay as
   // InternalServerError. If a future refactor of safe() collapses nested async
   // rejections (e.g., an inner Promise.reject after intermediate awaits), the
   // frontend would lose the signal and operators would see "no data" instead of
