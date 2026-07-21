@@ -919,7 +919,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
 
   if (errors.length > 0) {
     setTimingHeaders();
-    res.status(503).json({
+    return res.status(503).json({
       error: "Sentence generation failed",
       details: errors,
     });
