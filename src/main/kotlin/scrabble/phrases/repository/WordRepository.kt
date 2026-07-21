@@ -268,6 +268,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val max = clampRarity(maxRarity)
         val count = rangeCountTriple(countsByTypeSyllablesMaxRarity, "A", syllables, min, max)
         if (count == 0) return null
+        debugSelection("count_offset_dim", "A", min, max, "dim=syllables value=$syllables count=$count")
         return queryAdjective(
             "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             syllables,
@@ -282,6 +283,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val max = clampRarity(maxRarity)
         val count = rangeCountTriple(countsByTypeFeminineSyllablesMaxRarity, "A", feminineSyllables, min, max)
         if (count == 0) return null
+        debugSelection("count_offset_dim", "A", min, max, "dim=feminine_syllables value=$feminineSyllables count=$count")
         return queryAdjective(
             "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND feminine_syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             feminineSyllables,
@@ -335,6 +337,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val max = clampRarity(maxRarity)
         val count = rangeCountTriple(countsByTypeSyllablesMaxRarity, "V", syllables, min, max)
         if (count == 0) return null
+        debugSelection("count_offset_dim", "V", min, max, "dim=syllables value=$syllables count=$count")
         return queryVerb(
             "SELECT word, syllables, rhyme FROM words WHERE type='V' AND syllables=? AND rarity_level BETWEEN ? AND ? LIMIT 1 OFFSET ?",
             syllables,
@@ -378,12 +381,14 @@ class WordRepository(private val dataSource: AgroalDataSource) {
         val min = clampRarity(minRarity)
         val max = clampRarity(maxRarity)
         if (exclude.isNotEmpty()) {
+            debugSelection("like_prefix_not_in", "N", min, max, "prefix=$prefix exclude=${exclude.size}")
             val notIn = notInClause(exclude.size)
             return queryNoun(
                 "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND rarity_level BETWEEN ? AND ? AND word NOT IN ($notIn) ORDER BY RANDOM() LIMIT 1",
                 "$prefix%", min, max, *exclude.toTypedArray()
             )
         }
+        debugSelection("like_prefix", "N", min, max, "prefix=$prefix")
         return queryNoun(
             "SELECT word, gender, syllables, rhyme, articulated FROM words WHERE type='N' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             "$prefix%",
@@ -395,6 +400,7 @@ class WordRepository(private val dataSource: AgroalDataSource) {
     fun getRandomAdjectiveByPrefix(prefix: String, minRarity: Int = 1, maxRarity: Int = DEFAULT_MAX_RARITY): Adjective? {
         val min = clampRarity(minRarity)
         val max = clampRarity(maxRarity)
+        debugSelection("like_prefix", "A", min, max, "prefix=$prefix")
         return queryAdjective(
             "SELECT word, syllables, rhyme, feminine, feminine_syllables FROM words WHERE type='A' AND word LIKE ? AND rarity_level BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1",
             "$prefix%",
