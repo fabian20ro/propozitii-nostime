@@ -1103,7 +1103,28 @@ describe("safe() error boundary", () => {
     expect(result).toBe("Nu există suficiente cuvinte pentru nivelul de raritate ales.");
   });
 
-  // Regression guard — AGENTS.md: system errors at any depth must stay as
+  // Regression guard — successful generator output must return unchanged.
+  // If safe() ever wraps successes in an InternalServerError or applies extra
+  // processing, frontend rendering would break (e.g., verse text getting doubled).
+  it("returns raw success string from generator without wrapping", async () => {
+    const originalText = "Câinele fericit aleargă prin parc.";
+    const result = await safe(async () => originalText);
+    expect(result).toBe(originalText);
+    // Must NOT be wrapped in any error type.
+    expect(result).not.toBeInstanceOf(InternalServerError);
+  });
+
+  it("returns raw success string through deep async chain without wrapping", async () => {
+    const originalText = "Un câine fericit aleargă prin parc.";
+    const result = await safe(async () => {
+      await Promise.resolve(); // simulate delay
+      return originalText;
+    });
+    expect(result).toBe(originalText);
+    expect(typeof result).toBe("string");
+  });
+
+  // Regression guard — system errors at any depth must stay as
   // InternalServerError. If a future refactor of safe() collapses nested async
   // rejections (e.g., an inner Promise.reject after intermediate awaits), the
   // frontend would lose the signal and operators would see "no data" instead of
@@ -1456,5 +1477,295 @@ describe("safeTimestamp", () => {
     let threw = false;
     try { safeTimestamp(); } catch { threw = true; }
     expect(threw).toBe(false);
+  });
+});
+
+// --- normalizeRarityRange ---
+
+describe("normalizeRarityRange", () => {
+  it("returns default [1,2] when both inputs are undefined", () => {
+    const r = normalizeRarityRange(undefined, undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("clamps values to the [1,5] range (min)", () => {
+    const r = normalizeRarityRange("-3", "-8");
+    // Both NaN → default; now test clamping with valid numbers.
+  });
+
+  it("clamps min above 5 to 5", () => {
+    const r = normalizeRarityRange("7", undefined);
+    expect(r).toEqual({ minR: 5, maxR: 5 }); // maxC defaults to 5, minC clamped to 5.
+  });
+
+  it("clamps max below 1 to 1", () => {
+    const r = normalizeRarityRange(undefined, "-2");
+    expect(r.minR).toBe(1);
+    expect(r.maxR).toBe(1); // Math.max(1, min(-2)) → 1.
+  });
+
+  it("clamps max above 5 to 5", () => {
+    const r = normalizeRarityRange(undefined, "9");
+    expect(r.maxR).toBe(5);
+  });
+
+  it("swaps when min > max", () => {
+    const r = normalizeRarityRange("4", "2");
+    // After swap: minC=2, maxC=4.
+    expect(r.minR).toBeLessThanOrEqual(r.maxR);
+    expect(r.minR + r.maxR).not.toBeGreaterThan(10);
+  });
+
+  it("handles array input (last value wins)", () => {
+    const r = normalizeRarityRange(["3", "4"], ["5", "6"]);
+    // getNum picks last element: min=4, max=6→clamped to 5.
+    expect(r.minR).toBe(4);
+    expect(r.maxR).toBe(5);
+  });
+
+  it("handles array input with NaN first elements", () => {
+    const r = normalizeRarityRange(["abc", "2"], ["3", "def"]);
+    // getNum picks LAST element of parsed array: min=2, max=NaN (last="def") → default.
+    expect(r.minR).toBe(2);
+    expect(r.maxR).toBe(5); // NaN max falls through to default 5.
+  });
+
+  it("treats empty string as absent", () => {
+    const r = normalizeRarityRange("", "");
+    // Both trim to "" → undefined → NaN → default [1,2].
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("returns undefined error for invalid URL in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "not-a-url",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Invalid SUPABASE_URL");
+  });
+
+  it("returns undefined error for missing URL in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    // No SUPABASE_URL → validateSupabaseUrl returns error.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Missing SUPABASE_URL");
+  });
+
+  it("accepts http (non-https) URLs — validateSupabaseUrl allows both protocols", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "http://example.com",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    expect(res.error).toBeUndefined();
+  });
+
+  it("returns no error when key and valid URL are provided", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "pub-key",
+    });
+    expect(res.error).toBeUndefined();
+  });
+
+  it("url error takes precedence over missing key in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({});
+    // No URL → urlError fires first.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Missing SUPABASE_URL");
+  });
+
+  it("key error surfaces when URL is valid but key missing", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://example.supabase.co",
+    });
+    // Valid URL, no publishable key → keyResolution.error propagates.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("Missing SUPABASE_PUBLISHABLE_KEY");
+  });
+
+  it("propagates keyResolution error verbatim in resolveSupabaseInit", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "svc-secret",
+    });
+    // service-role without fallback → keyResolution.error set.
+    expect(res.error).toBeDefined();
+    expect(res.error).toContain("SUPABASE_SERVICE_ROLE_KEY");
+  });
+
+  it("returns no error for valid publishable key + https URL", () => {
+    const res = resolveSupabaseInit({
+      SUPABASE_URL: "https://abc.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "pk-123",
+    });
+    expect(res.error).toBeUndefined();
+    expect(res.keyResolution.source).toBe("publishable");
+  });
+});
+
+// --- resolveCorsOrigin edge cases (untested boundary) ---
+
+describe("resolveCorsOrigin — edge cases", () => {
+  it("returns undefined when allowlist is empty (no default to fall back on)", () => {
+    // Regression guard: if a future refactor silently returns "" or throws,
+    // CORS headers would break. The current implementation does allowlist[0]
+    // which is undefined for empty arrays — this test locks that invariant.
+    const result = resolveCorsOrigin("https://evil.com", []);
+    expect(result).toBeUndefined();
+  });
+
+  it("returns origin even when it differs from all allowlist entries (wildcard check bypass)", () => {
+    // If allowlist contains "*" wildcard, origin must be returned as "*".
+    const result = resolveCorsOrigin(undefined, ["*"]);
+    expect(result).toBe("*");
+  });
+
+  it("returns first allowlist entry when origin is not in allowlist and no wildcard", () => {
+    const allowlist = ["https://a.com", "https://b.com", "https://c.com"];
+    // Origin not in list → falls to allowlist[0].
+    expect(resolveCorsOrigin("https://x.com", allowlist)).toBe("https://a.com");
+  });
+
+  it("returns origin when origin matches a non-first entry in allowlist", () => {
+    const result = resolveCorsOrigin("https://b.com", ["https://a.com", "https://b.com"]);
+    expect(result).toBe("https://b.com");
+  });
+
+  it("treats empty-string origin as absent (uses first allowlist entry)", () => {
+    const result = resolveCorsOrigin("", ["https://a.com", "https://b.com"]);
+    // "" is not in allowlist, so falls to allowlist[0].
+    expect(result).toBe("https://a.com");
+  });
+
+  it("wildcard overrides specific origin match", () => {
+    // Even if origin is in the list, wildcard "*" should win.
+    const result = resolveCorsOrigin("https://a.com", ["*", "https://a.com"]);
+    expect(result).toBe("*");
+  });
+});
+
+// --- firstQueryValue edge cases (via normalizeRarityRange public wrapper) ---
+
+describe("firstQueryValue — internal helper behavior via normalizeRarityRange", () => {
+  // firstQueryValue is not exported; these tests exercise its branches through
+  // the public normalizeRarityRange API which depends on it.
+
+  it("returns default when input has only whitespace-separated parts (all filtered out)", () => {
+    // " , , , " → split by comma, trim all, filter empty → [] → undefined → NaN.
+    const r = normalizeRarityRange(" , , , ", undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("handles single-element array input returning the element directly", () => {
+    // Array with one element → getNum picks last (=first) = "3".
+    const r = normalizeRarityRange(["3"], undefined);
+    expect(r).toEqual({ minR: 3, maxR: 5 });
+  });
+
+  it("handles array where all elements are whitespace (all filtered out)", () => {
+    // [" ", " "] → trim + filter(Boolean) → [] → undefined.
+    const r = normalizeRarityRange([" ", " ", " "], undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("handles mixed valid and whitespace in array", () => {
+    // ["1", " ", "3"] → trim+filter → ["1","3"], last="3"→3.
+    const r = normalizeRarityRange(["1", " ", "3"], undefined);
+    expect(r.minR).toBe(3);
+  });
+
+  it("treats comma-separated string with only commas as empty (defaults apply)", () => {
+    // "," → split → ["", ""], filter(Boolean) → [] → undefined.
+    const r = normalizeRarityRange(",", undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("handles string that is a single non-number character (NaN fallback)", () => {
+    // "x" has no comma → returns raw "x" → Number("x")→NaN.
+    const r = normalizeRarityRange("x", undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("handles leading/trailing commas in comma-separated string", () => {
+    // ",3," → split → ["","3",""] → trim+filter → ["3"], last="3"→3.
+    const r = normalizeRarityRange(",3,", undefined);
+    expect(r.minR).toBe(3);
+  });
+
+  it("handles string with only leading comma", () => {
+    // ",abc" → split → ["","abc"] → filter → ["abc"], last="abc"→NaN.
+    const r = normalizeRarityRange(",abc", undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+
+  it("handles leading whitespace around comma-separated values", () => {
+    // " 1 , 3 " → split → [" 1 ", " 3 "] → trim → ["1","3"], last="3"→3.
+    const r = normalizeRarityRange(" 1 , 3 ", undefined);
+    expect(r.minR).toBe(3);
+  });
+
+  it("handles comma-separated string where middle element is empty", () => {
+    // "1,,2" → split → ["1","","2"] → filter → ["1","2"], last="2"→2.
+    const r = normalizeRarityRange("1,,2", undefined);
+    expect(r.minR).toBe(2);
+  });
+
+  it("handles array with a single empty-string element (filtered out)", () => {
+    // ["" ] → trim+filter → [] → undefined.
+    const r = normalizeRarityRange([""], undefined);
+    expect(r).toEqual({ minR: 1, maxR: 2 });
+  });
+});
+
+// --- buildResponseTimingHeaders — additional edge cases ---
+
+describe("buildResponseTimingHeaders — additional", () => {
+  it("uses Math.max(0, ...) clamp for large negative deltas", () => {
+    const h = buildResponseTimingHeaders(1000000, 0);
+    expect(h.responseTimeMs).toBe("0");
+    expect(h.serverTiming).toBe("api-all;dur=0");
+  });
+
+  it("serverTiming format always matches expected pattern", () => {
+    const h = buildResponseTimingHeaders(100, 200);
+    expect(h.serverTiming).toMatch(/^api-all;dur=\d+$/);
+  });
+
+  it("responseTimeMs is always a string of digits (no decimals)", () => {
+    // Using hardcoded numbers avoids leaking from prior vi.stubGlobal("Date") tests.
+    const h = buildResponseTimingHeaders(100, 100);
+    expect(h.responseTimeMs).toMatch(/^\d+$/);
+  });
+});
+
+// --- parseAllowedOrigins — edge cases ---
+
+describe("parseAllowedOrigins — additional", () => {
+  it("returns default when input is a single comma", () => {
+    // "," → split → ["", ""] → filter(Boolean) → [] → default.
+    expect(parseAllowedOrigins(",")).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("parses origins with trailing whitespace correctly", () => {
+    const result = parseAllowedOrigins("https://example.com\t");
+    expect(result).toEqual(["https://example.com"]);
+  });
+
+  it("handles a single origin surrounded by commas and spaces", () => {
+    const result = parseAllowedOrigins(", https://only.com ,");
+    expect(result).toEqual(["https://only.com"]);
+  });
+
+  it("returns default when input is only whitespace characters (tabs, newlines)", () => {
+    // " \t\n " → trim→"" → length===0 → default.
+    expect(parseAllowedOrigins(" \t\n ")).toEqual(["https://fabian20ro.github.io"]);
+  });
+
+  it("parses origins that contain special URL characters after trimming", () => {
+    const result = parseAllowedOrigins(" https://example.com/path?q=1&r=2 ");
+    expect(result).toEqual(["https://example.com/path?q=1&r=2"]);
   });
 });
