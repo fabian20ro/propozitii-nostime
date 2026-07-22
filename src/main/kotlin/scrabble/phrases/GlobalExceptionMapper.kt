@@ -18,12 +18,11 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
     lateinit var uriInfo: UriInfo
 
     override fun toResponse(exception: Exception): Response {
-        log.error("Unhandled exception on {} — {}: {}", "${uriInfo.path}: ${exception.javaClass.name}: ${exception.message}", null, null)
         if (exception is WebApplicationException && responseContextStatusOk(exception)) {
             return exception.response
         }
         val stackTrace = exception.stackTraceToString()
-        log.error("Unhandled exception on {} — {}: {}\n{}", "${uriInfo.path}: ${exception.javaClass.name}: ${exception.message}", null, null)
+        log.error("Unhandled exception on ${uriInfo.path} — ${exception.javaClass.name}: ${exception.message}\n$stackTrace")
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
             .entity(mapOf("error" to "Internal server error"))
             .type(MediaType.APPLICATION_JSON)
