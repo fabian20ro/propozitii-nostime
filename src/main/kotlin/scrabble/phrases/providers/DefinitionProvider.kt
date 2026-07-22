@@ -10,10 +10,14 @@ class DefinitionProvider(
 ) : ISentenceProvider {
 
     override fun getSentence(): String {
+        val defined = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
+        val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word))
+
+        if (noun.gender != NounGender.M && noun.gender != NounGender.F) {
+            throw IllegalStateException("noun '${noun.word}' has invalid gender $noun.gender — database row is corrupt")
+        }
+
         try {
-            val defined = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity)
-            val noun = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word))
-            if (noun.gender != NounGender.M && noun.gender != NounGender.F) throw IllegalStateException("noun '${noun.word}' has invalid gender $noun.gender — database row is corrupt")
             val adj = repo.getRandomAdjective(minRarity = minRarity, maxRarity = maxRarity)
             val verb = repo.getRandomVerb(minRarity = minRarity, maxRarity = maxRarity)
             val object_ = repo.getRandomNoun(minRarity = minRarity, maxRarity = maxRarity, exclude = setOf(defined.word, noun.word))
