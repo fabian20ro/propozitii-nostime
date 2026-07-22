@@ -228,6 +228,19 @@ describe("api/all.ts utilities", () => {
       // Source: if (minC > maxC) [minC, maxC] = [maxC, minC]; applied after clamping.
       expect(normalizeRarityRange(["5"], ["1"])).toEqual({ minR: 1, maxR: 5 });
     });
+    it("uses last element when arrays have multiple items with mixed validity", () => {
+      // Source: getNum takes parsed[last] — last valid/invalid element wins.
+      expect(normalizeRarityRange(["abc", "3"], ["4", "xyz"])).toEqual({ minR: 3, maxR: 5 });
+    });
+    it("handles unequal-length arrays without throwing", () => {
+      // Source: each side resolved independently via getNum; lengths are irrelevant.
+      expect(normalizeRarityRange(["1", "2", "3"], ["4"])).toEqual({ minR: 3, maxR: 4 });
+      expect(normalizeRarityRange(["1"], ["2", "3", "4"])).toEqual({ minR: 1, maxR: 4 });
+    });
+    it("treats empty-string elements as invalid (falls back per-branch logic)", () => {
+      // Source: firstQueryValue filters Boolean; empty strings drop from the array.
+      expect(normalizeRarityRange(["", "2"], ["3", ""])).toEqual({ minR: 2, maxR: 3 });
+    });
   });
 
   describe("adjForGender", () => {
