@@ -1,8 +1,10 @@
 package scrabble.phrases
 
+import jakarta.inject.Inject
 import jakarta.ws.rs.WebApplicationException
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import jakarta.ws.rs.core.UriInfo
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 import org.jboss.logging.Logger
@@ -12,11 +14,16 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
 
     private val log = Logger.getLogger(GlobalExceptionMapper::class.java)
 
+    @Inject
+    lateinit var uriInfo: UriInfo
+
     override fun toResponse(exception: Exception): Response {
-        log.error("Unhandled exception: {}", exception.javaClass.name, exception)
+        log.error("Unhandled exception on {} — {}: {}", "${uriInfo.path}: ${exception.javaClass.name}: ${exception.message}", null, null)
         if (exception is WebApplicationException && responseContextStatusOk(exception)) {
             return exception.response
         }
+        val stackTrace = exception.stackTraceToString()
+        log.error("Unhandled exception on {} — {}: {}\n{}", "${uriInfo.path}: ${exception.javaClass.name}: ${exception.message}", null, null)
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
             .entity(mapOf("error" to "Internal server error"))
             .type(MediaType.APPLICATION_JSON)
