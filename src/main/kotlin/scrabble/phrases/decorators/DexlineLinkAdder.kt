@@ -36,4 +36,7 @@ class DexlineLinkAdder(private val provider: ISentenceProvider) : ISentenceProvi
         .replace(">", "&gt;")
         .replace("\"", "&quot;")
         .replace("'", "&#39;")
+        .replace("\n", " ")
+        .replace("\r", "")
+        .replace("\t", " ")
 }
