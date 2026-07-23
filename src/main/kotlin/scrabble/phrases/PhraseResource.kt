@@ -91,9 +91,15 @@ class PhraseResource {
     private fun safeGenerate(generator: () -> String): String =
         try {
             generator()
-        } catch (e: Exception) {
-            logger.warnf("Provider failed to generate sentence: %s", e.message ?: "unknown")
-            UNSATISFIABLE_PLACEHOLDER
+        } catch (e1: Exception) {
+            logger.warnf("Provider failed to generate sentence (attempt 1): %s", e1.message ?: "unknown")
+            try {
+                Thread.sleep(50L)
+                generator()
+            } catch (e2: Exception) {
+                logger.warnf("Provider failed to generate sentence (attempt 2): %s", e2.message ?: "unknown")
+                UNSATISFIABLE_PLACEHOLDER
+            }
         }
 
     private fun normalizeRarity(rarity: Int?, default: Int = DEFAULT_RARITY): Int =
